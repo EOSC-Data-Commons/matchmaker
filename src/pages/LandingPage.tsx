@@ -28,7 +28,7 @@ export const LandingPage = () => {
     };
 
     const handleAbout = () => {
-        window.open('https://www.eosc-data-commons.eu/', '_blank', 'noopener,noreferrer');
+        window.open('https://www.eosc-data-commons.eu/service/eosc-matchmaker', '_blank', 'noopener,noreferrer');
     };
 
     const dataCards = [
