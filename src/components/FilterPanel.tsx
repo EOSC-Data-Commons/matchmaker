@@ -37,6 +37,7 @@ export const FilterPanel = ({aggregations, onFilterChange, activeFilters}: Filte
                         filterKey={key}
                         onFilterChange={(filterKey: string, bucketKey: string) => handleFilter(filterKey, bucketKey)}
                         activeFilters={getActiveFiltersFor(key)}
+                        defaultOpen={key === 'publicationYear'}
                     />
                 ))}
             </div>

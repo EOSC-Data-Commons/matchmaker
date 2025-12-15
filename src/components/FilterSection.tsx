@@ -8,10 +8,18 @@ interface FilterSectionProps {
     filterKey: string;
     onFilterChange: (filterKey: string, bucketKey: string) => void;
     activeFilters: string[];
+    defaultOpen?: boolean;
 }
 
-export const FilterSection = ({title, buckets, filterKey, onFilterChange, activeFilters}: FilterSectionProps) => {
-    const [isOpen, setIsOpen] = useState(true);
+export const FilterSection = ({
+                                  title,
+                                  buckets,
+                                  filterKey,
+                                  onFilterChange,
+                                  activeFilters,
+                                  defaultOpen = false
+                              }: FilterSectionProps) => {
+    const [isOpen, setIsOpen] = useState(defaultOpen);
 
     return (
         <div className="py-4 border-b border-gray-200">
