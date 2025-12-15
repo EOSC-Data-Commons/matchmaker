@@ -1,6 +1,6 @@
 import {useNavigate, useSearchParams} from "react-router-dom";
-import type {BackendSearchResponse} from "../types/commons.ts";
-import {useCallback, useEffect, useState} from "react";
+import type {BackendSearchResponse, Aggregations} from "../types/commons.ts";
+import {useCallback, useEffect, useState, useMemo} from "react";
 import {searchWithBackend} from "../lib/api.ts";
 import {addToSearchHistory} from "../lib/history.ts";
 import {BookIcon, LoaderIcon, XCircleIcon, ChevronDown, ChevronUp, Sparkles} from "lucide-react";
@@ -8,6 +8,8 @@ import {SearchInput} from "../components/SearchInput.tsx";
 import {SearchResultItem} from "../components/SearchResultItem.tsx";
 import {AlphaDisclaimer} from "../components/AlphaDisclaimer";
 import {Footer} from "../components/Footer";
+import {FilterPanel} from "../components/FilterPanel.tsx";
+import {generateLocalFilters, applyLocalFilters} from "../lib/localFilters.ts";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 
 export const SearchPage = () => {
@@ -22,6 +24,33 @@ export const SearchPage = () => {
 
     const query = searchParams.get('q') || '';
     const model = searchParams.get('model') || 'einfracz/gpt-oss-120b';
+
+    // Generate local filters from the displayed results
+    const aggregations: Aggregations = useMemo(() => {
+        const resultsToUse = rerankedResults || initialResults;
+        if (!resultsToUse || resultsToUse.hits.length === 0) {
+            return {};
+        }
+        return generateLocalFilters(resultsToUse.hits);
+    }, [rerankedResults, initialResults]);
+
+    // Get active filter params (excluding 'q' and 'model')
+    const activeFilters = useMemo(() => {
+        const filters = new URLSearchParams();
+        searchParams.forEach((value, key) => {
+            if (key !== 'q' && key !== 'model') {
+                filters.append(key, value);
+            }
+        });
+        return filters;
+    }, [searchParams]);
+
+    // Apply filters to the displayed results
+    const filteredDatasets = useMemo(() => {
+        const resultsToUse = rerankedResults || initialResults;
+        if (!resultsToUse) return [];
+        return applyLocalFilters(resultsToUse.hits, activeFilters);
+    }, [rerankedResults, initialResults, activeFilters]);
 
     const performSearch = useCallback(async () => {
         if (!query) {
@@ -81,8 +110,14 @@ export const SearchPage = () => {
         setSearchParams({q: newQuery, model: newModel});
     };
 
-    const displayResults = rerankedResults || initialResults;
-    const datasets = displayResults?.hits || [];
+    const handleFilterChange = (newFilters: URLSearchParams) => {
+        const params = new URLSearchParams(newFilters);
+        params.set('q', query);
+        params.set('model', model);
+        setSearchParams(params);
+    };
+
+    const datasets = filteredDatasets;
     const hasRerankedResults = rerankedResults !== null;
     const hasInitialResults = initialResults !== null;
 
@@ -112,7 +147,16 @@ export const SearchPage = () => {
                     </div>
                 )}
 
-                <div className="flex gap-8">
+                <div className="flex flex-col lg:flex-row gap-8">
+                    {/* Filter Panel */}
+                    {!loading && !error && Object.keys(aggregations).length > 0 && (
+                        <FilterPanel
+                            aggregations={aggregations}
+                            onFilterChange={handleFilterChange}
+                            activeFilters={activeFilters}
+                        />
+                    )}
+
                     <div className="flex-1 relative" aria-busy={loading} aria-live="polite">
                         {/* Loading overlay */}
                         {loading && (
@@ -178,13 +222,13 @@ export const SearchPage = () => {
                                                         <Sparkles className="h-5 w-5 text-blue-600"/>
                                                         <p className="text-gray-700 font-medium">
                                                             AI-Ranked Results
-                                                            ({rerankedResults.hits.length} dataset{rerankedResults.hits.length !== 1 ? 's' : ''})
+                                                            ({datasets.length} dataset{datasets.length !== 1 ? 's' : ''})
                                                         </p>
                                                     </div>
                                                 </div>
 
                                                 <div className="space-y-4">
-                                                    {rerankedResults.hits.map((dataset, index) => (
+                                                    {datasets.map((dataset, index) => (
                                                         <SearchResultItem
                                                             key={`reranked-${dataset._id}-${index}`}
                                                             hit={dataset}
@@ -200,12 +244,12 @@ export const SearchPage = () => {
                                             <div className="mb-8">
                                                 <div className="mb-4">
                                                     <p className="text-gray-600">
-                                                        Found {initialResults.hits.length} dataset{initialResults.hits.length !== 1 ? 's' : ''}
+                                                        Found {datasets.length} dataset{datasets.length !== 1 ? 's' : ''}
                                                     </p>
                                                 </div>
 
                                                 <div className="space-y-4">
-                                                    {initialResults.hits.map((dataset, index) => (
+                                                    {datasets.map((dataset, index) => (
                                                         <SearchResultItem
                                                             key={`initial-${dataset._id}-${index}`}
                                                             hit={dataset}
