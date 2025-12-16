@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2025-12-17
+
+- Added local filtering and aggregation utilities for faster, client-side dataset filtering
+- Refactored SearchPage to use new hooks and components, with filter state synced to URL
+
 ## [0.3.10] - 2025-12-11
 
 - Updated react-dom and related libraries due to security vulnerabilities
