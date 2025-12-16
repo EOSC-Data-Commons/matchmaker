@@ -14,12 +14,16 @@ export const FilterPanel = ({aggregations, onFilterChange, activeFilters}: Filte
     const handleFilter = (key: string, value: string) => {
         const currentValues = activeFilters.getAll(key);
         const newParams = new URLSearchParams(activeFilters);
+
         if (currentValues.includes(value)) {
+            // Unchecking - remove this value
             newParams.delete(key);
             currentValues.filter(v => v !== value).forEach(v => newParams.append(key, v));
         } else {
+            // Checking - add this value
             newParams.append(key, value);
         }
+
         onFilterChange(newParams);
     };
 

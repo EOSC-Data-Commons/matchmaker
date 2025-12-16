@@ -10,9 +10,13 @@ export const generateLocalFilters = (datasets: BackendDataset[]): Aggregations =
     const subjectMap = new Map<string, number>();
 
     // Process each dataset to build aggregations
-    datasets.forEach(dataset => {
-        // Extract publication date/year
-        const publicationDate = dataset.publication_date || dataset._source.publicationYear;
+    datasets.forEach((dataset) => {
+        // Extract publication date/year - check multiple possible sources
+        let publicationDate = dataset.publication_date;
+        if (!publicationDate && dataset._source?.publicationYear) {
+            publicationDate = dataset._source.publicationYear;
+        }
+
         if (publicationDate) {
             // Extract year from date
             const year = extractYear(publicationDate);
@@ -45,6 +49,7 @@ export const generateLocalFilters = (datasets: BackendDataset[]): Aggregations =
     const authorBuckets = mapToBuckets(authorMap, false, 20); // Limit to top 20 authors
     const subjectBuckets = mapToBuckets(subjectMap, false, 15); // Limit to top 15 subjects
 
+
     return {
         publicationYear: {
             label: 'Publication Year',
@@ -64,17 +69,34 @@ export const generateLocalFilters = (datasets: BackendDataset[]): Aggregations =
 /**
  * Extract year from a date string (YYYY-MM-DD) or year string (YYYY)
  */
-const extractYear = (dateStr: string): string | null => {
-    if (!dateStr) return null;
+const extractYear = (dateStr: string | null | undefined): string | null => {
+    if (!dateStr || typeof dateStr !== 'string') return null;
+
+    // Trim whitespace
+    const trimmed = dateStr.trim();
+    if (!trimmed) return null;
 
     // If it's already just a year (4 digits)
-    if (/^\d{4}$/.test(dateStr)) {
-        return dateStr;
+    if (/^\d{4}$/.test(trimmed)) {
+        const year = parseInt(trimmed, 10);
+        // Validate year is reasonable (between 1900 and 2100)
+        if (year >= 1900 && year <= 2100) {
+            return trimmed;
+        }
+        return null;
     }
 
-    // Try to extract year from date string
-    const yearMatch = dateStr.match(/^(\d{4})/);
-    return yearMatch ? yearMatch[1] : null;
+    // Try to extract year from date string (ISO format YYYY-MM-DD or similar)
+    const yearMatch = trimmed.match(/^(\d{4})/);
+    if (yearMatch) {
+        const year = parseInt(yearMatch[1], 10);
+        // Validate year is reasonable
+        if (year >= 1900 && year <= 2100) {
+            return yearMatch[1];
+        }
+    }
+
+    return null;
 };
 
 /**
@@ -126,8 +148,12 @@ export const applyLocalFilters = (
     return datasets.filter(dataset => {
         // Check year filter
         if (selectedYears.length > 0) {
-            const publicationDate = dataset.publication_date || dataset._source.publicationYear;
+            let publicationDate = dataset.publication_date;
+            if (!publicationDate && dataset._source?.publicationYear) {
+                publicationDate = dataset._source.publicationYear;
+            }
             const year = publicationDate ? extractYear(publicationDate) : null;
+
             if (!year || !selectedYears.includes(year)) {
                 return false;
             }
@@ -158,4 +184,6 @@ export const applyLocalFilters = (
         return true;
     });
 };
+
+
 

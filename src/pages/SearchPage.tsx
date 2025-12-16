@@ -1,5 +1,5 @@
 import {useNavigate, useSearchParams} from "react-router-dom";
-import type {BackendSearchResponse, Aggregations} from "../types/commons.ts";
+import type {BackendSearchResponse, Aggregations, BackendDataset} from "../types/commons.ts";
 import {useCallback, useEffect, useState, useMemo} from "react";
 import {searchWithBackend} from "../lib/api.ts";
 import {addToSearchHistory} from "../lib/history.ts";
@@ -25,14 +25,36 @@ export const SearchPage = () => {
     const query = searchParams.get('q') || '';
     const model = searchParams.get('model') || 'einfracz/gpt-oss-120b';
 
-    // Generate local filters from the displayed results
+    // Combine all datasets from both result sets (deduplicated, preserving order)
+    const allCombinedDatasets = useMemo(() => {
+        const datasetsMap = new Map<string, BackendDataset>();
+
+        //Prefer reranked results order, supplement with initial results
+
+        if (rerankedResults?.hits) {
+            rerankedResults.hits.forEach(dataset => {
+                datasetsMap.set(dataset._id, dataset);
+            });
+        }
+
+        if (initialResults?.hits) {
+            initialResults.hits.forEach(dataset => {
+                if (!datasetsMap.has(dataset._id)) {
+                    datasetsMap.set(dataset._id, dataset);
+                }
+            });
+        }
+        return Array.from(datasetsMap.values());
+    }, [rerankedResults, initialResults]);
+
+    // Generate local filters from ALL combined results
     const aggregations: Aggregations = useMemo(() => {
-        const resultsToUse = rerankedResults || initialResults;
-        if (!resultsToUse || resultsToUse.hits.length === 0) {
+        if (allCombinedDatasets.length === 0) {
             return {};
         }
-        return generateLocalFilters(resultsToUse.hits);
-    }, [rerankedResults, initialResults]);
+
+        return generateLocalFilters(allCombinedDatasets);
+    }, [allCombinedDatasets]);
 
     // Get active filter params (excluding 'q' and 'model')
     const activeFilters = useMemo(() => {
@@ -45,12 +67,38 @@ export const SearchPage = () => {
         return filters;
     }, [searchParams]);
 
-    // Apply filters to the displayed results
+    // Apply filters to ALL combined datasets
     const filteredDatasets = useMemo(() => {
-        const resultsToUse = rerankedResults || initialResults;
-        if (!resultsToUse) return [];
-        return applyLocalFilters(resultsToUse.hits, activeFilters);
-    }, [rerankedResults, initialResults, activeFilters]);
+        return applyLocalFilters(allCombinedDatasets, activeFilters);
+    }, [allCombinedDatasets, activeFilters]);
+
+    // Separate filtered datasets into reranked and initial for display purposes
+    const filteredRerankedDatasets = useMemo(() => {
+        if (!rerankedResults) return null;
+        const filteredIds = new Set(filteredDatasets.map(d => d._id));
+        return rerankedResults.hits.filter(d => filteredIds.has(d._id));
+    }, [rerankedResults, filteredDatasets]);
+
+    const filteredInitialDatasets = useMemo(() => {
+        if (!initialResults) return null;
+        const filteredIds = new Set(filteredDatasets.map(d => d._id));
+        return initialResults.hits.filter(d => filteredIds.has(d._id));
+    }, [initialResults, filteredDatasets]);
+
+    // If reranked results exist, prefer showing them, but if filtering removes all reranked results,
+    // fall back to showing filtered initial results
+    const datasets = (() => {
+        if (filteredRerankedDatasets !== null && filteredRerankedDatasets.length > 0) {
+            return filteredRerankedDatasets;
+        }
+        if (filteredInitialDatasets !== null && filteredInitialDatasets.length > 0) {
+            return filteredInitialDatasets;
+        }
+        if (rerankedResults && filteredInitialDatasets && filteredInitialDatasets.length > 0) {
+            return filteredInitialDatasets;
+        }
+        return [];
+    })();
 
     const performSearch = useCallback(async () => {
         if (!query) {
@@ -117,12 +165,11 @@ export const SearchPage = () => {
         setSearchParams(params);
     };
 
-    const datasets = filteredDatasets;
     const hasRerankedResults = rerankedResults !== null;
     const hasInitialResults = initialResults !== null;
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100">
             <AlphaDisclaimer/>
             <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-md shadow-sm">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between py-3">
@@ -148,8 +195,8 @@ export const SearchPage = () => {
                 )}
 
                 <div className="flex flex-col lg:flex-row gap-8">
-                    {/* Filter Panel */}
-                    {!loading && !error && Object.keys(aggregations).length > 0 && (
+                    {/* Filter Panel - Only show when AI results are ready */}
+                    {!loading && !error && hasRerankedResults && Object.keys(aggregations).length > 0 && (
                         <FilterPanel
                             aggregations={aggregations}
                             onFilterChange={handleFilterChange}
@@ -190,7 +237,7 @@ export const SearchPage = () => {
                         {/* Processing indicator - shows when initial results exist but reranking is in progress */}
                         {!loading && !error && hasInitialResults && isProcessing && (
                             <div
-                                className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm border border-blue-300 animate-pulse">
+                                className="mb-6 p-4 bg-linear-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm border border-blue-300 animate-pulse">
                                 <div className="flex items-center space-x-3 text-blue-700">
                                     <Sparkles className="h-5 w-5 animate-pulse"/>
                                     <span
@@ -214,8 +261,8 @@ export const SearchPage = () => {
                                     </div>
                                 ) : (
                                     <>
-                                        {/* Reranked Results Section */}
-                                        {hasRerankedResults && (
+                                        {/* AI-Ranked Results Section (when AI results match filters) */}
+                                        {hasRerankedResults && filteredRerankedDatasets && filteredRerankedDatasets.length > 0 && (
                                             <div className="mb-8">
                                                 <div className="mb-4 flex items-center justify-between">
                                                     <div className="flex items-center space-x-2">
@@ -239,7 +286,33 @@ export const SearchPage = () => {
                                             </div>
                                         )}
 
-                                        {/* Initial Results (collapsed when reranked results exist) */}
+                                        {/* Fallback to Initial Results (when AI results don't match filters) */}
+                                        {hasRerankedResults && filteredRerankedDatasets && filteredRerankedDatasets.length === 0 &&
+                                            filteredInitialDatasets && filteredInitialDatasets.length > 0 && (
+                                                <div className="mb-8">
+                                                    <div
+                                                        className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                                        <p className="text-sm text-amber-800">
+                                                            <span className="font-medium">Note:</span> No AI-ranked
+                                                            results match your filters.
+                                                            Showing {filteredInitialDatasets.length} result{filteredInitialDatasets.length !== 1 ? 's' : ''} from
+                                                            initial search.
+                                                        </p>
+                                                    </div>
+
+                                                    <div className="space-y-4">
+                                                        {datasets.map((dataset, index) => (
+                                                            <SearchResultItem
+                                                                key={`initial-fallback-${dataset._id}-${index}`}
+                                                                hit={dataset}
+                                                                isAiRanked={false}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                        {/* Initial Results (when no reranked results exist yet) */}
                                         {!hasRerankedResults && hasInitialResults && (
                                             <div className="mb-8">
                                                 <div className="mb-4">
@@ -260,39 +333,40 @@ export const SearchPage = () => {
                                             </div>
                                         )}
 
-                                        {/* Collapsible Initial Results Section (when reranked results exist) */}
-                                        {hasRerankedResults && hasInitialResults && (
-                                            <div className="mb-8">
-                                                <button
-                                                    onClick={() => setShowInitialResults(!showInitialResults)}
-                                                    className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-300 transition-colors"
-                                                >
-                                                    <div className="flex items-center space-x-2">
+                                        {/* Collapsible Initial Results Section (only when showing AI-ranked results) */}
+                                        {hasRerankedResults && filteredRerankedDatasets && filteredRerankedDatasets.length > 0 &&
+                                            hasInitialResults && filteredInitialDatasets && filteredInitialDatasets.length > 0 && (
+                                                <div className="mb-8">
+                                                    <button
+                                                        onClick={() => setShowInitialResults(!showInitialResults)}
+                                                        className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-300 transition-colors"
+                                                    >
+                                                        <div className="flex items-center space-x-2">
                                                         <span className="text-gray-700 font-medium">
-                                                            Initial Search Results ({initialResults.hits.length} dataset{initialResults.hits.length !== 1 ? 's' : ''})
+                                                            Initial Search Results ({filteredInitialDatasets.length} dataset{filteredInitialDatasets.length !== 1 ? 's' : ''})
                                                         </span>
-                                                    </div>
-                                                    {showInitialResults ? (
-                                                        <ChevronUp className="h-5 w-5 text-gray-600"/>
-                                                    ) : (
-                                                        <ChevronDown className="h-5 w-5 text-gray-600"/>
-                                                    )}
-                                                </button>
+                                                        </div>
+                                                        {showInitialResults ? (
+                                                            <ChevronUp className="h-5 w-5 text-gray-600"/>
+                                                        ) : (
+                                                            <ChevronDown className="h-5 w-5 text-gray-600"/>
+                                                        )}
+                                                    </button>
 
-                                                {showInitialResults && (
-                                                    <div
-                                                        className="mt-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                                                        {initialResults.hits.map((dataset, index) => (
-                                                            <SearchResultItem
-                                                                key={`initial-collapsed-${dataset._id}-${index}`}
-                                                                hit={dataset}
-                                                                isAiRanked={false}
-                                                            />
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
+                                                    {showInitialResults && (
+                                                        <div
+                                                            className="mt-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                                                            {filteredInitialDatasets.map((dataset, index) => (
+                                                                <SearchResultItem
+                                                                    key={`initial-collapsed-${dataset._id}-${index}`}
+                                                                    hit={dataset}
+                                                                    isAiRanked={false}
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                     </>
                                 )
                             )}
