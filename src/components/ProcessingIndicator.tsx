@@ -9,7 +9,7 @@ export const ProcessingIndicator = ({show}: ProcessingIndicatorProps) => {
 
     return (
         <div
-            className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm border border-blue-300 animate-pulse">
+            className="mb-6 p-4 bg-linear-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm border border-blue-300 animate-pulse">
             <div className="flex items-center space-x-3 text-blue-700">
                 <Sparkles className="h-5 w-5 animate-pulse"/>
                 <span className="text-sm font-medium">AI is analyzing and reranking results...</span>

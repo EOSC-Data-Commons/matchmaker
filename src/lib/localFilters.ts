@@ -9,9 +9,8 @@ export const generateLocalFilters = (datasets: BackendDataset[]): Aggregations =
     const authorMap = new Map<string, number>();
     const subjectMap = new Map<string, number>();
 
-    // Process each dataset to build aggregations
     datasets.forEach((dataset) => {
-        // Extract publication date/year - check multiple possible sources
+        // Extract publication date/year
         let publicationDate = dataset.publication_date;
         if (!publicationDate && dataset._source?.publicationYear) {
             publicationDate = dataset._source.publicationYear;
@@ -44,7 +43,6 @@ export const generateLocalFilters = (datasets: BackendDataset[]): Aggregations =
         });
     });
 
-    // Convert maps to sorted bucket arrays
     const dateBuckets = mapToBuckets(dateMap, true); // Sort dates descending (newest first)
     const authorBuckets = mapToBuckets(authorMap, false, 20); // Limit to top 20 authors
     const subjectBuckets = mapToBuckets(subjectMap, false, 15); // Limit to top 15 subjects
@@ -120,7 +118,6 @@ const mapToBuckets = (
         buckets.sort((a, b) => b.doc_count - a.doc_count); // Descending by count
     }
 
-    // Apply limit if specified
     if (limit && buckets.length > limit) {
         return buckets.slice(0, limit);
     }
@@ -146,7 +143,7 @@ export const applyLocalFilters = (
     }
 
     return datasets.filter(dataset => {
-        // Check year filter
+
         if (selectedYears.length > 0) {
             let publicationDate = dataset.publication_date;
             if (!publicationDate && dataset._source?.publicationYear) {
@@ -159,7 +156,7 @@ export const applyLocalFilters = (
             }
         }
 
-        // Check author filter
+
         if (selectedAuthors.length > 0) {
             const creators = dataset._source.creators || [];
             const hasMatchingAuthor = creators.some(creator =>
@@ -170,7 +167,7 @@ export const applyLocalFilters = (
             }
         }
 
-        // Check subject filter
+
         if (selectedSubjects.length > 0) {
             const subjects = dataset._source.subjects || [];
             const hasMatchingSubject = subjects.some(subj =>

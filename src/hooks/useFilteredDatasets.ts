@@ -34,23 +34,18 @@ export const useFilteredDatasets = (
         return applyLocalFilters(allCombinedDatasets, activeFilters);
     }, [allCombinedDatasets, activeFilters]);
 
-    // Separate filtered datasets into reranked and initial for display purposes
-    // Important: Maintain the original ranking order from the source arrays
     const filteredRerankedDatasets = useMemo(() => {
         if (!rerankedResults) return null;
         const filteredIds = new Set(filteredDatasets.map(d => d._id));
-        // Maintain reranked order by iterating through original reranked array
         return rerankedResults.hits.filter(d => filteredIds.has(d._id));
     }, [rerankedResults, filteredDatasets]);
 
     const filteredInitialDatasets = useMemo(() => {
         if (!initialResults) return null;
         const filteredIds = new Set(filteredDatasets.map(d => d._id));
-        // Maintain initial order by iterating through original initial array
         return initialResults.hits.filter(d => filteredIds.has(d._id));
     }, [initialResults, filteredDatasets]);
 
-    // Determine which datasets to display based on availability
     // If reranked results exist, prefer showing them, but if filtering removes all reranked results,
     // fall back to showing filtered initial results
     const datasets = useMemo(() => {
@@ -60,7 +55,6 @@ export const useFilteredDatasets = (
         if (filteredInitialDatasets !== null && filteredInitialDatasets.length > 0) {
             return filteredInitialDatasets;
         }
-        // If we have reranked results but they're all filtered out, and initial has results, show initial
         if (rerankedResults && filteredInitialDatasets && filteredInitialDatasets.length > 0) {
             return filteredInitialDatasets;
         }
