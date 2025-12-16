@@ -1,152 +1,51 @@
 import {useNavigate, useSearchParams} from "react-router-dom";
-import type {BackendSearchResponse, Aggregations, BackendDataset} from "../types/commons.ts";
-import {useCallback, useEffect, useState, useMemo} from "react";
-import {searchWithBackend} from "../lib/api.ts";
-import {addToSearchHistory} from "../lib/history.ts";
-import {BookIcon, LoaderIcon, XCircleIcon, ChevronDown, ChevronUp, Sparkles} from "lucide-react";
+import {useEffect, useState} from "react";
+import {XCircleIcon, ChevronDown, ChevronUp, Sparkles} from "lucide-react";
 import {SearchInput} from "../components/SearchInput.tsx";
 import {SearchResultItem} from "../components/SearchResultItem.tsx";
 import {AlphaDisclaimer} from "../components/AlphaDisclaimer";
 import {Footer} from "../components/Footer";
 import {FilterPanel} from "../components/FilterPanel.tsx";
-import {generateLocalFilters, applyLocalFilters} from "../lib/localFilters.ts";
+import {ProcessingIndicator} from "../components/ProcessingIndicator.tsx";
+import {NoResultsMessage} from "../components/NoResultsMessage.tsx";
+import {LoadingOverlay} from "../components/LoadingOverlay.tsx";
+import {useSearchResults} from "../hooks/useSearchResults.ts";
+import {useCombinedDatasets} from "../hooks/useCombinedDatasets.ts";
+import {useFilteredDatasets} from "../hooks/useFilteredDatasets.ts";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 
 export const SearchPage = () => {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
-    const [initialResults, setInitialResults] = useState<BackendSearchResponse | null>(null);
-    const [rerankedResults, setRerankedResults] = useState<BackendSearchResponse | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [isProcessing, setIsProcessing] = useState(false);
-    const [error, setError] = useState<string | null>(null);
     const [showInitialResults, setShowInitialResults] = useState(false);
 
     const query = searchParams.get('q') || '';
     const model = searchParams.get('model') || 'einfracz/gpt-oss-120b';
 
-    // Combine all datasets from both result sets (deduplicated, preserving order)
-    const allCombinedDatasets = useMemo(() => {
-        const datasetsMap = new Map<string, BackendDataset>();
+    // Custom hooks for data management
+    const {
+        initialResults,
+        rerankedResults,
+        loading,
+        isProcessing,
+        error,
+        performSearch
+    } = useSearchResults(query, model);
 
-        //Prefer reranked results order, supplement with initial results
+    const {allCombinedDatasets, aggregations} = useCombinedDatasets(initialResults, rerankedResults);
 
-        if (rerankedResults?.hits) {
-            rerankedResults.hits.forEach(dataset => {
-                datasetsMap.set(dataset._id, dataset);
-            });
-        }
+    const {
+        activeFilters,
+        filteredRerankedDatasets,
+        filteredInitialDatasets,
+        datasets
+    } = useFilteredDatasets(allCombinedDatasets, initialResults, rerankedResults);
 
-        if (initialResults?.hits) {
-            initialResults.hits.forEach(dataset => {
-                if (!datasetsMap.has(dataset._id)) {
-                    datasetsMap.set(dataset._id, dataset);
-                }
-            });
-        }
-        return Array.from(datasetsMap.values());
-    }, [rerankedResults, initialResults]);
-
-    // Generate local filters from ALL combined results
-    const aggregations: Aggregations = useMemo(() => {
-        if (allCombinedDatasets.length === 0) {
-            return {};
-        }
-
-        return generateLocalFilters(allCombinedDatasets);
-    }, [allCombinedDatasets]);
-
-    // Get active filter params (excluding 'q' and 'model')
-    const activeFilters = useMemo(() => {
-        const filters = new URLSearchParams();
-        searchParams.forEach((value, key) => {
-            if (key !== 'q' && key !== 'model') {
-                filters.append(key, value);
-            }
-        });
-        return filters;
-    }, [searchParams]);
-
-    // Apply filters to ALL combined datasets
-    const filteredDatasets = useMemo(() => {
-        return applyLocalFilters(allCombinedDatasets, activeFilters);
-    }, [allCombinedDatasets, activeFilters]);
-
-    // Separate filtered datasets into reranked and initial for display purposes
-    const filteredRerankedDatasets = useMemo(() => {
-        if (!rerankedResults) return null;
-        const filteredIds = new Set(filteredDatasets.map(d => d._id));
-        return rerankedResults.hits.filter(d => filteredIds.has(d._id));
-    }, [rerankedResults, filteredDatasets]);
-
-    const filteredInitialDatasets = useMemo(() => {
-        if (!initialResults) return null;
-        const filteredIds = new Set(filteredDatasets.map(d => d._id));
-        return initialResults.hits.filter(d => filteredIds.has(d._id));
-    }, [initialResults, filteredDatasets]);
-
-    // If reranked results exist, prefer showing them, but if filtering removes all reranked results,
-    // fall back to showing filtered initial results
-    const datasets = (() => {
-        if (filteredRerankedDatasets !== null && filteredRerankedDatasets.length > 0) {
-            return filteredRerankedDatasets;
-        }
-        if (filteredInitialDatasets !== null && filteredInitialDatasets.length > 0) {
-            return filteredInitialDatasets;
-        }
-        if (rerankedResults && filteredInitialDatasets && filteredInitialDatasets.length > 0) {
-            return filteredInitialDatasets;
-        }
-        return [];
-    })();
-
-    const performSearch = useCallback(async () => {
-        if (!query) {
-            navigate('/');
-            return;
-        }
-
-        setLoading(true);
-        setIsProcessing(false);
-        setError(null);
-        setInitialResults(null);
-        setRerankedResults(null);
-        setShowInitialResults(false);
-
-        try {
-            await searchWithBackend(query, model, {
-                onSearchData: (data) => {
-                    setInitialResults(data);
-                    console.log("Initial search data received:", data);
-                    setLoading(false);
-                    setIsProcessing(data.hits && data.hits.length > 0);
-                },
-                onRerankedData: (data) => {
-                    setRerankedResults(data);
-                    setIsProcessing(false);
-                },
-                onError: (err) => {
-                    console.error("Search stream error:", err);
-                    setError(err.message);
-                    setLoading(false);
-                    setIsProcessing(false);
-                },
-                // onEvent: (event) => {
-                //     console.debug('SSE Event:', event);
-                // },
-            });
-            addToSearchHistory(query);
-        } catch (err) {
-            console.error("Search error:", err);
-            setError(err instanceof Error ? err.message : "An unknown error occurred.");
-            setLoading(false);
-            setIsProcessing(false);
-        }
-    }, [query, model, navigate]);
-
+    // Trigger search when query or model changes
     useEffect(() => {
         void (async () => {
             try {
+                setShowInitialResults(false); // Reset collapsible state on new search
                 await performSearch();
             } catch (err) {
                 console.error("Unhandled search error:", err);
@@ -206,15 +105,7 @@ export const SearchPage = () => {
 
                     <div className="flex-1 relative" aria-busy={loading} aria-live="polite">
                         {/* Loading overlay */}
-                        {loading && (
-                            <div
-                                className="absolute inset-0 flex items-center justify-center bg-white/60 backdrop-blur-sm z-10 rounded-lg">
-                                <div className="flex items-center space-x-2 text-gray-700">
-                                    <LoaderIcon className="h-6 w-6 animate-spin text-blue-600"/>
-                                    <span className="text-sm sm:text-base">Searching datasets...</span>
-                                </div>
-                            </div>
-                        )}
+                        <LoadingOverlay show={loading}/>
 
                         {/* Error state inline */}
                         {!loading && error && (
@@ -235,17 +126,7 @@ export const SearchPage = () => {
                         )}
 
                         {/* Processing indicator - shows when initial results exist but reranking is in progress */}
-                        {!loading && !error && hasInitialResults && isProcessing && (
-                            <div
-                                className="mb-6 p-4 bg-linear-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm border border-blue-300 animate-pulse">
-                                <div className="flex items-center space-x-3 text-blue-700">
-                                    <Sparkles className="h-5 w-5 animate-pulse"/>
-                                    <span
-                                        className="text-sm font-medium">AI is analyzing and reranking results...</span>
-                                    <LoaderIcon className="h-4 w-4 animate-spin"/>
-                                </div>
-                            </div>
-                        )}
+                        <ProcessingIndicator show={!loading && !error && hasInitialResults && isProcessing}/>
 
                         {/* Results section */}
                         <div
@@ -253,12 +134,7 @@ export const SearchPage = () => {
                             aria-hidden={loading}>
                             {!loading && !error && (
                                 datasets.length === 0 ? (
-                                    <div
-                                        className="text-center py-12 bg-white/60 rounded-lg border border-dashed border-gray-300">
-                                        <BookIcon className="h-12 w-12 text-gray-400 mx-auto mb-4"/>
-                                        <h3 className="text-lg font-medium text-gray-900 mb-2">No datasets found</h3>
-                                        <p className="text-gray-600">Try adjusting your search terms or filters.</p>
-                                    </div>
+                                    <NoResultsMessage/>
                                 ) : (
                                     <>
                                         {/* AI-Ranked Results Section (when AI results match filters) */}
