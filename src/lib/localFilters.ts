@@ -48,20 +48,26 @@ export const generateLocalFilters = (datasets: BackendDataset[]): Aggregations =
     const subjectBuckets = mapToBuckets(subjectMap, false, 15); // Limit to top 15 subjects
 
 
-    return {
-        publicationYear: {
+    const aggregations: Aggregations = {};
+    if (dateBuckets.length > 0) {
+        aggregations.publicationYear = {
             label: 'Publication Year',
             buckets: dateBuckets
-        },
-        creator: {
+        };
+    }
+    if (authorBuckets.length > 0) {
+        aggregations.creator = {
             label: 'Author',
             buckets: authorBuckets
-        },
-        subject: {
+        };
+    }
+    if (subjectBuckets.length > 0) {
+        aggregations.subject = {
             label: 'Subject',
             buckets: subjectBuckets
-        }
-    };
+        };
+    }
+    return aggregations;
 };
 
 /**
@@ -181,6 +187,3 @@ export const applyLocalFilters = (
         return true;
     });
 };
-
-
-

@@ -68,7 +68,7 @@ export const SearchPage = () => {
     const hasInitialResults = initialResults !== null;
 
     return (
-        <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100">
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
             <AlphaDisclaimer/>
             <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-md shadow-sm">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between py-3">
