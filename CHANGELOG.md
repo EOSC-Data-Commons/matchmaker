@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.1] - 2025-12-18
+
+- Refactored filter management: filter options now update dynamically based on currently selected filters for more
+  accurate and responsive filtering
+
 ## [0.4.0] - 2025-12-17
 
 - Added local filtering and aggregation utilities for faster, client-side dataset filtering
