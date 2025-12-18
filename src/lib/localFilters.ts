@@ -1,76 +1,6 @@
 import type {BackendDataset, Aggregations, AggregationBucket} from '../types/commons';
 
 /**
- * Generate local filters (aggregations) from search results
- * Creates filters for publication date (by year), authors, and subjects
- */
-export const generateLocalFilters = (datasets: BackendDataset[]): Aggregations => {
-    const dateMap = new Map<string, number>();
-    const authorMap = new Map<string, number>();
-    const subjectMap = new Map<string, number>();
-
-    datasets.forEach((dataset) => {
-        // Extract publication date/year
-        let publicationDate = dataset.publication_date;
-        if (!publicationDate && dataset._source?.publicationYear) {
-            publicationDate = dataset._source.publicationYear;
-        }
-
-        if (publicationDate) {
-            // Extract year from date
-            const year = extractYear(publicationDate);
-            if (year) {
-                dateMap.set(year, (dateMap.get(year) || 0) + 1);
-            }
-        }
-
-        // Extract authors/creators
-        const creators = dataset._source.creators || [];
-        creators.forEach(creator => {
-            const name = creator.creatorName?.trim();
-            if (name) {
-                authorMap.set(name, (authorMap.get(name) || 0) + 1);
-            }
-        });
-
-        // Extract subjects
-        const subjects = dataset._source.subjects || [];
-        subjects.forEach(subj => {
-            const subject = subj.subject?.trim();
-            if (subject) {
-                subjectMap.set(subject, (subjectMap.get(subject) || 0) + 1);
-            }
-        });
-    });
-
-    const dateBuckets = mapToBuckets(dateMap, true); // Sort dates descending (newest first)
-    const authorBuckets = mapToBuckets(authorMap, false, 20); // Limit to top 20 authors
-    const subjectBuckets = mapToBuckets(subjectMap, false, 15); // Limit to top 15 subjects
-
-
-    const aggregations: Aggregations = {};
-    if (dateBuckets.length > 0) {
-        aggregations.publicationYear = {
-            label: 'Publication Year',
-            buckets: dateBuckets
-        };
-    }
-    if (authorBuckets.length > 0) {
-        aggregations.creator = {
-            label: 'Author',
-            buckets: authorBuckets
-        };
-    }
-    if (subjectBuckets.length > 0) {
-        aggregations.subject = {
-            label: 'Subject',
-            buckets: subjectBuckets
-        };
-    }
-    return aggregations;
-};
-
-/**
  * Extract year from a date string (YYYY-MM-DD) or year string (YYYY)
  */
 const extractYear = (dateStr: string | null | undefined): string | null => {
@@ -134,10 +64,14 @@ const mapToBuckets = (
 /**
  * Apply local filters to datasets
  * Returns filtered array based on selected filter values
+ * @param datasets - Array of datasets to filter
+ * @param filters - URL search params containing filter selections
+ * @param excludeKey - Optional filter key to exclude from filtering (used for dynamic filter recalculation)
  */
 export const applyLocalFilters = (
     datasets: BackendDataset[],
-    filters: URLSearchParams
+    filters: URLSearchParams,
+    excludeKey?: string
 ): BackendDataset[] => {
     const selectedYears = filters.getAll('publicationYear');
     const selectedAuthors = filters.getAll('creator');
@@ -149,60 +83,7 @@ export const applyLocalFilters = (
     }
 
     return datasets.filter(dataset => {
-
-        if (selectedYears.length > 0) {
-            let publicationDate = dataset.publication_date;
-            if (!publicationDate && dataset._source?.publicationYear) {
-                publicationDate = dataset._source.publicationYear;
-            }
-            const year = publicationDate ? extractYear(publicationDate) : null;
-
-            if (!year || !selectedYears.includes(year)) {
-                return false;
-            }
-        }
-
-
-        if (selectedAuthors.length > 0) {
-            const creators = dataset._source.creators || [];
-            const hasMatchingAuthor = creators.some(creator =>
-                selectedAuthors.includes(creator.creatorName?.trim())
-            );
-            if (!hasMatchingAuthor) {
-                return false;
-            }
-        }
-
-
-        if (selectedSubjects.length > 0) {
-            const subjects = dataset._source.subjects || [];
-            const hasMatchingSubject = subjects.some(subj =>
-                selectedSubjects.includes(subj.subject?.trim())
-            );
-            if (!hasMatchingSubject) {
-                return false;
-            }
-        }
-
-        return true;
-    });
-};
-
-/**
- * Apply partial filters to datasets for dynamic filter recalculation
- * Excludes a specific filter key to show what would be available if that filter was changed
- */
-export const applyPartialFilters = (
-    datasets: BackendDataset[],
-    filters: URLSearchParams,
-    excludeKey: string
-): BackendDataset[] => {
-    const selectedYears = filters.getAll('publicationYear');
-    const selectedAuthors = filters.getAll('creator');
-    const selectedSubjects = filters.getAll('subject');
-
-    return datasets.filter(dataset => {
-        // Apply year filter unless we're calculating aggregations for the year filter
+        // Apply year filter unless it's excluded
         if (excludeKey !== 'publicationYear' && selectedYears.length > 0) {
             let publicationDate = dataset.publication_date;
             if (!publicationDate && dataset._source?.publicationYear) {
@@ -215,7 +96,7 @@ export const applyPartialFilters = (
             }
         }
 
-        // Apply author filter unless we're calculating aggregations for the author filter
+        // Apply author filter unless it's excluded
         if (excludeKey !== 'creator' && selectedAuthors.length > 0) {
             const creators = dataset._source.creators || [];
             const hasMatchingAuthor = creators.some(creator =>
@@ -226,7 +107,7 @@ export const applyPartialFilters = (
             }
         }
 
-        // Apply subject filter unless we're calculating aggregations for the subject filter
+        // Apply subject filter unless it's excluded
         if (excludeKey !== 'subject' && selectedSubjects.length > 0) {
             const subjects = dataset._source.subjects || [];
             const hasMatchingSubject = subjects.some(subj =>
@@ -240,36 +121,95 @@ export const applyPartialFilters = (
         return true;
     });
 };
-
 /**
- * Generate dynamic local filters based on currently filtered datasets
+ * Generate dynamic local filters based on dataset collection
  * Each filter's options are calculated based on datasets that match OTHER filters
+ * Optimized to perform a single pass through the dataset
+ * @param datasets - Complete collection of datasets to analyze
+ * @param activeFilters - Currently active filter selections from URL params
+ * @returns Aggregations with dynamically calculated filter options and counts
  */
 export const generateDynamicFilters = (
-    allDatasets: BackendDataset[],
+    datasets: BackendDataset[],
     activeFilters: URLSearchParams
 ): Aggregations => {
+    const selectedYears = activeFilters.getAll('publicationYear');
+    const selectedAuthors = activeFilters.getAll('creator');
+    const selectedSubjects = activeFilters.getAll('subject');
+
+    // Maps to accumulate counts for each filter type
+    const yearMap = new Map<string, number>();
+    const authorMap = new Map<string, number>();
+    const subjectMap = new Map<string, number>();
+
+    datasets.forEach(dataset => {
+        let publicationDate = dataset.publication_date;
+        if (!publicationDate && dataset._source?.publicationYear) {
+            publicationDate = dataset._source.publicationYear;
+        }
+        const year = publicationDate ? extractYear(publicationDate) : null;
+
+        const creators = dataset._source.creators || [];
+        const subjects = dataset._source.subjects || [];
+
+        // Check if dataset matches filters (for each aggregation type)
+        const matchesAuthorFilter = selectedAuthors.length === 0 ||
+            creators.some(creator => selectedAuthors.includes(creator.creatorName?.trim()));
+
+        const matchesSubjectFilter = selectedSubjects.length === 0 ||
+            subjects.some(subj => selectedSubjects.includes(subj.subject?.trim()));
+
+        const matchesYearFilter = selectedYears.length === 0 ||
+            (year && selectedYears.includes(year));
+
+        if (matchesAuthorFilter && matchesSubjectFilter && year) {
+            yearMap.set(year, (yearMap.get(year) || 0) + 1);
+        }
+
+        if (matchesYearFilter && matchesSubjectFilter) {
+            creators.forEach(creator => {
+                const name = creator.creatorName?.trim();
+                if (name) {
+                    authorMap.set(name, (authorMap.get(name) || 0) + 1);
+                }
+            });
+        }
+
+        if (matchesYearFilter && matchesAuthorFilter) {
+            subjects.forEach(subj => {
+                const subject = subj.subject?.trim();
+                if (subject) {
+                    subjectMap.set(subject, (subjectMap.get(subject) || 0) + 1);
+                }
+            });
+        }
+    });
+
+    // Convert maps to aggregation buckets
     const aggregations: Aggregations = {};
 
-    // For each filter type, calculate aggregations from datasets that match OTHER filters
-    // This creates a dynamic filtering experience where counts update based on selections
-
-    const datasetsForYearFilter = applyPartialFilters(allDatasets, activeFilters, 'publicationYear');
-    const yearAggregation = generateLocalFilters(datasetsForYearFilter);
-    if (yearAggregation.publicationYear) {
-        aggregations.publicationYear = yearAggregation.publicationYear;
+    const yearBuckets = mapToBuckets(yearMap, true);
+    if (yearBuckets.length > 0) {
+        aggregations.publicationYear = {
+            label: 'Publication Year',
+            buckets: yearBuckets
+        };
     }
 
-    const datasetsForCreatorFilter = applyPartialFilters(allDatasets, activeFilters, 'creator');
-    const creatorAggregation = generateLocalFilters(datasetsForCreatorFilter);
-    if (creatorAggregation.creator) {
-        aggregations.creator = creatorAggregation.creator;
+    const authorBuckets = mapToBuckets(authorMap, false, 20);
+    if (authorBuckets.length > 0) {
+        aggregations.creator = {
+            label: 'Author',
+            buckets: authorBuckets
+        };
     }
 
-    const datasetsForSubjectFilter = applyPartialFilters(allDatasets, activeFilters, 'subject');
-    const subjectAggregation = generateLocalFilters(datasetsForSubjectFilter);
-    if (subjectAggregation.subject) {
-        aggregations.subject = subjectAggregation.subject;
+    const subjectBuckets = mapToBuckets(subjectMap, false, 15);
+    if (subjectBuckets.length > 0) {
+        aggregations.subject = {
+            label: 'Subject',
+            buckets: subjectBuckets
+        };
     }
 
     return aggregations;
