@@ -1,6 +1,6 @@
 import {useMemo} from 'react';
 import type {BackendSearchResponse, BackendDataset, Aggregations} from '../types/commons';
-import {generateLocalFilters} from '../lib/localFilters';
+import {generateDynamicFilters} from '../lib/localFilters';
 
 interface UseCombinedDatasetsReturn {
     allCombinedDatasets: BackendDataset[];
@@ -9,7 +9,8 @@ interface UseCombinedDatasetsReturn {
 
 export const useCombinedDatasets = (
     initialResults: BackendSearchResponse | null,
-    rerankedResults: BackendSearchResponse | null
+    rerankedResults: BackendSearchResponse | null,
+    activeFilters: URLSearchParams
 ): UseCombinedDatasetsReturn => {
     // Combine all datasets from both result sets
     const allCombinedDatasets = useMemo(() => {
@@ -34,14 +35,14 @@ export const useCombinedDatasets = (
         return Array.from(datasetsMap.values());
     }, [rerankedResults, initialResults]);
 
-    // Generate local filters from ALL combined results
+    // Generate dynamic filters that recalculate based on active filters
     const aggregations: Aggregations = useMemo(() => {
         if (allCombinedDatasets.length === 0) {
             return {};
         }
 
-        return generateLocalFilters(allCombinedDatasets);
-    }, [allCombinedDatasets]);
+        return generateDynamicFilters(allCombinedDatasets, activeFilters);
+    }, [allCombinedDatasets, activeFilters]);
 
     return {
         allCombinedDatasets,

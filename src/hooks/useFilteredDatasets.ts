@@ -1,10 +1,8 @@
 import {useMemo} from 'react';
-import {useSearchParams} from 'react-router-dom';
 import type {BackendSearchResponse, BackendDataset} from '../types/commons';
 import {applyLocalFilters} from '../lib/localFilters';
 
 interface UseFilteredDatasetsReturn {
-    activeFilters: URLSearchParams;
     filteredDatasets: BackendDataset[];
     filteredRerankedDatasets: BackendDataset[] | null;
     filteredInitialDatasets: BackendDataset[] | null;
@@ -14,20 +12,9 @@ interface UseFilteredDatasetsReturn {
 export const useFilteredDatasets = (
     allCombinedDatasets: BackendDataset[],
     initialResults: BackendSearchResponse | null,
-    rerankedResults: BackendSearchResponse | null
+    rerankedResults: BackendSearchResponse | null,
+    activeFilters: URLSearchParams
 ): UseFilteredDatasetsReturn => {
-    const [searchParams] = useSearchParams();
-
-    // Get active filter params (excluding 'q' and 'model')
-    const activeFilters = useMemo(() => {
-        const filters = new URLSearchParams();
-        searchParams.forEach((value, key) => {
-            if (key !== 'q' && key !== 'model') {
-                filters.append(key, value);
-            }
-        });
-        return filters;
-    }, [searchParams]);
 
     // Apply filters to ALL combined datasets
     const filteredDatasets = useMemo(() => {
@@ -62,7 +49,6 @@ export const useFilteredDatasets = (
     }, [filteredRerankedDatasets, filteredInitialDatasets, rerankedResults]);
 
     return {
-        activeFilters,
         filteredDatasets,
         filteredRerankedDatasets,
         filteredInitialDatasets,
