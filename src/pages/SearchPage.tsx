@@ -1,5 +1,5 @@
 import {useNavigate, useSearchParams} from "react-router-dom";
-import {useEffect, useState} from "react";
+import {useEffect, useState, useMemo} from "react";
 import {XCircleIcon, ChevronDown, ChevronUp, Sparkles} from "lucide-react";
 import {SearchInput} from "../components/SearchInput.tsx";
 import {SearchResultItem} from "../components/SearchResultItem.tsx";
@@ -32,14 +32,25 @@ export const SearchPage = () => {
         performSearch
     } = useSearchResults(query, model);
 
-    const {allCombinedDatasets, aggregations} = useCombinedDatasets(initialResults, rerankedResults);
+    // Extract active filters from URL params
+    const activeFilters = useMemo(() => {
+        const filters = new URLSearchParams();
+        searchParams.forEach((value, key) => {
+            if (key !== 'q' && key !== 'model') {
+                filters.append(key, value);
+            }
+        });
+        return filters;
+    }, [searchParams]);
+
+    const {allCombinedDatasets, aggregations} = useCombinedDatasets(initialResults, rerankedResults, activeFilters);
 
     const {
-        activeFilters,
         filteredRerankedDatasets,
         filteredInitialDatasets,
         datasets
-    } = useFilteredDatasets(allCombinedDatasets, initialResults, rerankedResults);
+    } = useFilteredDatasets(allCombinedDatasets, initialResults, rerankedResults, activeFilters);
+
 
     // Trigger search when query or model changes
     useEffect(() => {

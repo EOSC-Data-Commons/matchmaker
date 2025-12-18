@@ -187,3 +187,91 @@ export const applyLocalFilters = (
         return true;
     });
 };
+
+/**
+ * Apply partial filters to datasets for dynamic filter recalculation
+ * Excludes a specific filter key to show what would be available if that filter was changed
+ */
+export const applyPartialFilters = (
+    datasets: BackendDataset[],
+    filters: URLSearchParams,
+    excludeKey: string
+): BackendDataset[] => {
+    const selectedYears = filters.getAll('publicationYear');
+    const selectedAuthors = filters.getAll('creator');
+    const selectedSubjects = filters.getAll('subject');
+
+    return datasets.filter(dataset => {
+        // Apply year filter unless we're calculating aggregations for the year filter
+        if (excludeKey !== 'publicationYear' && selectedYears.length > 0) {
+            let publicationDate = dataset.publication_date;
+            if (!publicationDate && dataset._source?.publicationYear) {
+                publicationDate = dataset._source.publicationYear;
+            }
+            const year = publicationDate ? extractYear(publicationDate) : null;
+
+            if (!year || !selectedYears.includes(year)) {
+                return false;
+            }
+        }
+
+        // Apply author filter unless we're calculating aggregations for the author filter
+        if (excludeKey !== 'creator' && selectedAuthors.length > 0) {
+            const creators = dataset._source.creators || [];
+            const hasMatchingAuthor = creators.some(creator =>
+                selectedAuthors.includes(creator.creatorName?.trim())
+            );
+            if (!hasMatchingAuthor) {
+                return false;
+            }
+        }
+
+        // Apply subject filter unless we're calculating aggregations for the subject filter
+        if (excludeKey !== 'subject' && selectedSubjects.length > 0) {
+            const subjects = dataset._source.subjects || [];
+            const hasMatchingSubject = subjects.some(subj =>
+                selectedSubjects.includes(subj.subject?.trim())
+            );
+            if (!hasMatchingSubject) {
+                return false;
+            }
+        }
+
+        return true;
+    });
+};
+
+/**
+ * Generate dynamic local filters based on currently filtered datasets
+ * Each filter's options are calculated based on datasets that match OTHER filters
+ */
+export const generateDynamicFilters = (
+    allDatasets: BackendDataset[],
+    activeFilters: URLSearchParams
+): Aggregations => {
+    const aggregations: Aggregations = {};
+
+    // For each filter type, calculate aggregations from datasets that match OTHER filters
+    // This creates a dynamic filtering experience where counts update based on selections
+
+    const datasetsForYearFilter = applyPartialFilters(allDatasets, activeFilters, 'publicationYear');
+    const yearAggregation = generateLocalFilters(datasetsForYearFilter);
+    if (yearAggregation.publicationYear) {
+        aggregations.publicationYear = yearAggregation.publicationYear;
+    }
+
+    const datasetsForCreatorFilter = applyPartialFilters(allDatasets, activeFilters, 'creator');
+    const creatorAggregation = generateLocalFilters(datasetsForCreatorFilter);
+    if (creatorAggregation.creator) {
+        aggregations.creator = creatorAggregation.creator;
+    }
+
+    const datasetsForSubjectFilter = applyPartialFilters(allDatasets, activeFilters, 'subject');
+    const subjectAggregation = generateLocalFilters(datasetsForSubjectFilter);
+    if (subjectAggregation.subject) {
+        aggregations.subject = subjectAggregation.subject;
+    }
+
+    return aggregations;
+};
+
