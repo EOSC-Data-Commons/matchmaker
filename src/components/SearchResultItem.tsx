@@ -92,7 +92,10 @@ export const SearchResultItem = ({hit, isAiRanked = false}: SearchResultItemProp
                     {hit.title}
                 </h3>
                 {isAiRanked && hit.score !== undefined && (
-                    <div className="flex-shrink-0 flex items-center space-x-1 bg-yellow-50 px-2 py-1 rounded-full">
+                    <div
+                        className="flex-shrink-0 flex items-center space-x-1 bg-yellow-50 px-2 py-1 rounded-full cursor-help"
+                        title="AI-powered relevance score: Ranked by LLM based on semantic understanding of your query. Scores range from 0% (low relevance) to 100% (high relevance)."
+                    >
                         <ProportionalStar percent={scorePercent} className="h-4 w-4"/>
                         <span className="text-sm font-medium text-yellow-700">
                             {scorePercent.toFixed(0)}%
@@ -100,7 +103,10 @@ export const SearchResultItem = ({hit, isAiRanked = false}: SearchResultItemProp
                     </div>
                 )}
                 {!isAiRanked && typeof hit._score === 'number' && !Number.isNaN(hit._score) && (
-                    <div className="flex-shrink-0 flex items-center space-x-1 bg-blue-50 px-2 py-1 rounded-full">
+                    <div
+                        className="flex-shrink-0 flex items-center space-x-1 bg-blue-50 px-2 py-1 rounded-full cursor-help"
+                        title="OpenSearch relevance score: Based on keyword matching and text analysis. Scores range from 0% (low match) to 100% (high match)."
+                    >
                         <ProportionalStar percent={(hit._score || 0) * 100} className="h-4 w-4" color="#005EB8"/>
                         <span className="text-sm font-semibold" style={{color: '#005EB8'}}>
                             {(((hit._score || 0) * 100)).toFixed(0)}%
