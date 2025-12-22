@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.2] - 2025-12-22
+
+- Enhanced search result score badges with informative tooltips
+
 ## [0.4.1] - 2025-12-18
 
 - Refactored filter management: filter options now update dynamically based on currently selected filters for more
