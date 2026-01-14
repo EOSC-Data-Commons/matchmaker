@@ -15,7 +15,7 @@ export const SearchResultItem = ({hit, isAiRanked = false}: SearchResultItemProp
     const [searchParams] = useSearchParams();
 
     const cleanDescription = (html: string) => {
-        // Strip HTML tags using regex
+        // return full cleaned text; truncation handled in render
         return html.replace(/<[^>]*>/g, '');
     };
 

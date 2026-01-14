@@ -1,6 +1,5 @@
 const SEARCH_HISTORY_KEY = 'searchHistory';
 
-// Check if we're in a browser environment
 const isBrowser = typeof window !== 'undefined';
 
 export const getSearchHistory = (): string[] => {
