@@ -15,6 +15,11 @@ export const SearchResultItem = ({hit, isAiRanked = false}: SearchResultItemProp
     const [searchParams] = useSearchParams();
 
     const cleanDescription = (html: string) => {
+        // SSR-safe HTML stripping
+        if (typeof document === 'undefined') {
+            // Basic server-side HTML stripping using regex
+            return html.replace(/<[^>]*>/g, '');
+        }
         const div = document.createElement('div');
         div.innerHTML = html;
         const text = div.textContent || div.innerText || '';

@@ -2,17 +2,20 @@ services:
   frontend:
     build: .
     ports:
-      - "5173:80"
+      - "5173:5173"
     environment:
       - NODE_ENV=development
+      - PORT=5173
     volumes:
       - ./src:/app/src
       - ./public:/app/public
+      - ./server.ts:/app/server.ts
       - ./vite.config.ts:/app/vite.config.ts
       - ./tsconfig.json:/app/tsconfig.json
       - ./package.json:/app/package.json
       - ./tailwind.config.ts:/app/tailwind.config.ts
-      - ./nginx.dev.conf:/etc/nginx/nginx.conf:ro
+      - ./index.html:/app/index.html
+    command: npm run dev
     depends_on:
       - backend
   backend:
