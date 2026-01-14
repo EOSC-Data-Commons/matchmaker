@@ -3,6 +3,8 @@ services:
     image: ghcr.io/eosc-data-commons/matchmaker-frontend:latest
     build: .
     ports:
-      - "127.0.0.1:5173:80"
+      - "127.0.0.1:5173:3000"
     environment:
       - NODE_ENV=production
+      - API_URL=http://search-api:8000
+      - PLAYER_API_URL=https://dev1.player.eosc-data-commons.eu
