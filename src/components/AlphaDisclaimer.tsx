@@ -64,34 +64,26 @@ export const AlphaDisclaimer = () => {
     const [countdown, setCountdown] = useState(8);
     const [dismissed, setDismissed] = useState(false);
 
-    // Check if we're in the browser
-    const isBrowser = typeof window !== 'undefined';
-
     useEffect(() => {
-        if (!isBrowser) return;
         const stored = sessionStorage.getItem('alphaDisclaimerDismissed');
         if (stored) {
             setDismissed(true);
         }
-    }, [isBrowser]);
+    }, []);
 
     useLayoutEffect(() => {
-        if (isBrowser) {
-            setAnimReady(true);
-        }
-    }, [isBrowser]);
+        setAnimReady(true);
+    }, []);
 
     useEffect(() => {
-        if (animReady && isBrowser) {
+        if (animReady) {
             requestAnimationFrame(() => setVisible(true));
         }
-    }, [animReady, isBrowser]);
+    }, [animReady]);
 
     const handleClose = () => {
         setVisible(false);
-        if (isBrowser) {
-            sessionStorage.setItem('alphaDisclaimerDismissed', 'true');
-        }
+        sessionStorage.setItem('alphaDisclaimerDismissed', 'true');
         setDismissed(true);
     };
 

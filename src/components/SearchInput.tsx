@@ -41,8 +41,6 @@ export const SearchInput = ({
 
 
     useEffect(() => {
-        // Only add event listeners in browser environment
-        if (typeof document === 'undefined') return;
 
         const handleClickOutside = (event: MouseEvent) => {
             if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {

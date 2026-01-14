@@ -39,8 +39,6 @@ export const CitationExport = ({dataset}: CitationExportProps) => {
 
     useEffect(() => {
         if (open) {
-            // Only add event listeners in browser environment
-            if (typeof document === 'undefined') return;
             document.addEventListener('mousedown', closeOnOutside);
             return () => document.removeEventListener('mousedown', closeOnOutside);
         }
@@ -90,8 +88,6 @@ export const CitationExport = ({dataset}: CitationExportProps) => {
     };
 
     const handleDownload = () => {
-        // Only run in browser environment
-        if (typeof document === 'undefined') return;
 
         const {ext, mime} = LABELS[format];
         const blob = new Blob([citation], {type: `${mime};charset=utf-8`});

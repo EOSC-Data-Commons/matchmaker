@@ -10,12 +10,7 @@ declare global {
 const MatomoTracker = () => {
     const location = useLocation();
 
-    // Check if we're in the browser
-    const isBrowser = typeof window !== 'undefined';
-
     useEffect(() => {
-        if (!isBrowser) return;
-
         window._paq = window._paq || [];
         (function () {
             const u = "https://egi.matomo.cloud/";
@@ -28,18 +23,16 @@ const MatomoTracker = () => {
                 s.parentNode.insertBefore(g, s);
             }
         })();
-    }, [isBrowser]);
+    }, []);
 
     // This effect runs on every route change to track page views.
     useEffect(() => {
-        if (!isBrowser) return;
-
         if (window._paq) {
             window._paq.push(['setCustomUrl', location.pathname + location.search]);
             window._paq.push(['trackPageView']);
             window._paq.push(['enableLinkTracking']);
         }
-    }, [location, isBrowser]);
+    }, [location]);
 
     return null;
 };
