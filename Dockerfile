@@ -6,7 +6,7 @@ WORKDIR /app
 # Copy package files
 COPY package.json package-lock.json* ./
 
-# Install all dependencies (needed for both dev and build)
+# Install all dependencies
 RUN npm ci
 
 # Development stage
