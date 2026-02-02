@@ -60,16 +60,9 @@ export async function fetchWithTimeout(
 export function stripHtml(html: string): string {
     if (!html) return '';
 
-    // 1. Remove script and style elements and their content
     let text = html.replace(/<(script|style|noscript|iframe)[^>]*>[\s\S]*?<\/\1>/gi, '');
-
-    // 2. Remove HTML comments
     text = text.replace(/<!--[\s\S]*?-->/g, '');
-
-    // 3. Remove remaining HTML tags
     text = text.replace(/<[^>]+>/g, '');
-
-    // 4. Decode common HTML entities
     const entities: Record<string, string> = {
         '&nbsp;': ' ',
         '&amp;': '&',
