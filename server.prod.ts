@@ -54,7 +54,6 @@ async function createServer() {
     // Import the server-side render function
     const {render} = await import(path.resolve(serverPath, 'entry-server.js'));
 
-    // In server.prod.ts, replace the app.get('*', ...) with:
     app.use(async (req, res, next) => {
         // Only handle GET requests for SSR, let other methods pass through
         if (req.method !== 'GET') {
