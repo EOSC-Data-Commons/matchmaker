@@ -41,6 +41,7 @@ export const SearchInput = ({
 
 
     useEffect(() => {
+
         const handleClickOutside = (event: MouseEvent) => {
             if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
                 setShowHistory(false);

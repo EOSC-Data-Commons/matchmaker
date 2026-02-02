@@ -4,26 +4,22 @@ import path from "path";
 import tailwindcss from "@tailwindcss/vite";
 
 // https://vitejs.dev/config/
-export default defineConfig(() => ({
+export default defineConfig(({isSsrBuild}) => ({
     server: {
-        host: "localhost", // Changed from "::" to "localhost" to restrict to local only
+        host: "localhost",
         port: 5173,
-        proxy: {
-            '/api': {
-                target: 'http://127.0.0.1:8000',
-                changeOrigin: true,
-                rewrite: (path) => path.replace(/^\/api/, '')
-            },
-            '/player-api': {
-                target: 'https://dev1.player.eosc-data-commons.eu',
-                changeOrigin: true,
-                secure: false,
-                rewrite: (path) => path.replace(/^\/player-api/, '')
-            }
-        }
+        // Note: API proxying is handled by server.ts for SSR
     },
     build: {
-        outDir: "dist/spa",
+        outDir: isSsrBuild ? "dist/server" : "dist/client",
+        rollupOptions: isSsrBuild ? {
+            input: "./src/entry-server.tsx",
+        } : {
+            input: "./index.html",
+        },
+    },
+    ssr: {
+        noExternal: isSsrBuild ? [] : undefined,
     },
     plugins: [react(), tailwindcss()],
     resolve: {

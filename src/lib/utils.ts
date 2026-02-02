@@ -53,3 +53,39 @@ export async function fetchWithTimeout(
     }
 }
 
+/**
+ * Strips HTML tags and decodes basic HTML entities.
+ * Safe for use in both browser and server environments (SSR).
+ */
+export function stripHtml(html: string): string {
+    if (!html) return '';
+
+    // 1. Remove script and style elements and their content
+    let text = html.replace(/<(script|style|noscript|iframe)[^>]*>[\s\S]*?<\/\1>/gi, '');
+
+    // 2. Remove HTML comments
+    text = text.replace(/<!--[\s\S]*?-->/g, '');
+
+    // 3. Remove remaining HTML tags
+    text = text.replace(/<[^>]+>/g, '');
+
+    // 4. Decode common HTML entities
+    const entities: Record<string, string> = {
+        '&nbsp;': ' ',
+        '&amp;': '&',
+        '&lt;': '<',
+        '&gt;': '>',
+        '&quot;': '"',
+        '&#39;': "'",
+        '&apos;': "'",
+        '&copy;': '©',
+        '&reg;': '®',
+        '&trade;': '™',
+        '&bull;': '•',
+        '&middot;': '·',
+    };
+
+    return text.replace(/&(nbsp|amp|lt|gt|quot|#39|apos|copy|reg|trade|bull|middot);/g, (match) => {
+        return entities[match] || match;
+    });
+}

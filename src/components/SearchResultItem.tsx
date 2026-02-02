@@ -2,6 +2,7 @@ import type {BackendDataset} from "../types/commons.ts";
 import {CalendarIcon, UserIcon, ExternalLinkIcon, TagIcon, Rocket} from "lucide-react";
 import {ProportionalStar} from './ProportionalStar';
 import {CitationExport} from './CitationExport';
+import {stripHtml} from "../lib/utils";
 import {useState} from 'react';
 import {useSearchParams} from 'react-router-dom';
 import {RepoLogo} from "./RepoLogo.tsx";
@@ -15,10 +16,7 @@ export const SearchResultItem = ({hit, isAiRanked = false}: SearchResultItemProp
     const [searchParams] = useSearchParams();
 
     const cleanDescription = (html: string) => {
-        const div = document.createElement('div');
-        div.innerHTML = html;
-        const text = div.textContent || div.innerText || '';
-        return text; // return full cleaned text; truncation handled in render
+        return stripHtml(html);
     };
 
     const [descExpanded, setDescExpanded] = useState(false);

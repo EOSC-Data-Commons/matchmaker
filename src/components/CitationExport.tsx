@@ -88,6 +88,7 @@ export const CitationExport = ({dataset}: CitationExportProps) => {
     };
 
     const handleDownload = () => {
+
         const {ext, mime} = LABELS[format];
         const blob = new Blob([citation], {type: `${mime};charset=utf-8`});
         const a = document.createElement('a');
