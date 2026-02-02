@@ -19,7 +19,7 @@ export default defineConfig(({isSsrBuild}) => ({
         },
     },
     ssr: {
-        noExternal: isSsrBuild ? [] : undefined,
+        noExternal: isSsrBuild ? true : undefined,
     },
     plugins: [react(), tailwindcss()],
     resolve: {
