@@ -22,7 +22,7 @@ async function createServer() {
         changeOrigin: true,
         pathRewrite: {'^/api': ''},
         on: {
-            error: (err, req, res) => {
+            error: (err, _req, res) => {
                 console.error('Proxy error:', err);
                 (res as express.Response).status(500).send('Proxy error');
             }
@@ -36,7 +36,7 @@ async function createServer() {
         pathRewrite: {'^/player-api': ''},
         secure: false,
         on: {
-            error: (err, req, res) => {
+            error: (err, _req, res) => {
                 console.error('Player API proxy error:', err);
                 (res as express.Response).status(500).send('Proxy error');
             }
