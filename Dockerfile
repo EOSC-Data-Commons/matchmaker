@@ -1,13 +1,37 @@
-FROM node:24-alpine AS build
+# Base image with dependencies
+FROM node:24-alpine AS base
 
-# Set working directory
 WORKDIR /app
 
 # Copy package files
 COPY package.json package-lock.json* ./
 
-# Install all dependencies
+# Install all dependencies (needed for both dev and build)
 RUN npm ci
+
+# Development stage
+FROM base AS development
+
+WORKDIR /app
+
+# Copy only necessary config files for dev
+# Source files will be mounted as volumes
+COPY tsconfig*.json ./
+COPY vite.config.ts ./
+COPY tailwind.config.ts ./
+COPY eslint.config.js ./
+COPY index.html ./
+
+# Expose development port
+EXPOSE 5173
+
+# Start development server
+CMD ["npm", "run", "dev"]
+
+# Build stage
+FROM base AS build
+
+WORKDIR /app
 
 # Copy source code
 COPY . .
@@ -15,7 +39,7 @@ COPY . .
 # Build the application (client + server)
 RUN npm run build
 
-# Production image
+# Production stage
 FROM node:24-alpine AS production
 
 WORKDIR /app
@@ -23,14 +47,11 @@ WORKDIR /app
 # Copy package files for production dependencies
 COPY package.json package-lock.json* ./
 
-# Install only production dependencies
+# Install only production dependencies (tsx no longer needed)
 RUN npm ci --omit=dev
 
-# Copy built artifacts
+# Copy built artifacts from build stage
 COPY --from=build /app/dist ./dist
-
-# Copy the production server
-COPY --from=build /app/server.prod.ts ./server.prod.ts
 
 # Expose the port
 EXPOSE 3000
@@ -39,5 +60,5 @@ EXPOSE 3000
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Start the SSR server
-CMD ["npx", "tsx", "server.prod.ts"]
+# Start the compiled server (no tsx required)
+CMD ["node", "dist/server.prod.js"]

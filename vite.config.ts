@@ -19,7 +19,20 @@ export default defineConfig(({isSsrBuild}) => ({
         },
     },
     ssr: {
-        noExternal: isSsrBuild ? [] : undefined,
+        // Bundle these dependencies for SSR to avoid ESM/CJS compatibility issues
+        // and ensure proper handling of CSS imports and client-side code
+        noExternal: isSsrBuild ? [
+            // UI libraries that import CSS or have browser-specific code
+            'lucide-react',
+            '@radix-ui/react-toast',
+            '@radix-ui/react-tooltip',
+            '@tanstack/react-query',
+            'class-variance-authority',
+            'tailwind-merge',
+            'tailwindcss-animate',
+            'react-icons',
+            '@tailwindcss/vite',
+        ] : undefined,
     },
     plugins: [react(), tailwindcss()],
     resolve: {

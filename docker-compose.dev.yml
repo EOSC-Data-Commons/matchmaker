@@ -1,20 +1,27 @@
 services:
   frontend:
-    build: .
+    build:
+      context: .
+      target: development
     ports:
       - "5173:5173"
     environment:
       - NODE_ENV=development
       - PORT=5173
+      - API_URL=http://backend:8000
+      - PLAYER_API_URL=https://dev1.player.eosc-data-commons.eu
     volumes:
       - ./src:/app/src
       - ./public:/app/public
       - ./server.ts:/app/server.ts
       - ./vite.config.ts:/app/vite.config.ts
       - ./tsconfig.json:/app/tsconfig.json
+      - ./tsconfig.node.json:/app/tsconfig.node.json
+      - ./tsconfig.app.json:/app/tsconfig.app.json
       - ./package.json:/app/package.json
       - ./tailwind.config.ts:/app/tailwind.config.ts
       - ./index.html:/app/index.html
+      - ./eslint.config.js:/app/eslint.config.js
     command: npm run dev
     depends_on:
       - backend

@@ -1,7 +1,9 @@
 services:
   frontend:
     image: ghcr.io/eosc-data-commons/matchmaker-frontend:latest
-    build: .
+    build:
+      context: .
+      target: production
     ports:
       - "127.0.0.1:5173:3000"
     environment:

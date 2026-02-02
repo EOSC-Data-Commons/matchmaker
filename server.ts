@@ -10,6 +10,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 async function createServer() {
     const app = express();
 
+    // Body parsing middleware for POST/PUT/PATCH requests
+    app.use(express.json());
+    app.use(express.urlencoded({extended: true}));
+
     // Create Vite server in middleware mode
     const vite = await createViteServer({
         server: {middlewareMode: true},
@@ -17,28 +21,46 @@ async function createServer() {
     });
 
     // Proxy API requests using http-proxy-middleware
+    const devApiUrl = process.env.API_URL || 'http://127.0.0.1:8000';
+    console.log(`Setting up API proxy to: ${devApiUrl}`);
     app.use('/api', createProxyMiddleware({
-        target: 'http://127.0.0.1:8000',
+        target: devApiUrl,
         changeOrigin: true,
         pathRewrite: {'^/api': ''},
         on: {
             error: (err, req, res) => {
                 console.error('Proxy error:', err);
-                (res as express.Response).status(500).send('Proxy error');
+                const expressRes = res as express.Response;
+                if (!expressRes.headersSent) {
+                    expressRes.status(500).send('Proxy error');
+                } else {
+                    // Headers already sent, gracefully close the connection
+                    console.error('Cannot send error response, headers already sent');
+                    expressRes.end();
+                }
             }
         }
     }));
 
     // Proxy Player API requests
+    const playerApiUrl = process.env.PLAYER_API_URL || 'https://dev1.player.eosc-data-commons.eu';
+    console.log(`Setting up Player API proxy to: ${playerApiUrl}`);
     app.use('/player-api', createProxyMiddleware({
-        target: 'https://dev1.player.eosc-data-commons.eu',
+        target: playerApiUrl,
         changeOrigin: true,
         pathRewrite: {'^/player-api': ''},
-        secure: false,
+        secure: true,
         on: {
             error: (err, req, res) => {
                 console.error('Player API proxy error:', err);
-                (res as express.Response).status(500).send('Proxy error');
+                const expressRes = res as express.Response;
+                if (!expressRes.headersSent) {
+                    expressRes.status(500).send('Proxy error');
+                } else {
+                    // Headers already sent, gracefully close the connection
+                    console.error('Cannot send error response, headers already sent');
+                    expressRes.end();
+                }
             }
         }
     }));
@@ -88,4 +110,3 @@ async function createServer() {
 }
 
 createServer();
-

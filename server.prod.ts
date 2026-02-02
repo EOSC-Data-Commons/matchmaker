@@ -9,7 +9,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 async function createServer() {
     const app = express();
 
-    const distPath = path.resolve(__dirname, 'dist');
+    // Body parsing middleware for POST/PUT/PATCH requests
+    app.use(express.json());
+    app.use(express.urlencoded({extended: true}));
+
+    // When compiled, this file is in dist/, so client and server are siblings
+    const distPath = __dirname;
     const clientPath = path.resolve(distPath, 'client');
     const serverPath = path.resolve(distPath, 'server');
 
@@ -17,31 +22,52 @@ async function createServer() {
     app.use(express.static(clientPath, {index: false}));
 
     // Proxy API requests
-    if (process.env.API_URL) {
+    const apiUrl = process.env.API_URL;
+    if (apiUrl) {
+        console.log(`Setting up API proxy to: ${apiUrl}`);
         app.use('/api', createProxyMiddleware({
-            target: process.env.API_URL,
+            target: apiUrl,
             changeOrigin: true,
             pathRewrite: {'^/api': ''},
             on: {
                 error: (err, req, res) => {
                     console.error('API proxy error:', err);
-                    (res as express.Response).status(500).send('Proxy error');
+                    const expressRes = res as express.Response;
+                    if (!expressRes.headersSent) {
+                        expressRes.status(500).send('Proxy error');
+                    } else {
+                        // Headers already sent, gracefully close the connection
+                        console.error('Cannot send error response, headers already sent');
+                        expressRes.end();
+                    }
                 }
             }
         }));
+    } else {
+        console.warn('WARNING: API_URL environment variable is not set. The /api proxy will not be available.');
+        console.warn('This may cause the application to malfunction if it relies on backend API calls.');
+        console.warn('Please set API_URL to the backend API endpoint (e.g., http://backend:8000)');
     }
 
     // Proxy Player API requests
     const playerApiUrl = process.env.PLAYER_API_URL || 'https://dev1.player.eosc-data-commons.eu';
+    console.log(`Setting up Player API proxy to: ${playerApiUrl}`);
     app.use('/player-api', createProxyMiddleware({
         target: playerApiUrl,
         changeOrigin: true,
         pathRewrite: {'^/player-api': ''},
-        secure: false,
+        secure: true,
         on: {
             error: (err, req, res) => {
                 console.error('Player API proxy error:', err);
-                (res as express.Response).status(500).send('Proxy error');
+                const expressRes = res as express.Response;
+                if (!expressRes.headersSent) {
+                    expressRes.status(500).send('Proxy error');
+                } else {
+                    // Headers already sent, gracefully close the connection
+                    console.error('Cannot send error response, headers already sent');
+                    expressRes.end();
+                }
             }
         }
     }));
@@ -81,4 +107,3 @@ async function createServer() {
 }
 
 createServer();
-
