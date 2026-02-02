@@ -6,7 +6,6 @@ import {
 } from 'react-router';
 import type {Request as ExpressRequest} from 'express';
 import {routes} from './routes';
-import './index.css';
 
 export async function render(request: ExpressRequest) {
     const {query, dataRoutes} = createStaticHandler(routes);
@@ -63,14 +62,7 @@ function createFetchRequest(req: ExpressRequest): Request {
     };
 
     if (req.method !== 'GET' && req.method !== 'HEAD') {
-        // Serialize body as JSON string since Express body parsers provide parsed objects
-        if (req.body && Object.keys(req.body).length > 0) {
-            init.body = JSON.stringify(req.body);
-            // Ensure Content-Type is set
-            if (!headers.has('content-type')) {
-                headers.set('content-type', 'application/json');
-            }
-        }
+        init.body = req.body;
     }
 
     return new Request(url.href, init);
