@@ -43,14 +43,12 @@ async function createServer() {
         }
     }));
 
-    // Use vite's connect instance as middleware (AFTER API, BEFORE SSR handler)
+    // Use Vite's middleware for handling requests
     app.use(vite.middlewares);
 
     app.use(async (req, res, next) => {
         const url = req.originalUrl;
-
         try {
-            // Read index.html
             const template = await vite.transformIndexHtml(
                 url,
                 fs.readFileSync(
@@ -58,24 +56,16 @@ async function createServer() {
                     'utf-8'
                 )
             );
-
-            // Load the server entry
             const {render} = await vite.ssrLoadModule('/src/entry-server.tsx');
-
-            // Render the app
             const result = await render(req);
-
-            // Handle redirects
             if (result.redirect) {
                 return res.redirect(result.status || 302, result.redirect);
             }
-
             // Inject the app-rendered HTML into the template
             const html = template.replace('<!--ssr-outlet-->', result.html);
 
             res.status(200).set({'Content-Type': 'text/html'}).end(html);
         } catch (e) {
-            // If an error is caught, let Vite fix the stack trace
             vite.ssrFixStacktrace(e as Error);
             next(e);
         }
