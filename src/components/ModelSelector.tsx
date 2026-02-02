@@ -27,7 +27,6 @@ export const ModelSelector = ({models, selectedModel, onModelChange}: ModelSelec
     };
 
     useEffect(() => {
-
         const handleClickOutside = (event: MouseEvent) => {
             if (selectorRef.current && !selectorRef.current.contains(event.target as Node)) {
                 setIsOpen(false);
