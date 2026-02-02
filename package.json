@@ -8,7 +8,7 @@
     "build": "npm run build:client && npm run build:server && npm run build:prod-server",
     "build:client": "vite build",
     "build:server": "vite build --ssr",
-    "build:prod-server": "tsc server.prod.ts --outDir dist --module ESNext --target ES2022 --moduleResolution bundler --esModuleInterop --skipLibCheck",
+    "build:prod-server": "tsc -p tsconfig.node.json --outDir dist",
     "preview": "NODE_ENV=production tsx server.prod.ts",
     "start": "NODE_ENV=production node dist/server.prod.js",
     "lint": "eslint ."

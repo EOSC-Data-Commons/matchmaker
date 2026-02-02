@@ -47,7 +47,7 @@ WORKDIR /app
 # Copy package files for production dependencies
 COPY package.json package-lock.json* ./
 
-# Install only production dependencies (tsx no longer needed)
+# Install only production dependencies
 RUN npm ci --omit=dev
 
 # Copy built artifacts from build stage
@@ -60,5 +60,5 @@ EXPOSE 3000
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Start the compiled server (no tsx required)
+# Start the compiled server
 CMD ["node", "dist/server.prod.js"]
