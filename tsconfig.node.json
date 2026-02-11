@@ -23,7 +23,6 @@
   },
   "include": [
     "vite.config.ts",
-    "server.ts",
-    "server.prod.ts"
+    "server.ts"
   ]
 }
