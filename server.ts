@@ -4,9 +4,7 @@ import morgan from "morgan";
 import path from "path";
 import {createProxyMiddleware} from "http-proxy-middleware";
 import {createRequestHandler} from "@react-router/express";
-import {fileURLToPath} from "node:url";
 
-path.dirname(fileURLToPath(import.meta.url));
 
 // Constants
 const DEVELOPMENT = process.env.NODE_ENV !== "production";
