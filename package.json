@@ -7,6 +7,10 @@
     "dev": "tsx server.ts",
     "build": "react-router build && tsc -p tsconfig.node.json --outDir dist",
     "start": "NODE_ENV=production node dist/server.js",
+    "cluster": "pm2 start 'NODE_ENV=production node dist/server.js' --name matchmaker -i max",
+    "stop": "pm2 stop matchmaker",
+    "restart": "pm2 restart matchmaker",
+    "logs": "pm2 logs matchmaker",
     "preview": "NODE_ENV=production tsx server.ts",
     "lint": "eslint ."
   },
