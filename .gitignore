@@ -26,3 +26,4 @@ dist-ssr
 /builder.config.json
 /tsconfig.tsbuildinfo
 /.env
+/.react-router
