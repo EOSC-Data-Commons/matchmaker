@@ -1,5 +1,5 @@
 import {useEffect, useRef, useState} from "react";
-import {useNavigate} from "react-router-dom";
+import {useNavigate} from "react-router";
 import {ModelSelector} from "./ModelSelector.tsx";
 import {getSearchHistory} from "../lib/history.ts";
 

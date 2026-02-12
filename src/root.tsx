@@ -5,7 +5,6 @@ import {
     Scripts,
     ScrollRestoration,
     isRouteErrorResponse,
-    useRouteError,
 } from "react-router";
 import React from 'react';
 import "./index.css";

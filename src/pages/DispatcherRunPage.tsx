@@ -1,5 +1,5 @@
 import {useState} from 'react';
-import {useSearchParams, useNavigate} from 'react-router-dom';
+import {useSearchParams, useNavigate} from 'react-router';
 import {LoaderIcon, CheckCircleIcon, XCircleIcon, AlertCircleIcon} from 'lucide-react';
 import {Footer} from '../components/Footer';
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
