@@ -5,6 +5,7 @@ import {
     Scripts,
     ScrollRestoration,
     isRouteErrorResponse,
+    useRouteError,
 } from "react-router";
 import React from 'react';
 import "./index.css";
@@ -47,7 +48,8 @@ export default function App() {
     );
 }
 
-export function ErrorBoundary({error}: { error: unknown }) {
+export function ErrorBoundary() {
+    const error = useRouteError();
     let message = "Oops!";
     let details = "An unexpected error occurred.";
     let stack: string | undefined;
@@ -75,4 +77,3 @@ export function ErrorBoundary({error}: { error: unknown }) {
         </main>
     );
 }
-
