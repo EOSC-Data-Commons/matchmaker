@@ -67,13 +67,11 @@ export const AlphaDisclaimer = () => {
     useEffect(() => {
         const stored = sessionStorage.getItem('alphaDisclaimerDismissed');
         if (stored) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setDismissed(true);
         }
     }, []);
 
     useLayoutEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setAnimReady(true);
     }, []);
 
@@ -91,7 +89,6 @@ export const AlphaDisclaimer = () => {
 
     useEffect(() => {
         if (visible) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setCountdown(8);
             const closeTimer = setTimeout(() => {
                 handleClose();

@@ -10,7 +10,6 @@ export const HistoryPanel = ({onHistoryClick}: HistoryPanelProps) => {
     const [history, setHistory] = useState<string[]>([]);
 
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setHistory(getSearchHistory());
     }, []);
 
