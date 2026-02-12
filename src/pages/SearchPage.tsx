@@ -261,7 +261,10 @@ export const SearchPage = () => {
                     </div>
                 </div>
             </main>
-            <Footer/>
+            {/* Footer only when results list is present */}
+            {!loading && (
+                <Footer translucent/>
+            )}
         </div>
     );
 };
