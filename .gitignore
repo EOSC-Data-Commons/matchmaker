@@ -9,6 +9,7 @@ lerna-debug.log*
 
 node_modules
 dist
+build
 dist-ssr
 *.local
 
@@ -26,3 +27,4 @@ dist-ssr
 /builder.config.json
 /tsconfig.tsbuildinfo
 /.env
+/.react-router

@@ -6,7 +6,7 @@ WORKDIR /app
 # Copy package files
 COPY package.json package-lock.json* ./
 
-# Install all dependencies
+# Install all dependencies (needed for both dev and build)
 RUN npm ci
 
 # Development stage
@@ -52,6 +52,7 @@ RUN npm ci --omit=dev
 
 # Copy built artifacts from build stage
 COPY --from=build /app/dist ./dist
+COPY --from=build /app/build ./build
 
 # Expose the port
 EXPOSE 3000
@@ -61,4 +62,4 @@ ENV NODE_ENV=production
 ENV PORT=3000
 
 # Start the compiled server
-CMD ["node", "dist/server.prod.js"]
+CMD ["npm", "run", "start"]

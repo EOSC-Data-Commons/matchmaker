@@ -20,7 +20,7 @@ services:
       - ./tsconfig.app.json:/app/tsconfig.app.json
       - ./package.json:/app/package.json
       - ./tailwind.config.ts:/app/tailwind.config.ts
-      - ./index.html:/app/index.html
+      - ./react-router.config.ts:/app/react-router.config.ts
       - ./eslint.config.js:/app/eslint.config.js
     command: npm run dev
     depends_on:

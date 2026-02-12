@@ -4,7 +4,7 @@ import {ProportionalStar} from './ProportionalStar';
 import {CitationExport} from './CitationExport';
 import {stripHtml} from "../lib/utils";
 import {useState} from 'react';
-import {useSearchParams} from 'react-router-dom';
+import {useSearchParams} from 'react-router';
 import {RepoLogo} from "./RepoLogo.tsx";
 
 interface SearchResultItemProps {
