@@ -63,8 +63,6 @@ export function stripHtml(html: string): string {
     let text = html.replace(/<(script|style|noscript|iframe)[^>]*>[\s\S]*?<\/\1>/gi, '');
     text = text.replace(/<!--[\s\S]*?-->/g, '');
     text = text.replace(/<[^>]+>/g, '');
-
-    // 4. Decode common HTML entities
     const entities: Record<string, string> = {
         '&nbsp;': ' ',
         '&amp;': '&',
