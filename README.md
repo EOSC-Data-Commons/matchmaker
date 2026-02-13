@@ -4,7 +4,7 @@
 
 # EOSC Data Commons Frontend
 
-A web application for searching scientific datasets using natural language queries. This application works with the [EOSC Data Commons MCP server](https://github.com/EOSC-Data-Commons/data-commons-mcp) to help you discover scientific datasets through AI-powered search.
+A web application for searching scientific datasets using natural language queries. This application works with the [EOSC Data Commons Search server](https://github.com/EOSC-Data-Commons/data-commons-search) to help you discover scientific datasets through AI-powered search.
 
 ## What You Need First
 
@@ -62,11 +62,11 @@ Install dependencies:
 npm install
 ```
 
-### Step 2: Set Up the Backend (EOSC Data Commons MCP server)
+### Step 2: Set Up the Backend (EOSC Data Commons search server)
 
-Follow the instructions in the backend [README](https://github.com/EOSC-Data-Commons/data-commons-mcp) to set up and run the server. The frontend expects the backend to be running on port 8000 by default.
+Follow the instructions in the backend [README](https://github.com/EOSC-Data-Commons/data-commons-search) to set up and run the server. The frontend expects the backend to be running on port 8000 by default.
 
-> **Note:**
+> [!NOTE]
 > If you are running the backend with Docker and encounter an error of HTTP 401, related to `SEARCH_API_KEY=SECRET_KEY_YOU_CAN_USE_IN_FRONTEND_TO_AVOID_SPAM`, try removing or commenting out the `SEARCH_API_KEY` line in your backend `.env` file. The backend does not require this key unless you want to restrict API access.
 
 ### Step 3: Start the Frontend
@@ -120,7 +120,9 @@ docker run -p 5173:80 ghcr.io/eosc-data-commons/matchmaker-frontend:latest
 - The app will be available at http://localhost:5173
 - Make sure your backend server is running and accessible to the container (default: http://localhost:8000)
 
-> **Note:** If running backend and frontend in separate containers, you may need to adjust CORS or network settings for them to communicate.
+> [!NOTE]
+>
+> If running backend and frontend in separate containers, you may need to adjust CORS or network settings for them to communicate.
 
 
 ## How to Search
