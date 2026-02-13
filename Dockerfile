@@ -6,7 +6,7 @@ WORKDIR /app
 # Copy package files
 COPY package.json package-lock.json* ./
 
-# Install all dependencies (needed for both dev and build)
+# Install all dependencies
 RUN npm ci
 
 # Development stage
@@ -14,13 +14,7 @@ FROM base AS development
 
 WORKDIR /app
 
-# Copy only necessary config files for dev
-# Source files will be mounted as volumes
-COPY tsconfig*.json ./
-COPY vite.config.ts ./
-COPY tailwind.config.ts ./
-COPY eslint.config.js ./
-COPY index.html ./
+COPY . .
 
 # Expose development port
 EXPOSE 5173
@@ -51,7 +45,6 @@ COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev
 
 # Copy built artifacts from build stage
-COPY --from=build /app/dist ./dist
 COPY --from=build /app/build ./build
 
 # Expose the port
