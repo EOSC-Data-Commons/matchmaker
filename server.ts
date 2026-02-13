@@ -14,7 +14,6 @@ const PLAYER_API_URL = process.env.PLAYER_API_URL || 'https://dev1.player.eosc-d
 
 const app = express();
 
-app.use(compression());
 app.disable("x-powered-by");
 
 // Proxies
@@ -42,6 +41,8 @@ app.use('/api/player', createProxyMiddleware({
         }
     }
 }));
+
+app.use(compression());
 
 if (DEVELOPMENT) {
     console.log("Starting development server");
