@@ -9,7 +9,7 @@ import {createRequestHandler} from "@react-router/express";
 // Constants
 const DEVELOPMENT = process.env.NODE_ENV !== "production";
 const PORT = Number.parseInt(process.env.PORT || (DEVELOPMENT ? "5173" : "3000"));
-const API_URL = process.env.API_URL || 'http://127.0.0.1:8000';
+const SEARCH_API_URL = process.env.SEARCH_API_URL || 'http://127.0.0.1:8000';
 const PLAYER_API_URL = process.env.PLAYER_API_URL || 'https://dev1.player.eosc-data-commons.eu';
 
 const app = express();
@@ -18,22 +18,22 @@ app.use(compression());
 app.disable("x-powered-by");
 
 // Proxies
-app.use('/api', createProxyMiddleware({
-    target: API_URL,
+app.use('/api/search', createProxyMiddleware({
+    target: SEARCH_API_URL,
     changeOrigin: true,
-    pathRewrite: {'^/api': ''},
+    pathRewrite: {'^/api/search': ''},
     on: {
         error: (err, _req, res) => {
-            console.error('API proxy error:', err);
+            console.error('Search API proxy error:', err);
             (res as express.Response).status(500).send('Proxy error');
         }
     }
 }));
 
-app.use('/player-api', createProxyMiddleware({
+app.use('/api/player', createProxyMiddleware({
     target: PLAYER_API_URL,
     changeOrigin: true,
-    pathRewrite: {'^/player-api': ''},
+    pathRewrite: {'^/api/player': ''},
     secure: false,
     on: {
         error: (err, _req, res) => {
