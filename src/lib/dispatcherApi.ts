@@ -8,7 +8,7 @@ import {
 } from '../types/dispatcher';
 import {fetchWithTimeout} from './utils';
 
-// Use proxy to avoid CORS issues and simplify environment management
+// Use proxy to avoid CORS issues
 const API_BASE = '/api/player';
 const METADATA_ENDPOINT = '/anon_requests/metadata_rocrate/';
 const FILEMETRIX_BASE = 'https://filemetrix.labs.dansdemo.nl/api/v1';
