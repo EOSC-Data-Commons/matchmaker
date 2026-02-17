@@ -1,4 +1,4 @@
-import {useNavigate, useSearchParams} from "react-router-dom";
+import {useNavigate, useSearchParams} from "react-router";
 import {useEffect, useState, useMemo} from "react";
 import {XCircleIcon, ChevronDown, ChevronUp, Sparkles} from "lucide-react";
 import {SearchInput} from "../components/SearchInput.tsx";
@@ -268,3 +268,6 @@ export const SearchPage = () => {
         </div>
     );
 };
+
+export default SearchPage;
+

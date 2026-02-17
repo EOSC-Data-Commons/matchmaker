@@ -2,7 +2,7 @@ import {BackendSearchResponse} from '../types/commons';
 import {logError, fetchWithTimeout} from './utils.ts';
 
 // --- API HELPERS ---
-export const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL || '';
+export const BACKEND_API_URL = '/api/search';
 
 export interface SearchRequest {
     messages: Array<{

@@ -1,8 +1,21 @@
 services:
   frontend:
     image: ghcr.io/eosc-data-commons/matchmaker-frontend:latest
-    build: .
+    build:
+      context: .
+      target: production
+    # Development configuration
+    #   context: .
+    #   target: development
+    # volumes:
+    #   - ./:/app
+    #   - /app/node_modules
+    # command: npm run dev
     ports:
-      - "127.0.0.1:5173:80"
+      - "127.0.0.1:3000:3000"
+      # - "127.0.0.1:5173:5173" # For development
     environment:
       - NODE_ENV=production
+      # - NODE_ENV=development
+      - SEARCH_API_URL=http://host.docker.internal:8000
+      - PLAYER_API_URL=https://dev1.player.eosc-data-commons.eu

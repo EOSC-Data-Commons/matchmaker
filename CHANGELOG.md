@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] - 2026-02-01
+
+- Moved the project from Client Side Rendering (CSR) to Server Side Rendering (SSR) using React Router.
+
 ## [0.4.2] - 2025-12-22
 
 - Enhanced search result score badges with informative tooltips

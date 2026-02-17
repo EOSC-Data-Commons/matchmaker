@@ -64,7 +64,6 @@ export const AlphaDisclaimer = () => {
     const [countdown, setCountdown] = useState(8);
     const [dismissed, setDismissed] = useState(false);
 
-
     useEffect(() => {
         const stored = sessionStorage.getItem('alphaDisclaimerDismissed');
         if (stored) {
