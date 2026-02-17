@@ -5,7 +5,8 @@ services:
       context: .
       target: production
     ports:
-      - "127.0.0.1:5173:3000"
+      - "127.0.0.1:3000:3000"
+      # - "127.0.0.1:5173:5173" # For development
     environment:
       - NODE_ENV=production
       - SEARCH_API_URL=http://search-api:8000
