@@ -8,12 +8,13 @@
     "clean": "rm -rf build",
     "build": "npm run clean && react-router build && tsc -p tsconfig.node.json --outDir build",
     "start": "NODE_ENV=production node build/server.js",
-    "cluster": "pm2 start 'NODE_ENV=production node build/server.js' --name matchmaker -i max",
+    "prod": "NODE_ENV=production pm2-runtime start build/server.js --name matchmaker -i max",
     "stop": "pm2 stop matchmaker",
     "restart": "pm2 restart matchmaker",
     "logs": "pm2 logs matchmaker",
     "preview": "NODE_ENV=production tsx server.ts",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "postversion": "VERSION=$(jq -r .version package.json) && git tag v$VERSION && git push origin v$VERSION"
   },
   "dependencies": {
     "@radix-ui/react-toast": "^1.2.15",
