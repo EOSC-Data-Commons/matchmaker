@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.3] - 2026-02-23
+
+- Updated deployment workflow to only run on `main` branch
+- Removed changelog and version bump check on every PR for `main` branch
+
 ## [0.5.1] - 2026-02-23
 
 - Updated Docker build and deployment workflow to trigger on version tags and improve image tagging strategy.
