@@ -55,4 +55,4 @@ ENV NODE_ENV=production
 ENV PORT=3000
 
 # Start the compiled server
-CMD ["npm", "run", "start"]
+CMD ["npm", "run", "prod"]

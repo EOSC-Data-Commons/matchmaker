@@ -14,7 +14,7 @@
     "logs": "pm2 logs matchmaker",
     "preview": "NODE_ENV=production tsx server.ts",
     "lint": "eslint .",
-    "postversion": "git push --follow-tags origin HEAD"
+    "postversion": "if [ \"$(git rev-parse --abbrev-ref HEAD)\" = \"main\" ]; then git push --follow-tags origin HEAD; else echo \"Not on main branch, skipping push.\"; fi"
   },
   "dependencies": {
     "@radix-ui/react-toast": "^1.2.15",
