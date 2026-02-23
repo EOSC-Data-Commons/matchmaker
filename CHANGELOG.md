@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.1] - 2026-02-23
+
+- Updated Docker build and deployment workflow to trigger on version tags and improve image tagging strategy.
+- Updated `docker-compose.yml` to use `npm run prod` for the frontend service.
+
 ## [0.5.0] - 2026-02-01
 
 - Moved the project from Client Side Rendering (CSR) to Server Side Rendering (SSR) using React Router.
