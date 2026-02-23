@@ -14,7 +14,7 @@
     "logs": "pm2 logs matchmaker",
     "preview": "NODE_ENV=production tsx server.ts",
     "lint": "eslint .",
-    "postversion": "VERSION=$(jq -r .version package.json) && git tag v$VERSION && git push origin v$VERSION"
+    "postversion": "git push --follow-tags origin HEAD"
   },
   "dependencies": {
     "@radix-ui/react-toast": "^1.2.15",
