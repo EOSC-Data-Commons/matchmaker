@@ -1,6 +1,6 @@
 import {useNavigate, useSearchParams} from "react-router";
 import {useEffect, useState, useMemo} from "react";
-import {XCircleIcon, ChevronDown, ChevronUp, Sparkles} from "lucide-react";
+import {XCircleIcon, ChevronDown, ChevronUp, Sparkles, Clock} from "lucide-react";
 import {SearchInput} from "../components/SearchInput.tsx";
 import {SearchResultItem} from "../components/SearchResultItem.tsx";
 import {AlphaDisclaimer} from "../components/AlphaDisclaimer";
@@ -121,10 +121,16 @@ export const SearchPage = () => {
                         {/* Error state inline */}
                         {!loading && error && (
                             <div
-                                className="p-6 bg-white rounded-lg shadow-sm border border-red-200 text-center space-y-4">
-                                <XCircleIcon className="h-12 w-12 text-red-500 mx-auto"/>
+                                className={`p-6 bg-white rounded-lg shadow-sm border ${error.includes("too many requests") ? "border-orange-200" : "border-red-200"} text-center space-y-4`}>
+                                {error.includes("too many requests") ? (
+                                    <Clock className="h-12 w-12 text-orange-500 mx-auto"/>
+                                ) : (
+                                    <XCircleIcon className="h-12 w-12 text-red-500 mx-auto"/>
+                                )}
                                 <div>
-                                    <h2 className="text-xl font-semibold text-gray-900 mb-2">Search Error</h2>
+                                    <h2 className={`text-xl font-semibold ${error.includes("too many requests") ? "text-orange-800" : "text-gray-900"} mb-2`}>
+                                        {error.includes("too many requests") ? "Rate Limit Exceeded" : "Search Error"}
+                                    </h2>
                                     <p className="text-gray-600 mb-4">{error}</p>
                                     <button
                                         onClick={performSearch}

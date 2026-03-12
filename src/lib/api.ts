@@ -59,6 +59,10 @@ export const searchWithBackend = async (
             timeoutMs
         );
 
+        if (response.status === 429) {
+            throw new Error("We are receiving too many requests. Please try again in a few minutes.");
+        }
+
         if (!response.ok) throw new Error(`Error sending the request: ${response.status}`);
         // if (!response.headers.get('content-type')?.includes('text/event-stream')) return response.json();
 
@@ -157,5 +161,3 @@ const handleStream = async (
         reader.releaseLock();
     }
 };
-
-
