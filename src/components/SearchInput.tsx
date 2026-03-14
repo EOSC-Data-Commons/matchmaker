@@ -12,6 +12,7 @@ const models = [
     "groq/moonshotai/kimi-k2-instruct",
     "einfracz/qwen3-coder",
     "einfracz/gpt-oss-120b",
+    "einfracz/deepseek-v3.2-thinking"
 ];
 
 interface SearchInputProps {

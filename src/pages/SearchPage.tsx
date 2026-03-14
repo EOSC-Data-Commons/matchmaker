@@ -20,7 +20,7 @@ export const SearchPage = () => {
     const [showInitialResults, setShowInitialResults] = useState(false);
 
     const query = searchParams.get('q') || '';
-    const model = searchParams.get('model') || 'einfracz/gpt-oss-120b';
+    const model = searchParams.get('model') || 'einfracz/qwen3-coder';
 
     // Custom hooks for data management
     const {

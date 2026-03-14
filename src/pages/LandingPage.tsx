@@ -137,7 +137,7 @@ export const LandingPage = () => {
                                 {dataCards.map((card, index) => (
                                     <div
                                         key={index}
-                                        onClick={() => handleSearch(card, "einfracz/gpt-oss-120b")}
+                                        onClick={() => handleSearch(card, "einfracz/qwen3-coder")}
                                         className="bg-white border border-eosc-border rounded-xl p-6 min-h-[75px] flex items-center justify-center cursor-pointer hover:bg-gray-50 hover:border-eosc-light-blue transition-colors"
                                     >
                                         <p className="text-sm font-light text-black text-center">
