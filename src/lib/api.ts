@@ -4,6 +4,20 @@ import {logError, fetchWithTimeout} from './utils.ts';
 // --- API HELPERS ---
 export const BACKEND_API_URL = '/api/search';
 
+export class RateLimitError extends Error {
+    constructor(message?: string) {
+        super(message || "We are receiving too many requests. Please try again in a few minutes.");
+        this.name = "RateLimitError";
+    }
+}
+
+export class ServerError extends Error {
+    constructor(statusCode: number) {
+        super(`Our services are currently experiencing technical difficulties (Error ${statusCode}). Please try again later.`);
+        this.name = "ServerError";
+    }
+}
+
 export interface SearchRequest {
     messages: Array<{
         role: 'user';
@@ -60,7 +74,11 @@ export const searchWithBackend = async (
         );
 
         if (response.status === 429) {
-            throw new Error("We are receiving too many requests. Please try again in a few minutes.");
+            throw new RateLimitError();
+        }
+
+        if (response.status >= 500) {
+            throw new ServerError(response.status);
         }
 
         if (!response.ok) throw new Error(`Error sending the request: ${response.status}`);

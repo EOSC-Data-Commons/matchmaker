@@ -9,7 +9,7 @@ interface UseSearchResultsReturn {
     rerankedResults: BackendSearchResponse | null;
     loading: boolean;
     isProcessing: boolean;
-    error: string | null;
+    error: Error | null;
     performSearch: () => Promise<void>;
 }
 
@@ -19,7 +19,7 @@ export const useSearchResults = (query: string, model: string): UseSearchResults
     const [rerankedResults, setRerankedResults] = useState<BackendSearchResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [error, setError] = useState<Error | null>(null);
     const isSearchingRef = useRef(false);
 
     const performSearch = useCallback(async () => {
@@ -49,13 +49,13 @@ export const useSearchResults = (query: string, model: string): UseSearchResults
                 },
                 onError: (err) => {
                     console.error("Search stream error:", err);
-                    setError(err.message);
+                    setError(err);
                 },
             });
             addToSearchHistory(query);
         } catch (err) {
             console.error("Search error:", err);
-            setError(err instanceof Error ? err.message : "An unknown error occurred.");
+            setError(err instanceof Error ? err : new Error("An unknown error occurred."));
         } finally {
             setLoading(false);
             setIsProcessing(false);
@@ -72,4 +72,3 @@ export const useSearchResults = (query: string, model: string): UseSearchResults
         performSearch,
     };
 };
-
