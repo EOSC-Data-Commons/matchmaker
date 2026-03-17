@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0] - 2026-03-17
+
+- Introduced user authentication with login/logout functionality and user profile menu.
+- Updated default search model to `einfracz/qwen3-coder` and added `einfracz/deepseek-v3.2-thinking`.
+- Improved error handling for search, including specific UI for rate limiting and server errors.
+
 ## [0.5.3] - 2026-02-23
 
 - Updated deployment workflow to only run on `main` branch
