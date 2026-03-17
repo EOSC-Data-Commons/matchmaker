@@ -4,12 +4,15 @@ import {SearchInput} from "../components/SearchInput";
 import {AlphaDisclaimer} from "../components/AlphaDisclaimer";
 import {Footer} from "../components/Footer";
 import {EasterEgg} from "../components/EasterEgg";
+import {UserMenu} from "../components/UserMenu";
+import {useAuth} from "../hooks/useAuth";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 import eoscLogo from '@/assets/logo-eosc-data-commons.svg';
 import summaryRepoImage from '@/assets/SummaryRepo_24Nov25.png';
 
 export const LandingPage = () => {
     const navigate = useNavigate();
+    const {user, loading, logout} = useAuth();
     const [logoClickCount, setLogoClickCount] = useState(0);
     const [showEasterEgg, setShowEasterEgg] = useState(false);
 
@@ -29,6 +32,10 @@ export const LandingPage = () => {
 
     const handleAbout = () => {
         window.open('https://www.eosc-data-commons.eu/service/eosc-matchmaker', '_blank', 'noopener,noreferrer');
+    };
+
+    const handleLogin = () => {
+        window.location.href = '/auth/login';
     };
 
     const dataCards = [
@@ -61,12 +68,26 @@ export const LandingPage = () => {
                     alt="EOSC"
                     className="w-16 h-9"
                 />
-                <button
-                    onClick={handleAbout}
-                    className="bg-white border border-eosc-border rounded-lg px-4 py-2 text-sm font-light text-eosc-text hover:bg-gray-50 hover:border-eosc-light-blue transition-colors cursor-pointer"
-                >
-                    About
-                </button>
+                <div className="flex gap-4">
+                    <button
+                        onClick={handleAbout}
+                        className="bg-white border border-eosc-border rounded-lg px-4 py-2 text-sm font-light text-eosc-text hover:bg-gray-50 hover:border-eosc-light-blue transition-colors cursor-pointer"
+                    >
+                        About
+                    </button>
+                    {!loading && (
+                        user ? (
+                            <UserMenu user={user} onLogout={logout}/>
+                        ) : (
+                            <button
+                                onClick={handleLogin}
+                                className="bg-white border border-eosc-border rounded-lg px-4 py-2 text-sm font-light text-eosc-text hover:bg-gray-50 hover:border-eosc-light-blue transition-colors cursor-pointer"
+                            >
+                                Login
+                            </button>
+                        )
+                    )}
+                </div>
             </header>
 
             <div className="w-full max-w-7xl mx-auto flex-grow flex flex-col justify-center">
@@ -116,7 +137,7 @@ export const LandingPage = () => {
                                 {dataCards.map((card, index) => (
                                     <div
                                         key={index}
-                                        onClick={() => handleSearch(card, "einfracz/gpt-oss-120b")}
+                                        onClick={() => handleSearch(card, "einfracz/qwen3-coder")}
                                         className="bg-white border border-eosc-border rounded-xl p-6 min-h-[75px] flex items-center justify-center cursor-pointer hover:bg-gray-50 hover:border-eosc-light-blue transition-colors"
                                     >
                                         <p className="text-sm font-light text-black text-center">

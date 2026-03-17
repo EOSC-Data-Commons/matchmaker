@@ -1,6 +1,6 @@
 import {useNavigate, useSearchParams} from "react-router";
 import {useEffect, useState, useMemo} from "react";
-import {XCircleIcon, ChevronDown, ChevronUp, Sparkles} from "lucide-react";
+import {XCircleIcon, ChevronDown, ChevronUp, Sparkles, Clock, AlertTriangle} from "lucide-react";
 import {SearchInput} from "../components/SearchInput.tsx";
 import {SearchResultItem} from "../components/SearchResultItem.tsx";
 import {AlphaDisclaimer} from "../components/AlphaDisclaimer";
@@ -13,6 +13,7 @@ import {useSearchResults} from "../hooks/useSearchResults.ts";
 import {useCombinedDatasets} from "../hooks/useCombinedDatasets.ts";
 import {useFilteredDatasets} from "../hooks/useFilteredDatasets.ts";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
+import {RateLimitError, ServerError} from "../lib/api.ts";
 
 export const SearchPage = () => {
     const navigate = useNavigate();
@@ -20,7 +21,7 @@ export const SearchPage = () => {
     const [showInitialResults, setShowInitialResults] = useState(false);
 
     const query = searchParams.get('q') || '';
-    const model = searchParams.get('model') || 'einfracz/gpt-oss-120b';
+    const model = searchParams.get('model') || 'einfracz/qwen3-coder';
 
     // Custom hooks for data management
     const {
@@ -77,6 +78,34 @@ export const SearchPage = () => {
 
     const hasRerankedResults = rerankedResults !== null;
     const hasInitialResults = initialResults !== null;
+    const isRateLimit = error instanceof RateLimitError;
+    const isServerError = error instanceof ServerError;
+
+    // Helper to determine error UI properties
+    const getErrorState = () => {
+        if (isRateLimit) {
+            return {
+                title: "Rate Limit Exceeded",
+                color: "orange",
+                icon: Clock
+            };
+        }
+        if (isServerError) {
+            return {
+                title: "Service Unavailable",
+                color: "red",
+                icon: AlertTriangle
+            };
+        }
+        return {
+            title: "Search Error",
+            color: "red",
+            icon: XCircleIcon
+        };
+    };
+
+    const errorState = getErrorState();
+    const ErrorIcon = errorState.icon;
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -121,11 +150,13 @@ export const SearchPage = () => {
                         {/* Error state inline */}
                         {!loading && error && (
                             <div
-                                className="p-6 bg-white rounded-lg shadow-sm border border-red-200 text-center space-y-4">
-                                <XCircleIcon className="h-12 w-12 text-red-500 mx-auto"/>
+                                className={`p-6 bg-white rounded-lg shadow-sm border border-${errorState.color}-200 text-center space-y-4`}>
+                                <ErrorIcon className={`h-12 w-12 text-${errorState.color}-500 mx-auto`}/>
                                 <div>
-                                    <h2 className="text-xl font-semibold text-gray-900 mb-2">Search Error</h2>
-                                    <p className="text-gray-600 mb-4">{error}</p>
+                                    <h2 className={`text-xl font-semibold text-${errorState.color}-800 mb-2`}>
+                                        {errorState.title}
+                                    </h2>
+                                    <p className="text-gray-600 mb-4">{error.message}</p>
                                     <button
                                         onClick={performSearch}
                                         className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"

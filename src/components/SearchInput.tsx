@@ -6,12 +6,15 @@ import {getSearchHistory} from "../lib/history.ts";
 
 const SHOW_MODEL_SELECTOR = import.meta.env.VITE_SHOW_MODEL_SELECTOR === 'true';
 
+const DEFAULT_MODEL = "einfracz/qwen3-coder";
+
 const models = [
     "openai/gpt-4.1",
     "mistralai/mistral-large-latest",
     "groq/moonshotai/kimi-k2-instruct",
     "einfracz/qwen3-coder",
     "einfracz/gpt-oss-120b",
+    "einfracz/deepseek-v3.2-thinking"
 ];
 
 interface SearchInputProps {
@@ -32,7 +35,7 @@ export const SearchInput = ({
                                 initialModel
                             }: SearchInputProps) => {
     const [query, setQuery] = useState(initialQuery);
-    const [selectedModel, setSelectedModel] = useState(initialModel || models[4]);
+    const [selectedModel, setSelectedModel] = useState(initialModel || DEFAULT_MODEL);
     const [showHistory, setShowHistory] = useState(false);
     const [history] = useState<string[]>(getSearchHistory);
     const [highlightedIndex, setHighlightedIndex] = useState(-1);

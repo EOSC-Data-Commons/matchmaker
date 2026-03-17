@@ -4,6 +4,20 @@ import {logError, fetchWithTimeout} from './utils.ts';
 // --- API HELPERS ---
 export const BACKEND_API_URL = '/api/search';
 
+export class RateLimitError extends Error {
+    constructor(message?: string) {
+        super(message || "We are receiving too many requests. Please try again in a few minutes.");
+        this.name = "RateLimitError";
+    }
+}
+
+export class ServerError extends Error {
+    constructor(statusCode: number) {
+        super(`Our services are currently experiencing technical difficulties (Error ${statusCode}). Please try again later.`);
+        this.name = "ServerError";
+    }
+}
+
 export interface SearchRequest {
     messages: Array<{
         role: 'user';
@@ -33,7 +47,7 @@ export interface SSEEventHandler {
 
 export const searchWithBackend = async (
     query: string,
-    model: string = 'einfracz/gpt-oss-120b',
+    model: string = 'einfracz/qwen3-coder',
     handlers: SSEEventHandler,
     timeoutMs: number = 60000 // Default 1 minute timeout
 ): Promise<BackendSearchResponse> => {
@@ -58,6 +72,14 @@ export const searchWithBackend = async (
             },
             timeoutMs
         );
+
+        if (response.status === 429) {
+            throw new RateLimitError();
+        }
+
+        if (response.status >= 500) {
+            throw new ServerError(response.status);
+        }
 
         if (!response.ok) throw new Error(`Error sending the request: ${response.status}`);
         // if (!response.headers.get('content-type')?.includes('text/event-stream')) return response.json();
@@ -157,5 +179,3 @@ const handleStream = async (
         reader.releaseLock();
     }
 };
-
-

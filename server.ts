@@ -42,6 +42,18 @@ app.use('/api/player', createProxyMiddleware({
     }
 }));
 
+app.use('/auth', createProxyMiddleware({
+    target: SEARCH_API_URL,
+    changeOrigin: false,
+    pathRewrite: {'^/': '/auth/'},
+    on: {
+        error: (err, _req, res) => {
+            console.error('Auth API proxy error:', err);
+            (res as express.Response).status(500).send('Proxy error');
+        }
+    }
+}));
+
 app.use(compression());
 
 if (DEVELOPMENT) {
