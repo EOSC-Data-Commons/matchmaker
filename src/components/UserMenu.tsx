@@ -44,13 +44,18 @@ export const UserMenu = ({user, onLogout}: UserMenuProps) => {
                 onClick={() => setIsOpen(!isOpen)}
                 className="w-9 h-9 rounded-full bg-[#002337] text-white flex items-center justify-center font-medium hover:bg-opacity-90 cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#009FE3]"
                 title={user.name || user.email}
+                aria-haspopup="menu"
+                aria-expanded={isOpen}
+                aria-label={`User menu for ${user.name || user.email}`}
             >
                 {getInitials()}
             </button>
 
             {isOpen && (
                 <div
-                    className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-eosc-border py-2 z-50">
+                    className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-eosc-border py-2 z-50"
+                    role="menu"
+                >
                     <div className="px-4 py-3 border-b border-gray-100">
                         <p className="text-sm font-medium text-gray-900 truncate">
                             {user.name || user.preferred_username}
@@ -63,6 +68,7 @@ export const UserMenu = ({user, onLogout}: UserMenuProps) => {
                         <button
                             onClick={onLogout}
                             className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer flex items-center gap-2"
+                            role="menuitem"
                         >
                             <svg
                                 className="w-4 h-4 text-gray-500"
