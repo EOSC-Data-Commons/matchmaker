@@ -25,15 +25,18 @@ export const UserMenu = ({user, onLogout}: UserMenuProps) => {
     }, []);
 
     const getInitials = () => {
-        if (user.name) {
-            const names = user.name.split(' ');
+        const name = user.name?.trim();
+        if (name) {
+            const names = name.split(/\s+/);
             if (names.length >= 2) {
                 return (names[0][0] + names[1][0]).toUpperCase();
             }
-            return user.name.substring(0, 2).toUpperCase();
+            return name.substring(0, 2).toUpperCase();
         }
-        if (user.preferred_username) {
-            return user.preferred_username.substring(0, 2).toUpperCase();
+
+        const preferredUsername = user.preferred_username?.trim();
+        if (preferredUsername) {
+            return preferredUsername.substring(0, 2).toUpperCase();
         }
         return user.email.substring(0, 2).toUpperCase();
     };
