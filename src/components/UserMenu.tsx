@@ -42,7 +42,7 @@ export const UserMenu = ({user, onLogout}: UserMenuProps) => {
         <div className="relative" ref={menuRef}>
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="w-9 h-9 rounded-full bg-[#002337] text-white flex items-center justify-center font-medium hover:bg-opacity-90 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#009FE3]"
+                className="w-9 h-9 rounded-full bg-[#002337] text-white flex items-center justify-center font-medium hover:bg-opacity-90 cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#009FE3]"
                 title={user.name || user.email}
             >
                 {getInitials()}
@@ -62,7 +62,7 @@ export const UserMenu = ({user, onLogout}: UserMenuProps) => {
                     <div className="py-1">
                         <button
                             onClick={onLogout}
-                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer flex items-center gap-2"
                         >
                             <svg
                                 className="w-4 h-4 text-gray-500"
@@ -81,4 +81,3 @@ export const UserMenu = ({user, onLogout}: UserMenuProps) => {
         </div>
     );
 };
-
