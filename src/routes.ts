@@ -7,5 +7,6 @@ export default [
     route("dispatcher/run", "pages/DispatcherRunPage.tsx"),
     route("privacy-policy", "pages/PrivacyPolicyPage.tsx"),
     route("acceptable-use-policy", "pages/AcceptableUsePage.tsx"),
+    route("dataplayer", "pages/DataplayerPage.tsx"),
     route("*", "pages/NotFound.tsx"),
 ] satisfies RouteConfig;
