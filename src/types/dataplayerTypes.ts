@@ -7,7 +7,8 @@ export interface ToolConfig {
 export type TypedValue =
     | boolean
     | string
-    | number;
+    | number
+    | FileMeta;
 
 export type InputParameterTyp =
     | "Number"
@@ -46,8 +47,7 @@ export interface DispatchResult {
 export type TypLaunchToolRequest = {
     toolId: string;
     dataset: string;
-    slotToValueMapping: Record<string, TypedValue>,
-    slotToFileMapping: Record<string, FileMeta>;
+    slotMapping: Record<string, TypedValue>,
 };
 
 // XXX: this need to sync with ToolState of protobuf
