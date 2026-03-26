@@ -4,6 +4,7 @@ export default [
     index("pages/LandingPage.tsx"),
     route("search", "pages/SearchPage.tsx"),
     route("dispatcher/run", "pages/DispatcherRunPage.tsx"),
+    route("dataplayer", "pages/DataplayerPage.tsx"),
     route("*", "pages/NotFound.tsx"),
 ] satisfies RouteConfig;
 
