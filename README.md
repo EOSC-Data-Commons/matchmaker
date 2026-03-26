@@ -124,6 +124,18 @@ docker run -p 5173:80 ghcr.io/eosc-data-commons/matchmaker-frontend:latest
 >
 > If running backend and frontend in separate containers, you may need to adjust CORS or network settings for them to communicate.
 
+## grpc codegen
+
+```console
+npx protoc \
+  --plugin=./node_modules/.bin/protoc-gen-ts_proto \
+  --ts_proto_out=./src/generated \
+  --ts_proto_opt=outputServices=grpc-js,esModuleInterop=true,env=node,useOptionals=messages \
+  --proto_path=./proto \
+  ./proto/service.proto
+```
+
+This will generate a `./src/generated/service.ts` file contains all types to be implemented for client.
 
 ## How to Search
 
