@@ -179,6 +179,10 @@ export const FileMappingStep = ({
                 </div>
             </div>
 
+            {/* For filesOnly and SlotsAndFiles tool, require widget for getting files. */}
+            <div>
+            </div>
+
             {/* Action Buttons */}
             <div
                 className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-eosc-border">

@@ -3,12 +3,12 @@
  *
  * Prerequisites — run once to generate types from your .proto:
  *
- *  npx protoc \
- *    --plugin=./node_modules/.bin/protoc-gen-ts_proto \
- *    --ts_proto_out=./src/lib/server/generated \
- *    --ts_proto_opt=outputServices=grpc-js,esModuleInterop=true,env=node,useOptionals=messages \
- *    --proto_path=./req-packager/proto \
- *    ./req-packager/proto/coordinator.proto
+ * npx protoc \
+ *   --plugin=./node_modules/.bin/protoc-gen-ts_proto \
+ *   --ts_proto_out=./src/lib/server/generated \
+ *   --ts_proto_opt=outputServices=grpc-js,esModuleInterop=true,env=node,useOptionals=messages \
+ *   --proto_path=./req-packager/proto \
+ *   ./req-packager/proto/coordinator.proto
  *
  * Install deps:
  *   npm install @grpc/grpc-js
@@ -43,9 +43,10 @@ export {
 
 import type {FileMeta, InputParameterTyp, ToolSlot, TypedValue} from "../../types/dataplayerTypes.ts";
 
-// const GRPC_TARGET = "129-132-86-131.net4.ethz.ch:443";
-const GRPC_TARGET = "grpc.eosc-coordinator.ethz.ch:443";
-// const GRPC_TARGET = "129.132.86.131:443";
+const GRPC_TARGET =
+  process.env.GRPC_TARGET ?? "grpc.eosc-coordinator.ethz.ch:443";
+
+console.warn(GRPC_TARGET);
 
 // tls, used when coordinator is not with matchmaker in same private network.
 // creds,
@@ -57,12 +58,16 @@ const creds = grpc.credentials.createSsl();
 // const creds_with_ca = grpc.credentials.createSsl(caCert);
 
 // NOTE: if matchmaker and coordinator stay in same private network, use InsecureChannel.
-// createInsecureChannel()
-// function createInsecureChannel(): grpc.ChannelCredentials {
-//     return grpc.credentials.createInsecure();
-// }
+function createInsecureChannel(): grpc.ChannelCredentials {
+    return grpc.credentials.createInsecure();
+}
 
-const channel = creds;
+let channel: grpc.ChannelCredentials;
+if (GRPC_TARGET === 'grpc.eosc-coordinator.ethz.ch:443') {
+    channel = creds;
+} else {
+    channel = createInsecureChannel()
+};
 
 // ---------------------------------------------------------------------------
 // Types
@@ -138,6 +143,15 @@ export function fileMetaToFileEntry(meta: FileMeta): FileEntry {
     };
 }
 
+function isFileMeta(value: unknown): value is FileMeta {
+    return (
+        typeof value === "object" &&
+        value !== null &&
+        "dataPath" in value &&
+        "filename" in value
+    );
+}
+
 export function valueToGrpcValue(value: TypedValue): GrpcTypedValue {
     if (typeof value === "string") {
         return {
@@ -154,6 +168,12 @@ export function valueToGrpcValue(value: TypedValue): GrpcTypedValue {
     if (typeof value === "boolean") {
         return {
             boolValue: value,
+        };
+    }
+
+    if (isFileMeta(value)) {
+        return {
+            file: fileMetaToFileEntry(value),
         };
     }
 
@@ -255,9 +275,7 @@ export async function fetchDatasetFilesFromDatahuggerByUrl(
 export async function launchTool(
     toolId: string,
     dataset: string,
-    slotToValueMapping: Record<string, TypedValue>,
-    slotToFileMapping: Record<string, FileMeta>,
-    token: string,
+    slotMapping: Record<string, TypedValue>,
 ): Promise<string> {
     const metadata = makeAuthMetadata(token);
 
@@ -268,21 +286,15 @@ export async function launchTool(
         channel,
     );
 
-    const msgFileSlotsMapping: Record<string, FileEntry> = {};
-    for (const k in slotToFileMapping) {
-        msgFileSlotsMapping[k] = fileMetaToFileEntry(slotToFileMapping[k]);
-    }
-
-    const msgValueSlotsMapping: Record<string, GrpcTypedValue> = {};
-    for (const k in slotToValueMapping) {
-        msgValueSlotsMapping[k] = valueToGrpcValue(slotToValueMapping[k]);
+    const msgSlotsMapping: Record<string, GrpcTypedValue> = {};
+    for (const k in slotMapping) {
+        msgSlotsMapping[k] = valueToGrpcValue(slotMapping[k]);
     }
 
     const request: LaunchToolRequest = {
         toolId,
         dataset,
-        valueSlotsMapping: msgValueSlotsMapping,
-        fileSlotsMapping: msgFileSlotsMapping,
+        slotsMapping: msgSlotsMapping,
     }
 
     return new Promise((resolve, reject) => {
