@@ -11,6 +11,7 @@ const DEVELOPMENT = process.env.NODE_ENV !== "production";
 const PORT = Number.parseInt(process.env.PORT || (DEVELOPMENT ? "5173" : "3000"));
 const SEARCH_API_URL = process.env.SEARCH_API_URL || 'http://127.0.0.1:8000';
 const PLAYER_API_URL = process.env.PLAYER_API_URL || 'https://dev1.player.eosc-data-commons.eu';
+const COORDINATOR_API_URL = process.env.COORDINATOR_API_URL || 'https://coordinator-eosc.ethz.ch';
 
 const app = express();
 
@@ -41,6 +42,20 @@ app.use('/api/player', createProxyMiddleware({
         }
     }
 }));
+
+app.use('/api/coordinator', createProxyMiddleware({
+    target: COORDINATOR_API_URL,
+    changeOrigin: true,
+    pathRewrite: {'^/api/coordinator': ''},
+    secure: false,
+    on: {
+        error: (err, _req, res) => {
+            console.error('coordinator API proxy error:', err);
+            (res as express.Response).status(500).send('Proxy error');
+        }
+    }
+}));
+
 
 app.use('/auth', createProxyMiddleware({
     target: SEARCH_API_URL,
