@@ -7,24 +7,9 @@ import {
 } from "../types/dispatcher";
 import { fetchWithTimeout } from "./utils";
 
-import {
-  fetchDatasetFilesFromDatahuggerByUrl,
-  FileMeta,
-} from "@/lib/grpcClient.ts";
-
 // Use proxy to avoid CORS issues
-const API_BASE = "/api/coordinator";
+const API_BASE = "/api/player";
 const METADATA_ENDPOINT = "/anon_requests/metadata_rocrate/";
-
-// Fetch files
-export const fetchFiles = async (
-  datasetHandle: string,
-): Promise<FileMeta[]> => {
-  const url = `${datasetHandle}`;
-  const files = await fetchDatasetFilesFromDatahuggerByUrl(url);
-
-  return files;
-};
 
 /**
  * Submit metadata to the dispatcher
