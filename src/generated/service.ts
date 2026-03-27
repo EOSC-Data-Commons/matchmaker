@@ -43,7 +43,11 @@ export interface FileEntry {
   mimeType?:
     | string
     | undefined;
-  /** checksum, sha256 */
+  /** checksum type */
+  checksumType?:
+    | string
+    | undefined;
+  /** checksum */
   checksum?:
     | string
     | undefined;
@@ -58,6 +62,10 @@ export interface BrowseDatasetRequest {
   urlDatarepo: string;
   /** Dataset identifier (opaque to client) */
   idDataset: string;
+}
+
+export interface BrowseDatasetByUrlRequest {
+  url: string;
 }
 
 export interface BrowseDatasetResponse {
@@ -435,6 +443,7 @@ function createBaseFileEntry(): FileEntry {
     isDir: false,
     sizeBytes: 0,
     mimeType: undefined,
+    checksumType: undefined,
     checksum: undefined,
     modifiedAt: undefined,
   };
@@ -457,11 +466,14 @@ export const FileEntry: MessageFns<FileEntry> = {
     if (message.mimeType !== undefined) {
       writer.uint32(42).string(message.mimeType);
     }
+    if (message.checksumType !== undefined) {
+      writer.uint32(50).string(message.checksumType);
+    }
     if (message.checksum !== undefined) {
-      writer.uint32(50).string(message.checksum);
+      writer.uint32(58).string(message.checksum);
     }
     if (message.modifiedAt !== undefined) {
-      Timestamp.encode(toTimestamp(message.modifiedAt), writer.uint32(58).fork()).join();
+      Timestamp.encode(toTimestamp(message.modifiedAt), writer.uint32(66).fork()).join();
     }
     return writer;
   },
@@ -518,11 +530,19 @@ export const FileEntry: MessageFns<FileEntry> = {
             break;
           }
 
-          message.checksum = reader.string();
+          message.checksumType = reader.string();
           continue;
         }
         case 7: {
           if (tag !== 58) {
+            break;
+          }
+
+          message.checksum = reader.string();
+          continue;
+        }
+        case 8: {
+          if (tag !== 66) {
             break;
           }
 
@@ -561,6 +581,11 @@ export const FileEntry: MessageFns<FileEntry> = {
         : isSet(object.mime_type)
         ? globalThis.String(object.mime_type)
         : undefined,
+      checksumType: isSet(object.checksumType)
+        ? globalThis.String(object.checksumType)
+        : isSet(object.checksum_type)
+        ? globalThis.String(object.checksum_type)
+        : undefined,
       checksum: isSet(object.checksum) ? globalThis.String(object.checksum) : undefined,
       modifiedAt: isSet(object.modifiedAt)
         ? fromJsonTimestamp(object.modifiedAt)
@@ -587,6 +612,9 @@ export const FileEntry: MessageFns<FileEntry> = {
     if (message.mimeType !== undefined) {
       obj.mimeType = message.mimeType;
     }
+    if (message.checksumType !== undefined) {
+      obj.checksumType = message.checksumType;
+    }
     if (message.checksum !== undefined) {
       obj.checksum = message.checksum;
     }
@@ -606,6 +634,7 @@ export const FileEntry: MessageFns<FileEntry> = {
     message.isDir = object.isDir ?? false;
     message.sizeBytes = object.sizeBytes ?? 0;
     message.mimeType = object.mimeType ?? undefined;
+    message.checksumType = object.checksumType ?? undefined;
     message.checksum = object.checksum ?? undefined;
     message.modifiedAt = object.modifiedAt ?? undefined;
     return message;
@@ -708,6 +737,64 @@ export const BrowseDatasetRequest: MessageFns<BrowseDatasetRequest> = {
     message.uuid = object.uuid ?? "";
     message.urlDatarepo = object.urlDatarepo ?? "";
     message.idDataset = object.idDataset ?? "";
+    return message;
+  },
+};
+
+function createBaseBrowseDatasetByUrlRequest(): BrowseDatasetByUrlRequest {
+  return { url: "" };
+}
+
+export const BrowseDatasetByUrlRequest: MessageFns<BrowseDatasetByUrlRequest> = {
+  encode(message: BrowseDatasetByUrlRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.url !== "") {
+      writer.uint32(10).string(message.url);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): BrowseDatasetByUrlRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseBrowseDatasetByUrlRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.url = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): BrowseDatasetByUrlRequest {
+    return { url: isSet(object.url) ? globalThis.String(object.url) : "" };
+  },
+
+  toJSON(message: BrowseDatasetByUrlRequest): unknown {
+    const obj: any = {};
+    if (message.url !== "") {
+      obj.url = message.url;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<BrowseDatasetByUrlRequest>, I>>(base?: I): BrowseDatasetByUrlRequest {
+    return BrowseDatasetByUrlRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<BrowseDatasetByUrlRequest>, I>>(object: I): BrowseDatasetByUrlRequest {
+    const message = createBaseBrowseDatasetByUrlRequest();
+    message.url = object.url ?? "";
     return message;
   },
 };
@@ -3181,11 +3268,31 @@ export const DatasetServiceService = {
       Buffer.from(BrowseDatasetResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): BrowseDatasetResponse => BrowseDatasetResponse.decode(value),
   },
+  /**
+   * this is design to go to the source to lazily get the files
+   * In reality this is specifially exposed because we have datahugger-ng to do file fetching
+   */
+  browseDatasetByUrl: {
+    path: "/req_packager.v1.DatasetService/BrowseDatasetByUrl" as const,
+    requestStream: false as const,
+    responseStream: true as const,
+    requestSerialize: (value: BrowseDatasetByUrlRequest): Buffer =>
+      Buffer.from(BrowseDatasetByUrlRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): BrowseDatasetByUrlRequest => BrowseDatasetByUrlRequest.decode(value),
+    responseSerialize: (value: BrowseDatasetResponse): Buffer =>
+      Buffer.from(BrowseDatasetResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): BrowseDatasetResponse => BrowseDatasetResponse.decode(value),
+  },
 } as const;
 
 export interface DatasetServiceServer extends UntypedServiceImplementation {
   /** Lazily retrieve file hierarchy or file info for a dataset */
   browseDataset: handleServerStreamingCall<BrowseDatasetRequest, BrowseDatasetResponse>;
+  /**
+   * this is design to go to the source to lazily get the files
+   * In reality this is specifially exposed because we have datahugger-ng to do file fetching
+   */
+  browseDatasetByUrl: handleServerStreamingCall<BrowseDatasetByUrlRequest, BrowseDatasetResponse>;
 }
 
 export interface DatasetServiceClient extends Client {
@@ -3196,6 +3303,19 @@ export interface DatasetServiceClient extends Client {
   ): ClientReadableStream<BrowseDatasetResponse>;
   browseDataset(
     request: BrowseDatasetRequest,
+    metadata?: Metadata,
+    options?: Partial<CallOptions>,
+  ): ClientReadableStream<BrowseDatasetResponse>;
+  /**
+   * this is design to go to the source to lazily get the files
+   * In reality this is specifially exposed because we have datahugger-ng to do file fetching
+   */
+  browseDatasetByUrl(
+    request: BrowseDatasetByUrlRequest,
+    options?: Partial<CallOptions>,
+  ): ClientReadableStream<BrowseDatasetResponse>;
+  browseDatasetByUrl(
+    request: BrowseDatasetByUrlRequest,
     metadata?: Metadata,
     options?: Partial<CallOptions>,
   ): ClientReadableStream<BrowseDatasetResponse>;

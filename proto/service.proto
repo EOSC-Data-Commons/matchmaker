@@ -13,6 +13,11 @@ service DatasetService {
   rpc BrowseDataset(BrowseDatasetRequest)
     returns (stream BrowseDatasetResponse);
 
+  // this is design to go to the source to lazily get the files
+  // In reality this is specifially exposed because we have datahugger-ng to do file fetching
+  rpc BrowseDatasetByUrl(BrowseDatasetByUrlRequest)
+    returns (stream BrowseDatasetResponse);
+
   // rpc DownloadFile(DownloadFileRequest)
   //   returns (stream FileChunk);
 }
@@ -31,11 +36,13 @@ message FileEntry {
   uint64 size_bytes = 4;
   // mime_type, unset if unknown
   optional string mime_type = 5;
-  // checksum, sha256
-  optional string checksum = 6;
+  // checksum type
+  optional string checksum_type = 6;
+  // checksum
+  optional string checksum = 7;
 
   // latest time the file is modified
-  google.protobuf.Timestamp modified_at = 7;
+  google.protobuf.Timestamp modified_at = 8;
 }
 
 message BrowseDatasetRequest {
@@ -45,6 +52,10 @@ message BrowseDatasetRequest {
   string url_datarepo = 2;
   // Dataset identifier (opaque to client)
   string id_dataset = 3;
+}
+
+message BrowseDatasetByUrlRequest {
+  string url = 1;
 }
 
 message BrowseDatasetResponse {
