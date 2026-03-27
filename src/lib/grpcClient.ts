@@ -107,6 +107,31 @@ function fileMetaToFileEntry(meta: FileMeta): FileEntry {
   };
 }
 
+// client as a singleton for long-live HTTP/2 
+let db_client: DatasetServiceClient | null = null;
+export function getDatasetClient() {
+  if (!db_client) {
+    db_client = new DatasetServiceClient(
+      GRPC_TARGET,
+      createInsecureChannel()
+    );
+  }
+  return db_client;
+}
+
+process.on("SIGINT", () => {
+  console.log("SIGINT received: closing gRPC client...");
+  // closes HTTP/2 channel to avoid resource leaking
+  db_client.close(); 
+  process.exit();
+});
+
+process.on("SIGTERM", () => {
+  console.log("SIGTERM received: closing gRPC client...");
+  db_client.close();
+  process.exit();
+});
+
 function makeAuthMetadata(token: string): grpc.Metadata {
   const metadata = new grpc.Metadata();
   metadata.set("authorization", `Bearer ${token}`);
@@ -126,7 +151,7 @@ export async function fetchDatasetFilesFromDatadaseByUUID(
   const token = createToken();
   const metadata = makeAuthMetadata(token);
 
-  const client = new DatasetServiceClient(GRPC_TARGET, createInsecureChannel());
+  const client = getDatasetClient();
 
   const request: BrowseDatasetRequest = {
     uuid,
@@ -185,7 +210,9 @@ export async function fetchDatasetFilesFromDatahuggerByUrl(
   const token = createToken();
   const metadata = makeAuthMetadata(token);
 
-  const client = new DatasetServiceClient(GRPC_TARGET, createInsecureChannel());
+  // XXX: in-efficient, create client as singlton
+  // const client = new DatasetServiceClient(GRPC_TARGET, createInsecureChannel());
+  const client = getDatasetClient();
 
   const request: BrowseDatasetByUrlRequest = {
     url: handle,
@@ -220,12 +247,10 @@ export async function fetchDatasetFilesFromDatahuggerByUrl(
     });
 
     call.on("end", () => {
-      client.close();
       resolve(files);
     });
 
     call.on("error", (err: grpc.ServiceError) => {
-      client.close();
       reject(err);
     });
   });
@@ -240,6 +265,7 @@ export async function findTools(files: FileMeta[]): Promise<ToolMeta[]> {
   const token = createToken();
   const metadata = makeAuthMetadata(token);
 
+  // TODO: in-efficient to create HTTP/2 channel every call, make it a singleton.
   const client = new ToolServiceClient(GRPC_TARGET, createInsecureChannel());
 
   const request: FindToolsRequest = {
@@ -248,6 +274,7 @@ export async function findTools(files: FileMeta[]): Promise<ToolMeta[]> {
 
   return new Promise((resolve, reject) => {
     client.findTools(request, metadata, (err, response) => {
+      // TODO: if go with singleton client, client should not close in the call.
       client.close();
       if (err) {
         reject(err);
