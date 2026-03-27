@@ -1,6 +1,7 @@
 // Logger utility for error handling and messaging
 
-const isDev = import.meta.env.MODE === 'development';
+// const isDev = import.meta.env.MODE === 'development';
+const isDev = true;
 
 export function logError(error: unknown, context?: string) {
     if (isDev) {

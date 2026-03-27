@@ -5,13 +5,15 @@ import path from "path";
 import {createProxyMiddleware} from "http-proxy-middleware";
 import {createRequestHandler} from "@react-router/express";
 
+import { fetchFiles } from "./src/lib/coordinatorApi"; 
+
 
 // Constants
 const DEVELOPMENT = process.env.NODE_ENV !== "production";
 const PORT = Number.parseInt(process.env.PORT || (DEVELOPMENT ? "5173" : "3000"));
 const SEARCH_API_URL = process.env.SEARCH_API_URL || 'http://127.0.0.1:8000';
 const PLAYER_API_URL = process.env.PLAYER_API_URL || 'https://dev1.player.eosc-data-commons.eu';
-const COORDINATOR_API_URL = process.env.COORDINATOR_API_URL || 'https://coordinator-eosc.ethz.ch';
+const COORDINATOR_API_URL = process.env.COORDINATOR_API_URL || 'https://eosc-coordinator.ethz.ch';
 
 const app = express();
 
@@ -43,7 +45,7 @@ app.use('/api/player', createProxyMiddleware({
     }
 }));
 
-app.use('/api/coordinator', createProxyMiddleware({
+app.use('/api/coordinator-online', createProxyMiddleware({
     target: COORDINATOR_API_URL,
     changeOrigin: true,
     pathRewrite: {'^/api/coordinator': ''},
@@ -55,6 +57,20 @@ app.use('/api/coordinator', createProxyMiddleware({
         }
     }
 }));
+
+app.get("/api/coordinator/files", async (req, res) => {
+  const handle = req.query.handle as string;
+  if (!handle) return res.status(400).json({ error: "Missing handle parameter" });
+
+  try {
+    // XXX: where is this error goes?? Should we give this to user??
+    const files = await fetchFiles(handle);
+    res.json( files );
+  } catch (err) {
+    console.error("Error fetching files:", err);
+    res.status(500).json({ error: "Failed to fetch files" });
+  }
+});
 
 
 app.use('/auth', createProxyMiddleware({
