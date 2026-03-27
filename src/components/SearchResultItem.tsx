@@ -37,6 +37,21 @@ export const SearchResultItem = ({hit, isAiRanked = false}: SearchResultItemProp
         window.open(`/dataplayer?${params.toString()}`, '_blank');
     };
 
+    const handleDataplayerLegacyRun = () => {
+        // Open the dispatcher run page in a new tab with dataset info
+        const params = new URLSearchParams();
+        params.set('datasetId', hit._id);
+        if (hit.title) {
+            params.set('title', hit.title);
+        }
+        // Preserve the search query for back navigation
+        const currentQuery = searchParams.get('q');
+        if (currentQuery) {
+            params.set('q', currentQuery);
+        }
+        window.open(`/dataplayer_legacy_run?${params.toString()}`, '_blank');
+    };
+
     const scorePercent = (hit.score || 0) * 100;
 
     const getPublicationDate = (): string | null => {
@@ -186,14 +201,21 @@ export const SearchResultItem = ({hit, isAiRanked = false}: SearchResultItemProp
                 className="flex flex-col sm:flex-row items-center justify-between pt-4 border-t border-gray-100 gap-4 sm:gap-0">
                 <div className="flex space-x-4">
                     <button
+                        onClick={handleDataplayerLegacyRun}
+                        aria-label={`Play dataset for ${hit.title}`}
+                        className="inline-flex items-center justify-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-colors cursor-pointer">
+                        <Rocket className="h-4 w-4"/>
+                        <span className="leading-none">Run (deprecated)</span>
+                    </button>
+                    <button
                         onClick={handleDataplayer}
-                        aria-label={`Run dispatcher for ${hit.title}`}
+                        aria-label={`View dataset for ${hit.title}`}
                         className="inline-flex items-center justify-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-colors cursor-pointer">
                         <Rocket className="h-4 w-4"/>
                         <span className="leading-none">View</span>
                     </button>
                     <a href={hit._id} target="_blank" rel="noopener noreferrer"
-                       aria-label={`View dataset ${hit.title}`}
+                       aria-label={`Redinect to the source of dataset ${hit.title}`}
                        className="inline-flex items-center justify-center gap-1 rounded-md bg-green-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 transition-colors">
                         <ExternalLinkIcon className="h-4 w-4"/>
                         <span className="leading-none">Source</span>
