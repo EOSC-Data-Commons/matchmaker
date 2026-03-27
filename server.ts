@@ -5,7 +5,10 @@ import path from "path";
 import {createProxyMiddleware} from "http-proxy-middleware";
 import {createRequestHandler} from "@react-router/express";
 
-import { fetchFiles } from "./src/lib/coordinatorApi"; 
+import {
+  fetchDatasetFilesFromDatahuggerByUrl,
+  FileMeta,
+} from "./src/lib/grpcClient.ts";
 
 
 // Constants
@@ -16,6 +19,17 @@ const PLAYER_API_URL = process.env.PLAYER_API_URL || 'https://dev1.player.eosc-d
 const COORDINATOR_API_URL = process.env.COORDINATOR_API_URL || 'https://eosc-coordinator.ethz.ch';
 
 const app = express();
+
+// Fetch files
+export const fetchFiles = async (
+  datasetHandle: string,
+): Promise<FileMeta[]> => {
+  const url = `${datasetHandle}`;
+  const files = await fetchDatasetFilesFromDatahuggerByUrl(url);
+
+  return files;
+};
+
 
 app.disable("x-powered-by");
 
