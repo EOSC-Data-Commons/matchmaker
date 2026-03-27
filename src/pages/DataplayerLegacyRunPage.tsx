@@ -8,11 +8,9 @@ import {
     DispatcherType,
     StepType,
     FileMetrixFile,
-    DispatcherResult
+    DispatcherResult,
 } from '../types/dispatcher';
 import {
-    // XXX: other endpoints (all wrapped in the coordinator API call)
-    fetchFiles,
     submitMetadataToDispatcher,
     pollTaskStatus
 } from '../lib/coordinatorApi';
@@ -22,6 +20,30 @@ import {
     formatFileSize,
     areAllParametersMapped
 } from '../lib/dispatcherUtils';
+import { fetchWithTimeout } from '@/lib/utils';
+
+export interface FileMetrixResponse {
+    files: FileMetrixFile[];
+}
+
+const FILEMETRIX_BASE = 'https://filemetrix.labs.dansdemo.nl/api/v1';
+
+export const fetchFilesLegacy = async (
+    datasetHandle: string,
+    timeoutMs: number = 60000 // Default 1 minute timeout
+): Promise<FileMetrixResponse> => {
+    const response = await fetchWithTimeout(
+        `${FILEMETRIX_BASE}/${encodeURIComponent(datasetHandle)}`,
+        {},
+        timeoutMs
+    );
+
+    if (!response.ok) {
+        throw new Error(`Failed to fetch files: ${response.status}`);
+    }
+
+    return await response.json();
+};
 
 export const DataplayerPage = () => {
     const [searchParams] = useSearchParams();
@@ -55,7 +77,7 @@ export const DataplayerPage = () => {
 
         try {
             const config = DISPATCHER_CONFIGS[vre];
-            const data = await fetchFiles(config.datasetHandle);
+            const data = await fetchFilesLegacy(config.datasetHandle);
             setFiles(data.files);
             setCurrentStep('map-files');
         } catch (error) {
@@ -485,7 +507,7 @@ export const DataplayerPage = () => {
                                     alt="EOSC Data Commons"
                                     className="h-6 sm:h-8 w-auto"
                                 />
-                                <p className="text-xs sm:text-sm text-gray-600">Playing with data...</p>
+                                <p className="text-xs sm:text-sm text-gray-600">Playing with data...!!!</p>
                             </div>
                         </div>
                     </div>
