@@ -131,6 +131,7 @@ export const DataplayerPage = () => {
             );
 
             setStatusMessage('Submitting to Virtual Research Environment...');
+            console.log(metadata);
             const result = await submitMetadataToDispatcher(metadata);
 
             if (result.task_id) {
