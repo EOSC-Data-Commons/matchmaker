@@ -123,6 +123,9 @@ export const DataplayerPage = () => {
             setStatusMessage('Preparing Virtual Research Environment metadata...');
             setStatusType('info');
 
+            console.log(selectedVRE);
+            console.log(fileParameterMappings);
+
             const metadata = prepareDispatcherMetadata(
                 selectedVRE,
                 fileParameterMappings,
