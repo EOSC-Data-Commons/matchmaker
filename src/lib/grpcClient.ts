@@ -16,10 +16,12 @@
  */
 
 import * as grpc from "@grpc/grpc-js";
-import * as jwt from "jsonwebtoken";
+import jwt from "jsonwebtoken";
+
 
 // These are all generated from your .proto by ts-proto
 import {
+  BrowseDatasetByUrlRequest,
   BrowseDatasetRequest,
   BrowseDatasetResponse,
   DatasetServiceClient,
@@ -28,6 +30,19 @@ import {
   ToolMeta,
   ToolServiceClient,
 } from "../generated/service";
+
+const GRPC_TARGET = "[::1]:50051";
+
+// JWT-token mocking
+// This supposed to provide from matchmaker login
+const JWT_SECRET = "my_secret_key";
+export function createToken(): string {
+  return jwt.sign(
+    { sub: "user123", name: "Alice", role: "admin" },
+    JWT_SECRET,
+    { expiresIn: 1_999_999_999 - Math.floor(Date.now() / 1000) },
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -46,29 +61,15 @@ export interface FileMeta {
   filename: string;
   /** human-readable decimal size string, e.g. "1.2 MB" */
   size: string;
+  hash: string | null;
+  hash_type: string;
   isDir: boolean;
   mimetype?: string;
 }
 
 // ---------------------------------------------------------------------------
-// JWT  (mirrors Rust `create_token`)
-// ---------------------------------------------------------------------------
-
-const JWT_SECRET = "my_secret_key";
-
-export function createToken(): string {
-  return jwt.sign(
-    { sub: "user123", name: "Alice", role: "admin" },
-    JWT_SECRET,
-    { expiresIn: 1_999_999_999 - Math.floor(Date.now() / 1000) },
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-const GRPC_TARGET = "[::1]:50051";
 
 /** Decimal byte formatter — mirrors Rust `humansize::DECIMAL`. */
 function formatBytes(bytes: number): string {
@@ -86,6 +87,8 @@ function fileEntryToFileMeta(entry: FileEntry): FileMeta {
     dataPath: entry.path,
     filename: entry.path,
     size: formatBytes(entry.sizeBytes),
+    hash: entry.checksum,
+    hash_type: entry.checksumType,
     isDir: entry.isDir,
     mimetype: entry.mimeType ?? undefined,
   };
@@ -114,12 +117,12 @@ function createInsecureChannel(): grpc.ChannelCredentials {
   return grpc.credentials.createInsecure();
 }
 
-// ---------------------------------------------------------------------------
 // fetchDatasetFiles — server-streaming RPC
 // mirrors Rust `fetch_dataset_files`
-// ---------------------------------------------------------------------------
-
-export async function fetchDatasetFiles(uuid: string): Promise<FileMeta[]> {
+// this one goes to DB to get file metadata
+export async function fetchDatasetFilesFromDatadaseByUUID(
+  uuid: string,
+): Promise<FileMeta[]> {
   const token = createToken();
   const metadata = makeAuthMetadata(token);
 
@@ -150,7 +153,63 @@ export async function fetchDatasetFiles(uuid: string): Promise<FileMeta[]> {
       }
 
       if (resp.complete) {
-        call.cancel();
+        // call.cancel();
+        return;
+      }
+
+      if (resp.error) {
+        console.error("browse error:", resp.error);
+        return;
+      }
+    });
+
+    call.on("end", () => {
+      client.close();
+      resolve(files);
+    });
+
+    call.on("error", (err: grpc.ServiceError) => {
+      client.close();
+      reject(err);
+    });
+  });
+}
+
+// TODO: this is yet a blocking call that collect all files.
+// It need to be lazily spit out files and pop in the browser page.
+// this one goes to datahugger to get file metadata, it will merge into filemetrix requset
+// to let it routing the data source.
+export async function fetchDatasetFilesFromDatahuggerByUrl(
+  handle: string,
+): Promise<FileMeta[]> {
+  const token = createToken();
+  const metadata = makeAuthMetadata(token);
+
+  const client = new DatasetServiceClient(GRPC_TARGET, createInsecureChannel());
+
+  const request: BrowseDatasetByUrlRequest = {
+    url: handle,
+  };
+
+  return new Promise((resolve, reject) => {
+    const call = client.browseDatasetByUrl(request, metadata);
+    const files: FileMeta[] = [];
+
+    call.on("data", (resp: BrowseDatasetResponse) => {
+      if (resp.fileEntry) {
+        files.push(fileEntryToFileMeta(resp.fileEntry));
+        return;
+      }
+
+      if (resp.datasetInfo) {
+        return;
+      }
+
+      if (resp.progress) {
+        return;
+      }
+
+      if (resp.complete) {
         return;
       }
 
