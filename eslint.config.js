@@ -7,6 +7,15 @@ import tseslint from 'typescript-eslint'
 export default tseslint.config(
     {ignores: ['dist', 'build', '.react-router']},
   {
+    languageOptions: {
+      parser: '@typescript-eslint/parser',
+      parserOptions: {
+        ecmaVersion: 2020,
+        sourceType: 'module',
+        ecmaFeatures: { jsx: true },
+      },
+      globals: globals.browser,
+    },
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],
     languageOptions: {
@@ -19,6 +28,7 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      "indent": ["warn", 4],
       'react-refresh/only-export-components': [
         'warn',
         { allowConstantExport: true },
