@@ -11,12 +11,7 @@ import {
     DispatcherResult,
 } from '../types/dispatcher';
 import {
-    submitMetadataToDispatcher,
-    pollTaskStatus
-} from '../lib/coordinatorApi';
-import {
     DISPATCHER_CONFIGS,
-    prepareDispatcherMetadata,
     formatFileSize,
     areAllParametersMapped
 } from '../lib/dispatcherUtils';
@@ -113,85 +108,93 @@ export const DataplayerPage = () => {
         });
     };
 
-
-    // Handle final submission
     const handleSubmit = async () => {
         if (!selectedVRE) return;
 
         try {
-            setCurrentStep('submitting');
-            setStatusMessage('Preparing Virtual Research Environment metadata...');
-            setStatusType('info');
+            setCurrentStep("submitting");
+            setStatusMessage("Preparing Virtual Research Environment metadata...");
+            setStatusType("info");
 
             console.log(selectedVRE);
-            console.log(fileParameterMappings);
+            const startRes = await fetch("/api/coordinator/start-task", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ selectedVRE, fileParameterMappings, files, datasetTitle }),
+            });
 
-            const metadata = prepareDispatcherMetadata(
-                selectedVRE,
-                fileParameterMappings,
-                files,
-                datasetTitle
-            );
+            if (!startRes.ok) throw new Error("Failed to start task");
 
-            setStatusMessage('Submitting to Virtual Research Environment...');
-            console.log(metadata);
-            const result = await submitMetadataToDispatcher(metadata);
+            const { taskId } = await startRes.json();
+            setTaskId(taskId);
+            setStatusMessage("Task submitted! Monitoring progress...");
+            setStatusType("info");
 
-            if (result.task_id) {
-                setTaskId(result.task_id);
-                setStatusMessage('Virtual Research Environment submitted! Monitoring task progress...');
-                setStatusType('info');
-                setCurrentStep('monitoring');
+            // SSE for task progress
+            const sse = new EventSource(`/api/coordinator/task-status/${taskId}`);
 
-                // Start polling
-                pollTaskStatus(
-                    result.task_id,
-                    (status, message) => {
-                        setStatusMessage(message);
-                        setStatusType(status === 'SUCCESS' ? 'success' : status === 'FAILURE' ? 'error' : 'info');
-                    },
-                    (result) => {
-                        setTaskResult(result);
-                    },
-                    (error) => {
-                        setStatusMessage(error);
-                        setStatusType('error');
-                    }
+            sse.addEventListener("progress", (event) => {
+                const data = JSON.parse(event.data);
+                setStatusMessage(data.message);
+                setStatusType(
+                    data.status === "SUCCESS"
+                        ? "success"
+                        : data.status === "FAILURE"
+                            ? "error"
+                            : "info"
                 );
-            }
-        } catch (error) {
-            console.error('Virtual Research Environment submission error:', error);
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-            setStatusMessage(`Error: ${errorMessage}`);
-            setStatusType('error');
-            setCurrentStep('map-files');
+            });
+
+            sse.addEventListener("result", (event) => {
+                const parsed = JSON.parse(event.data);
+                const dispatcherResult: DispatcherResult = { url: parsed.result?.url };
+                setTaskResult(dispatcherResult);
+                setCurrentStep("monitoring");
+                setStatusMessage("Virtual Research Environment task completed!");
+                // XXX: redundant to do state check here which already did in "progress" event update?
+                setStatusType(parsed.status === "SUCCESS" ? "success" : "error");
+                sse.close();
+            });
+
+            sse.addEventListener("error", (event) => {
+                console.error("SSE error:", event);
+                setStatusMessage("Error during submission.");
+                setStatusType("error");
+                setCurrentStep("map-files");
+                sse.close();
+            });
+        } catch (err) {
+            console.error(err);
+            setStatusMessage(err instanceof Error ? err.message : "Unknown error");
+            setStatusType("error");
+            setCurrentStep("map-files");
         }
     };
 
 
     const getStatusIcon = () => {
         switch (statusType) {
-            case 'success':
-                return <CheckCircleIcon className="h-8 w-8 text-green-600"/>;
-            case 'error':
-                return <XCircleIcon className="h-8 w-8 text-red-600"/>;
-            case 'warning':
-                return <AlertCircleIcon className="h-8 w-8 text-yellow-600"/>;
-            default:
-                return <LoaderIcon className="h-8 w-8 text-blue-600 animate-spin"/>;
+        case 'success':
+            return <CheckCircleIcon className="h-8 w-8 text-green-600"/>;
+        case 'error':
+            return <XCircleIcon className="h-8 w-8 text-red-600"/>;
+        case 'warning':
+            return <AlertCircleIcon className="h-8 w-8 text-yellow-600"/>;
+        default:
+            return <LoaderIcon className="h-8 w-8 text-blue-600 animate-spin"/>;
         }
     };
 
     const getStatusColorClass = () => {
         switch (statusType) {
-            case 'success':
-                return 'text-green-700 bg-green-50 border-green-200';
-            case 'error':
-                return 'text-red-700 bg-red-50 border-red-200';
-            case 'warning':
-                return 'text-yellow-700 bg-yellow-50 border-yellow-200';
-            default:
-                return 'text-blue-700 bg-blue-50 border-blue-200';
+        case 'success':
+            return 'text-green-700 bg-green-50 border-green-200';
+        case 'error':
+            return 'text-red-700 bg-red-50 border-red-200';
+        case 'warning':
+            return 'text-yellow-700 bg-yellow-50 border-yellow-200';
+        default:
+            return 'text-blue-700 bg-blue-50 border-blue-200';
         }
     };
 
@@ -316,7 +319,7 @@ export const DataplayerPage = () => {
                             </div>
                             <div>
                                 <label htmlFor={`param-mobile-${index}`}
-                                       className="text-xs font-medium text-gray-500 uppercase block mb-1">
+                                    className="text-xs font-medium text-gray-500 uppercase block mb-1">
                                     Parameter
                                 </label>
                                 <select
@@ -342,43 +345,43 @@ export const DataplayerPage = () => {
                     <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     File Name
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Size
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Parameter
-                                </th>
-                            </tr>
+                                    </th>
+                                </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                            {files.map((file, index) => (
-                                <tr key={index} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4 text-sm text-gray-900 break-words">
-                                        {file.name}
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
-                                        {formatFileSize(file.size)}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <select
-                                            value={fileParameterMappings[index] || 'none'}
-                                            onChange={(e) => handleParameterChange(index, e.target.value)}
-                                            className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                        >
-                                            <option value="none">None</option>
-                                            {config.parameters.map(param => (
-                                                <option key={param} value={param}>
-                                                    {param}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </td>
-                                </tr>
-                            ))}
+                                {files.map((file, index) => (
+                                    <tr key={index} className="hover:bg-gray-50">
+                                        <td className="px-6 py-4 text-sm text-gray-900 break-words">
+                                            {file.name}
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
+                                            {formatFileSize(file.size)}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <select
+                                                value={fileParameterMappings[index] || 'none'}
+                                                onChange={(e) => handleParameterChange(index, e.target.value)}
+                                                className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                            >
+                                                <option value="none">None</option>
+                                                {config.parameters.map(param => (
+                                                    <option key={param} value={param}>
+                                                        {param}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </td>
+                                    </tr>
+                                ))}
                             </tbody>
                         </table>
                     </div>
@@ -503,7 +506,7 @@ export const DataplayerPage = () => {
                 <div className="container mx-auto px-4 py-3 sm:py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2 sm:space-x-3 cursor-pointer"
-                             onClick={() => navigate('/')}>
+                            onClick={() => navigate('/')}>
                             <img src={dataCommonsIconBlue} alt="Data Commons" className="h-8 w-8 sm:h-10 sm:w-10"/>
                             <div className="flex flex-col space-y-0.5 sm:space-y-1">
                                 <img
