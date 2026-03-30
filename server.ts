@@ -7,7 +7,6 @@ import {createRequestHandler} from "@react-router/express";
 
 import {
     fetchDatasetFilesFromDatahuggerByUrl,
-    FileMeta,
 } from "./src/lib/grpcClient.ts";
 
 import {
@@ -24,16 +23,6 @@ const SEARCH_API_URL = process.env.SEARCH_API_URL || 'http://127.0.0.1:8000';
 const COORDINATOR_API_URL = process.env.COORDINATOR_API_URL || 'https://eosc-coordinator.ethz.ch';
 
 const app = express();
-
-// Fetch files
-export const fetchFiles = async (
-    datasetHandle: string,
-): Promise<FileMeta[]> => {
-    const url = `${datasetHandle}`;
-    const files = await fetchDatasetFilesFromDatahuggerByUrl(url);
-
-    return files;
-};
 
 
 app.disable("x-powered-by");
@@ -65,7 +54,6 @@ app.use('/api/coordinator-online', createProxyMiddleware({
     }
 }));
 
-// POST endpoint to prepare + submit metadata
 app.use(express.json());
 app.post("/api/coordinator/start-task", async (req, res) => {
     console.debug("headers:", req.headers);
@@ -132,13 +120,81 @@ app.get("/api/coordinator/task-status/:taskId", async (req, res) => {
     req.on("close", () => clearInterval(interval));
 });
 
+// POST endpoint to prepare + submit metadata
+app.use(express.json());
+app.post("/api/coordinator/start-task-old", async (req, res) => {
+    console.debug("headers:", req.headers);
+    console.debug("body:", req.body);
+    const { selectedVRE, fileParameterMappings, files, datasetTitle } = req.body;
+
+    try {
+        // 1️⃣ Prepare metadata
+        const metadata = prepareDispatcherMetadata(
+            selectedVRE,
+            fileParameterMappings,
+            files,
+            datasetTitle,
+        );
+
+        // 2️⃣ Submit metadata
+        const submissionResult = await submitMetadataToDispatcher(metadata);
+
+        if (!submissionResult.task_id) {
+            return res.status(500).json({ error: "No task_id returned" });
+        }
+
+        // 3️⃣ Return task ID for SSE tracking
+        res.json({ taskId: submissionResult.task_id });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+});
+
+app.get("/api/coordinator/task-status-old/:taskId", async (req, res) => {
+    const { taskId } = req.params;
+
+    // SSE headers
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    const interval = setInterval(async () => {
+        try {
+            const statusResult = await checkTaskStatus(taskId);
+
+            // Stream progress
+            res.write(`event: progress\ndata: ${JSON.stringify({
+                status: statusResult.status,
+            })}\n\n`);
+
+            // Done
+            if (statusResult.status === "SUCCESS" || statusResult.status === "FAILURE") {
+                res.write(`event: result\ndata: ${JSON.stringify(statusResult)}\n\n`);
+                clearInterval(interval);
+                res.end();
+            }
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+
+            res.write(`event: error\ndata: ${JSON.stringify({ message })}\n\n`);
+            clearInterval(interval);
+            res.end();
+        }
+    }, 1000);
+
+    // Clean up if client disconnects
+    req.on("close", () => clearInterval(interval));
+});
+
 app.get("/api/coordinator/files", async (req, res) => {
     const handle = req.query.handle as string;
     if (!handle) return res.status(400).json({ error: "Missing handle parameter" });
 
     try {
-    // XXX: where is this error goes?? Should we give this to user??
-        const files = await fetchFiles(handle);
+        // XXX: where error goes if url is invalid?? Should we give this to user??
+        const url = `${handle}`;
+        const files = await fetchDatasetFilesFromDatahuggerByUrl(url);
         res.json( files );
     } catch (err) {
         console.error("Error fetching files:", err);
