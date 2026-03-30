@@ -4,17 +4,6 @@ import {LoaderIcon, CheckCircleIcon, XCircleIcon, AlertCircleIcon} from 'lucide-
 import {Footer} from '../components/Footer';
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 import eoscLogo from '@/assets/logo-eosc-data-commons.svg';
-import {
-    DispatcherType,
-    StepType,
-    FileMetrixFile,
-    DispatcherResult,
-} from '../types/dispatcher';
-import {
-    DISPATCHER_CONFIGS,
-    formatFileSize,
-    areAllParametersMapped
-} from '../lib/dispatcherUtils';
 import { fetchWithTimeout } from '@/lib/utils';
 
 export interface FileMetrixResponse {
@@ -22,6 +11,111 @@ export interface FileMetrixResponse {
 }
 
 const FILEMETRIX_BASE = 'https://filemetrix.labs.dansdemo.nl/api/v1';
+
+export type TaskStatus = 'PENDING' | 'SUCCESS' | 'FAILURE' | 'RETRY' | 'STARTED';
+
+export interface DispatcherResult {
+    url?: string;
+}
+
+export interface TaskStatusResponse {
+    status: TaskStatus;
+    result?: DispatcherResult;
+    error?: string;
+}
+
+export type DispatcherType = 'text-reversion' | 'ocr-wordcloud' | null;
+
+export type StepType = 'select-analysis' | 'map-files' | 'submitting' | 'monitoring';
+
+export interface FileMetrixFile {
+    link: string;
+    name: string;
+    size: number;
+    hash: string | null;
+    hash_type: string;
+    ro_crate_extensions: {
+        'onedata:onezoneDomain': string;
+        'onedata:spaceId': string;
+        'onedata:fileId': string;
+        'onedata:publicAccess': boolean;
+    };
+}
+
+export interface FileMetrixResponse {
+    files: FileMetrixFile[];
+}
+
+export interface DispatcherConfig {
+    name: string;
+    description: string;
+    template: Record<string, unknown>;
+    datasetHandle: string;
+    parameters: string[];
+}
+
+
+/**
+ * Dispatcher analysis configurations
+ */
+import metadataTemplate from '../template/metadata-template.json';
+import roCrateTemplate from '../template/ro-crate-metadata-template.json';
+
+export interface DispatcherConfig {
+    name: string;
+    description: string;
+    template: Record<string, unknown>;
+    datasetHandle: string;
+    parameters: string[];
+}
+
+
+export const DISPATCHER_CONFIGS: Record<string, DispatcherConfig> = {
+    'text-reversion': {
+        name: 'Text file reversion (Galaxy)',
+        description: 'Reverse the content of a text file',
+        template: metadataTemplate,
+        datasetHandle: 'http://hdl.handle.net/21.T15999/01BYJvzYl',
+        parameters: ['simpletext_input']
+    },
+    'ocr-wordcloud': {
+        name: 'OCR + word cloud (Galaxy)',
+        description: 'Perform OCR on an image and generate a word cloud',
+        template: roCrateTemplate,
+        datasetHandle: 'http://hdl.handle.net/21.T15999/JxVUdTVB',
+        parameters: ['Input Image', 'Upload Stopwords']
+    }
+};
+
+
+/**
+ * Format file size for display
+ */
+export const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+};
+
+/**
+ * Check if all required analysis parameters are mapped
+ */
+export const areAllParametersMapped = (
+    dispatcherType: string,
+    fileParameterMappings: Record<number, string>
+): boolean => {
+    const config = DISPATCHER_CONFIGS[dispatcherType];
+
+    if (!config) return false;
+
+    const mappedParameters = new Set(Object.values(fileParameterMappings));
+
+    // All analysis parameters must be mapped exactly once
+    return config.parameters.every(param => mappedParameters.has(param));
+};
+
 
 export const fetchFilesLegacy = async (
     datasetHandle: string,
@@ -117,7 +211,7 @@ export const DataplayerPage = () => {
             setStatusType("info");
 
             console.log(selectedVRE);
-            const startRes = await fetch("/api/coordinator/start-task-old", {
+            const startRes = await fetch("/api/coordinator/start-task", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ selectedVRE, fileParameterMappings, files, datasetTitle }),
@@ -131,7 +225,7 @@ export const DataplayerPage = () => {
             setStatusType("info");
 
             // SSE for task progress
-            const sse = new EventSource(`/api/coordinator/task-status-old/${taskId}`);
+            const sse = new EventSource(`/api/coordinator/task-status/${taskId}`);
 
             sse.addEventListener("progress", (event) => {
                 const data = JSON.parse(event.data);
