@@ -16,8 +16,13 @@ import {
     submitMetadataToDispatcher,
     prepareDispatcherMetadata,
     checkTaskStatus,
-} from './src/lib/coordinatorApi';
-import { GetArtifactRequest, MonitorStatusRequest, MonitorStatusResponse, ToolStatus_State } from "./src/generated/service.ts";
+} from './src/lib/deprecatedDispatcherApi.ts';
+import { 
+    GetArtifactRequest, 
+    MonitorStatusRequest, 
+    MonitorStatusResponse, 
+    ToolStatus_State,
+} from "./src/generated/coordinator.ts";
 
 
 // Constants
