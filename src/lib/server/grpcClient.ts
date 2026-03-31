@@ -5,7 +5,7 @@
  *
  *  npx protoc \
  *    --plugin=./node_modules/.bin/protoc-gen-ts_proto \
- *    --ts_proto_out=./src/generated \
+ *    --ts_proto_out=./src/lib/server/generated \
  *    --ts_proto_opt=outputServices=grpc-js,esModuleInterop=true,env=node,useOptionals=messages \
  *    --proto_path=./req-packager/proto \
  *    ./req-packager/proto/coordinator.proto
@@ -31,7 +31,7 @@ import {
     LaunchToolRequest,
     ToolMeta,
     ToolServiceClient,
-} from "../generated/coordinator.ts";
+} from "./generated/coordinator.ts";
 
 const GRPC_TARGET = "[::1]:50051";
 

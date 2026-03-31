@@ -10,19 +10,20 @@ import {
     FileMeta,
     getDataplayerClient,
     launchTool,
-} from "./src/lib/grpcClient.ts";
+} from "./src/lib/server/grpcClient.ts";
 
 import {
     submitMetadataToDispatcher,
     prepareDispatcherMetadata,
     checkTaskStatus,
 } from './src/lib/deprecatedDispatcherApi.ts';
+
 import { 
     GetArtifactRequest, 
     MonitorStatusRequest, 
     MonitorStatusResponse, 
     ToolStatus_State,
-} from "./src/generated/coordinator.ts";
+} from "./src/lib/server/generated/coordinator.ts";
 
 
 // Constants

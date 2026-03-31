@@ -149,13 +149,21 @@ Generate the typescript code that whic grpc related types and functions by:
 ```console
 npx protoc \
   --plugin=./node_modules/.bin/protoc-gen-ts_proto \
-  --ts_proto_out=./src/generated \
+  --ts_proto_out=./src/lib/server/generated \
   --ts_proto_opt=outputServices=grpc-js,esModuleInterop=true,env=node,useOptionals=messages \
   --proto_path=./req-packager/proto \
   ./req-packager/proto/coordinator.proto
 ```
 
 This will generate a `./src/generated/coordinator.ts` file contains all types to be implemented for client.
+
+### data flow
+
+UI frontend `pages/FooPage.tsx` -> `lib/coordinatorApi.ts` (implement wrapper of request call of `/api/bar...`)  
+
+<----> 
+
+UI server `server.ts` -> `lib/server/grpcClient.ts` (grpc client run on the UI server talk to grpc server deployed by req-packager).
 
 ## How to Search
 
