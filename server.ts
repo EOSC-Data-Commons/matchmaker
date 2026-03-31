@@ -17,7 +17,7 @@ import {
     prepareDispatcherMetadata,
     checkTaskStatus,
 } from './src/lib/coordinatorApi';
-import { MonitorStatusRequest, MonitorStatusResponse, ToolStatus_State } from "./src/generated/service.ts";
+import { GetArtifactRequest, MonitorStatusRequest, MonitorStatusResponse, ToolStatus_State } from "./src/generated/service.ts";
 
 
 // Constants
@@ -116,23 +116,65 @@ app.get("/api/coordinator/task-status/:taskId", async (req, res) => {
         if (currentState && currentState != lastState) {
             lastState = currentState;
 
-            res.write(`event: progress\ndata: ${JSON.stringify({
-                state: currentState,
+            let stateStr = null;
+            // XXX: ??? why currentState don't match?
+            // if (currentState === ToolStatus_State.PREPARING) {
+            //     stateStr = "PREPARING";
+            // }
+            if (currentState === ToolStatus_State.READY)  {
+                stateStr = "READY";
+            }
+            if (currentState === ToolStatus_State.DROPPED) {
+                stateStr = "DROPPED";
+            } 
+            if (currentState === ToolStatus_State.UNRECOGNIZED) {
+                stateStr = "UNRECOGNIZED";
+            }
+            res.write(`event: state\ndata: ${JSON.stringify({
+                state: stateStr,
                 message: toolStatus?.log,
             })}\n\n`);
-        }
-
-        // READY means it can be redirect to there.
-        // DROPPED means the record in the esoc system but the source entity is not reachable anymore.
-        // TODO: separate these two branches and put log respectively.
-        if (currentState === ToolStatus_State.READY || currentState === ToolStatus_State.DROPPED) {
-            res.end();
         }
     });
 
     stream.on("end", () => {
         res.end();
     });
+});
+
+app.use(express.json());
+app.get("/api/coordinator/tasks-result/:taskId", async (req, res) => {
+    const { taskId } = req.params;
+    const client = getDataplayerClient();
+    try {
+        const grpc_req: GetArtifactRequest = {
+            handlerId: taskId,
+        };
+        let v_callbackUrl: string | null = null; 
+
+        client.getArtifact(grpc_req, (err, response) => {
+            if (err) {
+                console.error(err);
+                return;
+            }
+            // response is your GetArtifactResponse
+            let callbackUrl: string | undefined;
+
+            if (response.eoscInline) {
+                callbackUrl = response.eoscInline.callbackUrl;
+            } else if (response.hosted) {
+                callbackUrl = response.hosted.callbackUrl;
+            } else {
+                console.error("No entry_point found");
+                return;
+            }
+            v_callbackUrl = callbackUrl
+            res.send(v_callbackUrl);
+        });
+
+    } catch (err) {
+        console.error(err);
+    }
 });
 
 // POST endpoint to prepare + submit metadata

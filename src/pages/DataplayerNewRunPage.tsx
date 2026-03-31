@@ -263,51 +263,58 @@ export const DataplayerPage = () => {
                 return result;
             })(fileParameterMappings, files);
 
-            const startRes = await fetch("/api/coordinator/start-task", {
+            // TODO: having a type for this call will be very helpful.
+            const statusRes = await fetch("/api/coordinator/start-task", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ selectedTool, slotToMetaMapping }),
             });
 
-            if (!startRes.ok) throw new Error("Failed to start task");
+            if (!statusRes.ok) throw new Error("Failed to start task");
 
-            const { taskId } = await startRes.json();
+            const taskId = await statusRes.json();
             setTaskId(taskId);
             setStatusMessage("Task submitted! Monitoring progress...");
             setStatusType("info");
 
+            console.warn(taskId);
+
             // SSE for task progress
             const sse = new EventSource(`/api/coordinator/task-status/${taskId}`);
 
-            sse.addEventListener("state", (event) => {
+            sse.addEventListener("state", async (event) => {
                 const data = JSON.parse(event.data);
                 setStatusMessage(data.message);
                 setStatusType(
-                    data.status === "SUCCESS"
+                    data.state === "READY"
                         ? "success"
-                        : data.status === "FAILURE"
-                            ? "error"
-                            : "info"
+                        : "info"
                 );
-            });
+                console.warn(data.state);
+                if (data.state === "READY") {
+                    sse.close();
+                    
+                    try {
+                        const toolRes = await fetch(`/api/coordinator/tasks-result/${taskId}`, {
+                            method: "GET",
+                        });
+                        console.warn(toolRes);
 
-            sse.addEventListener("result", (event) => {
-                const parsed = JSON.parse(event.data);
-                const dispatcherResult: DispatcherResult = { url: parsed.result?.url };
-                setTaskResult(dispatcherResult);
-                setCurrentStep("monitoring");
-                setStatusMessage("Virtual Research Environment task completed!");
-                // XXX: redundant to do state check here which already did in "progress" event update?
-                setStatusType(parsed.status === "SUCCESS" ? "success" : "error");
-                sse.close();
-            });
+                        if (!toolRes.ok) throw new Error("Failed to fetch result");
 
-            sse.addEventListener("error", (event) => {
-                console.error("SSE error:", event);
-                setStatusMessage("Error during submission.");
-                setStatusType("error");
-                setCurrentStep("map-files");
-                sse.close();
+                        const url = await toolRes.text();
+
+                        const dispatcherResult: DispatcherResult = { url };
+                        setTaskResult(dispatcherResult);
+                        setCurrentStep("monitoring");
+                        setStatusMessage("Virtual Research Environment task completed!");
+                    } catch (err) {
+                        console.error(err);
+                        setStatusMessage("Failed to fetch task result");
+                        setCurrentStep("map-files");
+                        setStatusType("error");
+                    }
+                }
             });
         } catch (err) {
             console.error(err);
