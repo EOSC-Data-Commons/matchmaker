@@ -7,8 +7,8 @@
  *    --plugin=./node_modules/.bin/protoc-gen-ts_proto \
  *    --ts_proto_out=./src/generated \
  *    --ts_proto_opt=outputServices=grpc-js,esModuleInterop=true,env=node,useOptionals=messages \
- *    --proto_path=./proto \
- *    ./proto/service.proto
+ *    --proto_path=./req-packager/proto \
+ *    ./req-packager/proto/coordinator.proto
  *
  * Install deps:
  *   npm install @grpc/grpc-js jsonwebtoken
@@ -31,7 +31,7 @@ import {
     LaunchToolRequest,
     ToolMeta,
     ToolServiceClient,
-} from "../generated/service";
+} from "../generated/coordinator.ts";
 
 const GRPC_TARGET = "[::1]:50051";
 
