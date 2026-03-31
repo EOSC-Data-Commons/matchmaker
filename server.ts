@@ -7,6 +7,9 @@ import {createRequestHandler} from "@react-router/express";
 
 import {
     fetchDatasetFilesFromDatahuggerByUrl,
+    FileMeta,
+    getDataplayerClient,
+    launchTool,
 } from "./src/lib/grpcClient.ts";
 
 import {
@@ -14,6 +17,7 @@ import {
     prepareDispatcherMetadata,
     checkTaskStatus,
 } from './src/lib/coordinatorApi';
+import { MonitorStatusRequest, MonitorStatusResponse, ToolStatus_State } from "./src/generated/service.ts";
 
 
 // Constants
@@ -58,26 +62,27 @@ app.use(express.json());
 app.post("/api/coordinator/start-task", async (req, res) => {
     console.debug("headers:", req.headers);
     console.debug("body:", req.body);
-    const { selectedVRE, fileParameterMappings, files, datasetTitle } = req.body;
+    const { 
+        selectedTool, 
+        slotToFileMetaMapping, 
+    }: {
+        selectedTool: string, 
+        slotToFileMetaMapping: Record<string, FileMeta>, 
+    } = req.body;
 
     try {
-        // 1️⃣ Prepare metadata
-        const metadata = prepareDispatcherMetadata(
-            selectedVRE,
-            fileParameterMappings,
-            files,
-            datasetTitle,
+        // 2️⃣ launch tool
+        const taskId = await launchTool(
+            selectedTool,
+            slotToFileMetaMapping,
         );
 
-        // 2️⃣ Submit metadata
-        const submissionResult = await submitMetadataToDispatcher(metadata);
-
-        if (!submissionResult.task_id) {
+        if (!taskId) {
             return res.status(500).json({ error: "No task_id returned" });
         }
 
         // 3️⃣ Return task ID for SSE tracking
-        res.json({ taskId: submissionResult.task_id });
+        res.json(taskId);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
@@ -85,6 +90,8 @@ app.post("/api/coordinator/start-task", async (req, res) => {
 });
 
 app.get("/api/coordinator/task-status/:taskId", async (req, res) => {
+    // TODO: token or session cookie to prevent access from anywhere.
+
     const { taskId } = req.params;
 
     // SSE headers
@@ -92,32 +99,40 @@ app.get("/api/coordinator/task-status/:taskId", async (req, res) => {
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
 
-    const interval = setInterval(async () => {
-        try {
-            const statusResult = await checkTaskStatus(taskId);
+    // XXX: per user connection as well, so the token or the user name need to be an argument passed in
+    const client = getDataplayerClient();
+    const grpc_req: MonitorStatusRequest = {
+        id: taskId,
+    };
+    const stream = client.monitorStatus(grpc_req);
+    let lastState: ToolStatus_State | null = null;  
 
-            // Stream progress
+    stream.on("data", (resp: MonitorStatusResponse) => {
+        // when state machine transit to the end state.
+        const toolStatus = resp.status;
+        const currentState = toolStatus?.state ?? null;
+
+        // Stream progress
+        if (currentState && currentState != lastState) {
+            lastState = currentState;
+
             res.write(`event: progress\ndata: ${JSON.stringify({
-                status: statusResult.status,
+                state: currentState,
+                message: toolStatus?.log,
             })}\n\n`);
+        }
 
-            // Done
-            if (statusResult.status === "SUCCESS" || statusResult.status === "FAILURE") {
-                res.write(`event: result\ndata: ${JSON.stringify(statusResult)}\n\n`);
-                clearInterval(interval);
-                res.end();
-            }
-        } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
-
-            res.write(`event: error\ndata: ${JSON.stringify({ message })}\n\n`);
-            clearInterval(interval);
+        // READY means it can be redirect to there.
+        // DROPPED means the record in the esoc system but the source entity is not reachable anymore.
+        // TODO: separate these two branches and put log respectively.
+        if (currentState === ToolStatus_State.READY || currentState === ToolStatus_State.DROPPED) {
             res.end();
         }
-    }, 1000);
+    });
 
-    // Clean up if client disconnects
-    req.on("close", () => clearInterval(interval));
+    stream.on("end", () => {
+        res.end();
+    });
 });
 
 // POST endpoint to prepare + submit metadata
@@ -190,6 +205,8 @@ app.get("/api/coordinator/task-status-old/:taskId", async (req, res) => {
 app.get("/api/coordinator/files", async (req, res) => {
     const handle = req.query.handle as string;
     if (!handle) return res.status(400).json({ error: "Missing handle parameter" });
+
+    // TODO: cache entry, inmemory from start, and maybe move to use redis in production.
 
     try {
         // XXX: where error goes if url is invalid?? Should we give this to user??
