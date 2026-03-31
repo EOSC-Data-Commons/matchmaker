@@ -1,7 +1,7 @@
 import { JSX, useEffect, useState } from "react";
 import {useSearchParams, useNavigate} from 'react-router';
 
-import { FileMeta } from "@/lib/grpcClient";
+import { FileMeta } from "@/lib/server/grpcClient";
 
 import {Footer} from '../components/Footer';
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
