@@ -1,10 +1,11 @@
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
 import {useSearchParams, useNavigate} from 'react-router';
 import {LoaderIcon, CheckCircleIcon, XCircleIcon, AlertCircleIcon} from 'lucide-react';
 import {Footer} from '../components/Footer';
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 import eoscLogo from '@/assets/logo-eosc-data-commons.svg';
 import { fetchWithTimeout } from '@/lib/utils';
+import { FileMeta } from '@/lib/grpcClient';
 
 export interface FileMetrixResponse {
     files: FileMetrixFile[];
@@ -23,8 +24,6 @@ export interface TaskStatusResponse {
     result?: DispatcherResult;
     error?: string;
 }
-
-export type DispatcherType = 'text-reversion' | 'ocr-wordcloud' | null;
 
 export type StepType = 'select-analysis' | 'map-files' | 'submitting' | 'monitoring';
 
@@ -55,12 +54,6 @@ export interface DispatcherConfig {
 }
 
 
-/**
- * Dispatcher analysis configurations
- */
-import metadataTemplate from '../template/metadata-template.json';
-import roCrateTemplate from '../template/ro-crate-metadata-template.json';
-
 export interface DispatcherConfig {
     name: string;
     description: string;
@@ -69,58 +62,26 @@ export interface DispatcherConfig {
     parameters: string[];
 }
 
-
-export const DISPATCHER_CONFIGS: Record<string, DispatcherConfig> = {
-    'text-reversion': {
-        name: 'Text file reversion (Galaxy)',
-        description: 'Reverse the content of a text file',
-        template: metadataTemplate,
-        datasetHandle: 'http://hdl.handle.net/21.T15999/01BYJvzYl',
-        parameters: ['simpletext_input']
-    },
-    'ocr-wordcloud': {
-        name: 'OCR + word cloud (Galaxy)',
-        description: 'Perform OCR on an image and generate a word cloud',
-        template: roCrateTemplate,
-        datasetHandle: 'http://hdl.handle.net/21.T15999/JxVUdTVB',
-        parameters: ['Input Image', 'Upload Stopwords']
-    }
-};
-
-
-/**
- * Format file size for display
- */
-export const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
-};
-
 /**
  * Check if all required analysis parameters are mapped
  */
-export const areAllParametersMapped = (
-    dispatcherType: string,
+const areAllParametersMapped = (
+    config: ToolConfig,
     fileParameterMappings: Record<number, string>
 ): boolean => {
-    const config = DISPATCHER_CONFIGS[dispatcherType];
-
     if (!config) return false;
 
     const mappedParameters = new Set(Object.values(fileParameterMappings));
 
     // All analysis parameters must be mapped exactly once
-    return config.parameters.every(param => mappedParameters.has(param));
+    return config.slots.every(param => mappedParameters.has(param));
 };
 
 
-export const fetchFilesLegacy = async (
+const fetchFilesLegacy = async (
     datasetHandle: string,
     timeoutMs: number = 60000 // Default 1 minute timeout
-): Promise<FileMetrixResponse> => {
+): Promise<FileMeta[]> => {
     const response = await fetchWithTimeout(
         `${FILEMETRIX_BASE}/${encodeURIComponent(datasetHandle)}`,
         {},
@@ -131,8 +92,39 @@ export const fetchFilesLegacy = async (
         throw new Error(`Failed to fetch files: ${response.status}`);
     }
 
-    return await response.json();
+    const {files} =  await response.json() as { files: FileMeta[] };
+    return files;
 };
+
+interface ToolConfig {
+    name: string;
+    description: string;
+    slots: string[];
+}
+
+const FoundTools: Record<string, ToolConfig> = {
+    "uuid-1": {
+        name: 'Text file reversion (Galaxy)',
+        description: 'Reverse the content of a text file',
+        slots: ['simpletext_input']
+    },
+    "uuid-2": {
+        name: 'OCR + word cloud (Galaxy)',
+        description: 'Perform OCR on an image and generate a word cloud',
+        slots: ['Input Image', 'Upload Stopwords']
+    }
+};
+
+const queryTools = async (): Promise<Record<string, ToolConfig>> => {
+    return FoundTools;
+}
+
+const getToolConfigById = async (id: string): Promise<ToolConfig> => {
+    console.debug("get tool config by its id: " + id);
+    // XXX: this is a call to the tool registry through coordinator rpc.
+    // and put inside the useeffect
+    return FoundTools[id]
+}
 
 export const DataplayerPage = () => {
     const [searchParams] = useSearchParams();
@@ -140,34 +132,84 @@ export const DataplayerPage = () => {
 
     // Step management
     const [currentStep, setCurrentStep] = useState<StepType>('select-analysis');
-    const [selectedVRE, setSelectedVRE] = useState<DispatcherType>(null);
+    const [selectedTool, setSelectedTool] = useState<string>(null);
 
     // File management
-    const [files, setFiles] = useState<FileMetrixFile[]>([]);
+    const [files, setFiles] = useState<FileMeta[]>([]);
     const [fileParameterMappings, setFileParameterMappings] = useState<Record<number, string>>({});
     const [loadingFiles, setLoadingFiles] = useState(false);
     const [filesError, setFilesError] = useState<string | null>(null);
 
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
     // Submission tracking
     const [statusMessage, setStatusMessage] = useState('');
+    // TODO: this state type should one to one mapped to tool state in grpc definition.
     const [statusType, setStatusType] = useState<'info' | 'success' | 'error' | 'warning'>('info');
     const [taskId, setTaskId] = useState<string | null>(null);
     const [taskResult, setTaskResult] = useState<DispatcherResult | null>(null);
 
     const datasetTitle = searchParams.get('title');
+    const datasetHandle = searchParams.get('datasetId');
 
-    // Handle VRE selection
-    const handleVRESelect = async (vre: DispatcherType) => {
-        if (!vre) return;
+    const [toolConfig, setToolConfig] = useState<ToolConfig | null>(null);
+    
+    useEffect(() => {
+        const load = async () => {
+            console.log("Start loading");
+            try {
+                setLoading(true);
+                // TODO: I should wrap api call in a function so it is well typed.
+                const res = await fetch(`/api/coordinator/files?handle=${encodeURIComponent(datasetHandle)}`);
+                const files = await res.json();
+                console.log("Fetched data");
+                setFiles(files);
+            } catch (err) {
+                console.error(err);
+                setError("Failed to fetch files");
+            } finally {
+                setLoading(false);
+                console.log("Finished loading");
+            }
+        };
 
-        setSelectedVRE(vre);
+        load();
+    }, [datasetHandle]);
+
+    useEffect(() => {
+        async function load() {
+            const config = await getToolConfigById(selectedTool);
+            setToolConfig(config);
+        }
+
+        if (selectedTool != null) {
+            load();
+        }
+    }, [selectedTool]);
+
+    const [queryToolResults, setQueryToolResults] = useState<Record<string, ToolConfig>>({});
+
+    useEffect(() => {
+        async function load() {
+            const tools = await queryTools();
+            setQueryToolResults(tools);
+        }
+
+        load();
+    }, []);
+
+    // Handle tool selection
+    const handleToolSelect = async (tool_id: string) => {
+        if (!tool_id) return;
+
+        setSelectedTool(tool_id);
         setLoadingFiles(true);
         setFilesError(null);
 
         try {
-            const config = DISPATCHER_CONFIGS[vre];
-            const data = await fetchFilesLegacy(config.datasetHandle);
-            setFiles(data.files);
+            // const files = await fetchFilesLegacy(datasetHandle);
+            // setFiles(files);
             setCurrentStep('map-files');
         } catch (error) {
             console.error('Error fetching files:', error);
@@ -179,23 +221,23 @@ export const DataplayerPage = () => {
     };
 
 
-    // Handle parameter mapping change
-    const handleParameterChange = (fileIndex: number, parameter: string) => {
+    // Handle input slot mapping change
+    const handleSlotSet = (fileIndex: number, slotName: string) => {
         setFileParameterMappings(prev => {
             const newMappings = {...prev};
 
-            // Remove this parameter from any other file
+            // Remove this slot from any other file
             Object.keys(newMappings).forEach(key => {
-                if (newMappings[parseInt(key)] === parameter) {
+                if (newMappings[parseInt(key)] === slotName) {
                     delete newMappings[parseInt(key)];
                 }
             });
 
             // Set new mapping (or remove if 'none')
-            if (parameter === 'none') {
+            if (slotName === 'none') {
                 delete newMappings[fileIndex];
             } else {
-                newMappings[fileIndex] = parameter;
+                newMappings[fileIndex] = slotName;
             }
 
             return newMappings;
@@ -203,18 +245,28 @@ export const DataplayerPage = () => {
     };
 
     const handleSubmit = async () => {
-        if (!selectedVRE) return;
+        if (!selectedTool) return;
 
         try {
             setCurrentStep("submitting");
             setStatusMessage("Preparing Virtual Research Environment metadata...");
             setStatusType("info");
 
-            console.log(selectedVRE);
+            console.log("selected tool id:" + selectedTool);
+            const slotToMetaMapping = ((mapping, fs) => {
+                const result: Record<string, FileMeta> = {};
+
+                for (const [idxStr, slot] of Object.entries(mapping)) {
+                    const idx = Number(idxStr);
+                    result[slot] = fs[idx];
+                }
+                return result;
+            })(fileParameterMappings, files);
+
             const startRes = await fetch("/api/coordinator/start-task", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ selectedVRE, fileParameterMappings, files, datasetTitle }),
+                body: JSON.stringify({ selectedTool, slotToMetaMapping }),
             });
 
             if (!startRes.ok) throw new Error("Failed to start task");
@@ -227,7 +279,7 @@ export const DataplayerPage = () => {
             // SSE for task progress
             const sse = new EventSource(`/api/coordinator/task-status/${taskId}`);
 
-            sse.addEventListener("progress", (event) => {
+            sse.addEventListener("state", (event) => {
                 const data = JSON.parse(event.data);
                 setStatusMessage(data.message);
                 setStatusType(
@@ -293,7 +345,7 @@ export const DataplayerPage = () => {
     };
 
     // Render VRE selection step
-    const renderVRESelection = () => (
+    const renderToolSelection = () => (
         <div className="max-w-4xl mx-auto px-4 sm:px-6">
             <div className="mb-6">
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Select Virtual Research
@@ -303,16 +355,16 @@ export const DataplayerPage = () => {
                 {datasetTitle && (
                     <div className="mt-4 p-3 sm:p-4 bg-blue-50 rounded-lg border border-blue-200">
                         <p className="text-xs sm:text-sm font-medium text-gray-700">Dataset:</p>
-                        <p className="text-sm sm:text-base text-gray-900 break-words">{datasetTitle}</p>
+                        <p className="text-sm sm:text-base text-gray-900 wrap-break-word">{datasetTitle}</p>
                     </div>
                 )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                {(Object.entries(DISPATCHER_CONFIGS) as [DispatcherType, typeof DISPATCHER_CONFIGS[DispatcherType]][]).map(([key, config]) => (
+                {(Object.entries(queryToolResults) as [string, ToolConfig][]).map(([key, config]) => (
                     <button
                         key={key}
-                        onClick={() => handleVRESelect(key)}
+                        onClick={() => handleToolSelect(key)}
                         disabled={loadingFiles}
                         className="p-4 sm:p-6 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -325,16 +377,16 @@ export const DataplayerPage = () => {
             {loadingFiles && (
                 <div
                     className="mt-4 sm:mt-6 p-3 sm:p-4 bg-blue-50 rounded-lg border border-blue-200 flex items-center gap-2 sm:gap-3">
-                    <LoaderIcon className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 animate-spin flex-shrink-0"/>
+                    <LoaderIcon className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 animate-spin shrink-0"/>
                     <p className="text-sm sm:text-base text-blue-900">Loading files from FileMetrix...</p>
                 </div>
             )}
 
             {filesError && (
                 <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-red-50 rounded-lg border border-red-200">
-                    <p className="text-sm sm:text-base text-red-900 break-words">{filesError}</p>
+                    <p className="text-sm sm:text-base text-red-900 wrap-break-word">{filesError}</p>
                     <button
-                        onClick={() => selectedVRE && handleVRESelect(selectedVRE)}
+                        onClick={() => selectedTool && handleToolSelect(selectedTool)}
                         className="mt-2 sm:mt-3 text-xs sm:text-sm text-red-700 underline"
                     >
                         Try again
@@ -355,10 +407,9 @@ export const DataplayerPage = () => {
 
     // Render file mapping step
     const renderFileMapping = () => {
-        if (!selectedVRE) return null;
+        if (!selectedTool) return null;
 
-        const config = DISPATCHER_CONFIGS[selectedVRE];
-        const allParametersMapped = areAllParametersMapped(selectedVRE, fileParameterMappings);
+        const allParametersMapped = areAllParametersMapped(toolConfig, fileParameterMappings);
 
         return (
             <div className="max-w-5xl mx-auto px-4 sm:px-6">
@@ -372,7 +423,9 @@ export const DataplayerPage = () => {
                     <div className="mt-3 sm:mt-4 p-3 sm:p-4 bg-blue-50 rounded-lg border border-blue-200">
                         <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">Selected Virtual Research
                             Environment:</p>
-                        <p className="text-sm sm:text-base text-gray-900 font-semibold break-words">{config.name}</p>
+                        <p className="text-sm sm:text-base text-gray-900 font-semibold wrap-break-word">
+                            {toolConfig ? toolConfig.name : "Loading tool config..."}
+                        </p>
                     </div>
                 </div>
 
@@ -380,7 +433,7 @@ export const DataplayerPage = () => {
                 <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-gray-50 rounded-lg border border-gray-200">
                     <p className="text-xs sm:text-sm font-medium text-gray-700 mb-2">Required Parameters:</p>
                     <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                        {config.parameters.map(param => {
+                        {toolConfig ? toolConfig.slots.map(param => {
                             const isMapped = Object.values(fileParameterMappings).includes(param);
                             return (
                                 <span
@@ -394,7 +447,7 @@ export const DataplayerPage = () => {
                                     {param} {isMapped ? '✓' : '⚠'}
                                 </span>
                             );
-                        })}
+                        }) : "Loading tool config"}
                     </div>
                 </div>
 
@@ -405,11 +458,11 @@ export const DataplayerPage = () => {
                         <div key={index} className="bg-white rounded-lg border border-gray-200 p-4">
                             <div className="mb-3">
                                 <p className="text-xs font-medium text-gray-500 uppercase mb-1">File Name</p>
-                                <p className="text-sm text-gray-900 break-words">{file.name}</p>
+                                <p className="text-sm text-gray-900 wrap-break-word">{file.filename}</p>
                             </div>
                             <div className="mb-3">
                                 <p className="text-xs font-medium text-gray-500 uppercase mb-1">Size</p>
-                                <p className="text-sm text-gray-700">{formatFileSize(file.size)}</p>
+                                <p className="text-sm text-gray-700">{file.size}</p>
                             </div>
                             <div>
                                 <label htmlFor={`param-mobile-${index}`}
@@ -419,15 +472,15 @@ export const DataplayerPage = () => {
                                 <select
                                     id={`param-mobile-${index}`}
                                     value={fileParameterMappings[index] || 'none'}
-                                    onChange={(e) => handleParameterChange(index, e.target.value)}
+                                    onChange={(e) => handleSlotSet(index, e.target.value)}
                                     className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                                 >
                                     <option value="none">None</option>
-                                    {config.parameters.map(param => (
+                                    {toolConfig ? toolConfig.slots.map(param => (
                                         <option key={param} value={param}>
                                             {param}
                                         </option>
-                                    ))}
+                                    )): "Loading tool ..."}
                                 </select>
                             </div>
                         </div>
@@ -454,24 +507,24 @@ export const DataplayerPage = () => {
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {files.map((file, index) => (
                                     <tr key={index} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 text-sm text-gray-900 break-words">
-                                            {file.name}
+                                        <td className="px-6 py-4 text-sm text-gray-900 wrap-break-word">
+                                            {file.filename}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
-                                            {formatFileSize(file.size)}
+                                            {file.size}
                                         </td>
                                         <td className="px-6 py-4">
                                             <select
                                                 value={fileParameterMappings[index] || 'none'}
-                                                onChange={(e) => handleParameterChange(index, e.target.value)}
+                                                onChange={(e) => handleSlotSet(index, e.target.value)}
                                                 className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                                             >
                                                 <option value="none">None</option>
-                                                {config.parameters.map(param => (
+                                                {toolConfig ? toolConfig.slots.map(param => (
                                                     <option key={param} value={param}>
                                                         {param}
                                                     </option>
-                                                ))}
+                                                )) : "Loading tool ..."}
                                             </select>
                                         </td>
                                     </tr>
@@ -487,7 +540,7 @@ export const DataplayerPage = () => {
                     <button
                         onClick={() => {
                             setCurrentStep('select-analysis');
-                            setSelectedVRE(null);
+                            setSelectedTool(null);
                             setFiles([]);
                             setFileParameterMappings({});
                         }}
@@ -520,25 +573,25 @@ export const DataplayerPage = () => {
         <div className="max-w-3xl mx-auto px-4 sm:px-6">
             <div className={`rounded-lg border-2 p-4 sm:p-6 md:p-8 ${getStatusColorClass()}`}>
                 <div className="flex items-start space-x-3 sm:space-x-4">
-                    <div className="flex-shrink-0">
+                    <div className="shrink-0">
                         {getStatusIcon()}
                     </div>
                     <div className="flex-1 min-w-0">
                         <h2 className="text-lg sm:text-xl font-semibold mb-2">Virtual Research Environment Status</h2>
-                        <p className="text-base sm:text-lg mb-4 break-words">{statusMessage}</p>
+                        <p className="text-base sm:text-lg mb-4 wrap-break-word">{statusMessage}</p>
 
-                        {selectedVRE && (
+                        {selectedTool && (
                             <div className="mb-3 sm:mb-4 p-3 sm:p-4 bg-white rounded border">
                                 <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">Virtual Research
                                     Environment:</p>
-                                <p className="text-sm sm:text-base text-gray-900 break-words">{DISPATCHER_CONFIGS[selectedVRE].name}</p>
+                                <p className="text-sm sm:text-base text-gray-900 wrap-break-word">{toolConfig ? toolConfig.name : "Loading tool config..."}</p>
                             </div>
                         )}
 
                         {datasetTitle && (
                             <div className="mb-3 sm:mb-4 p-3 sm:p-4 bg-white rounded border">
                                 <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">Dataset:</p>
-                                <p className="text-sm sm:text-base text-gray-900 break-words">{datasetTitle}</p>
+                                <p className="text-sm sm:text-base text-gray-900 wrap-break-word">{datasetTitle}</p>
                             </div>
                         )}
 
@@ -576,7 +629,7 @@ export const DataplayerPage = () => {
                                 <button
                                     onClick={() => {
                                         setCurrentStep('select-analysis');
-                                        setSelectedVRE(null);
+                                        setSelectedTool(null);
                                         setFiles([]);
                                         setFileParameterMappings({});
                                         setTaskId(null);
@@ -618,7 +671,7 @@ export const DataplayerPage = () => {
             {/* <div> file list and selection (unimplemnted) </div> */}
 
             <main className="flex-1 container mx-auto py-4 sm:py-6 md:py-8">
-                {currentStep === 'select-analysis' && renderVRESelection()}
+                {currentStep === 'select-analysis' && renderToolSelection()}
                 {currentStep === 'map-files' && renderFileMapping()}
                 {(currentStep === 'submitting' || currentStep === 'monitoring') && renderMonitoring()}
             </main>
