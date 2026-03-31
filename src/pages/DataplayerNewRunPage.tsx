@@ -4,7 +4,7 @@ import {LoaderIcon, CheckCircleIcon, XCircleIcon, AlertCircleIcon} from 'lucide-
 import {Footer} from '../components/Footer';
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 import eoscLogo from '@/assets/logo-eosc-data-commons.svg';
-import { FileMeta } from '@/lib/grpcClient';
+import { FileMeta } from '@/lib/server/grpcClient';
 
 export interface FileMetrixResponse {
     files: FileMetrixFile[];
