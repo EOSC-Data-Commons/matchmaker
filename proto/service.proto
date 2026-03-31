@@ -207,9 +207,9 @@ message ToolStatus {
 // But in fact, some tool need config files that is independent of data files passed in.
 // We may also want to extend this as a tool can be a combination of multiple tool such as resource provider tool. 
 // This interface high likely will be full re-definded.
-message LaunchRequest {
-  ToolMeta tool = 1;
-  repeated FileEntry files = 2;
+message LaunchToolRequest {
+  string tool_id = 1;
+  map<string, FileEntry> slots_mapping = 2;
 }
 
 message User_Id {
@@ -222,7 +222,7 @@ message ToolHandler {
   string id = 3;
 }
 
-message LaunchResponse {
+message LaunchToolResponse {
   string handler_id = 1;
 }
 
@@ -231,14 +231,7 @@ message MonitorStatusRequest {
 }
 
 message MonitorStatusResponse {
-  // monitoring has two Phases, running and completed
-  enum Phase {
-    RUNNING = 0;
-    COMPLETED = 1;
-  }
-
-  Phase phase = 1;
-  ToolStatus status = 2;
+  ToolStatus status = 1;
 }
 
 message GetStatusRequest {
@@ -289,7 +282,7 @@ message GetArtifactResponse {
 // this is the service in front of dispatcher or say all other real vre artifact.
 service DataplayerService {
   // launch the tool
-  rpc Launch(LaunchRequest) returns (LaunchResponse); 
+  rpc LaunchTool(LaunchToolRequest) returns (LaunchToolResponse); 
 
   // find all instance of a user, kv table search, in-memory if empharpha or using sqlite to FS if persistence needed.
   rpc Query(QueryUserRequest) returns (QueryUserResponse);
