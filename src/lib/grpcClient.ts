@@ -24,9 +24,11 @@ import {
     BrowseDatasetByUrlRequest,
     BrowseDatasetRequest,
     BrowseDatasetResponse,
+    DataplayerServiceClient,
     DatasetServiceClient,
     FileEntry,
     FindToolsRequest,
+    LaunchToolRequest,
     ToolMeta,
     ToolServiceClient,
 } from "../generated/service";
@@ -60,6 +62,7 @@ export interface FileMeta {
   /** basename, same as dataPath for now — mirrors Rust impl */
   filename: string;
   /** human-readable decimal size string, e.g. "1.2 MB" */
+  // XXX: is it good to use human-readable string size, I only display it or it involve with some calculation?
   size: string;
   hash: string | null;
   hash_type: string;
@@ -108,6 +111,8 @@ function fileMetaToFileEntry(meta: FileMeta): FileEntry {
 }
 
 // client as a singleton for long-live HTTP/2 
+// FIXME: all users share same TCP connection, security no safe, do per user mapping singleton.
+// On the server side the validation happens for every rpc.
 let db_client: DatasetServiceClient | null = null;
 export function getDatasetClient() {
     if (!db_client) {
@@ -160,10 +165,10 @@ export async function fetchDatasetFilesFromDatadaseByUUID(
     };
 
     return new Promise((resolve, reject) => {
-        const call = client.browseDataset(request, metadata);
+        const stream = client.browseDataset(request, metadata);
         const files: FileMeta[] = [];
 
-        call.on("data", (resp: BrowseDatasetResponse) => {
+        stream.on("data", (resp: BrowseDatasetResponse) => {
             if (resp.fileEntry) {
                 files.push(fileEntryToFileMeta(resp.fileEntry));
                 return;
@@ -178,7 +183,7 @@ export async function fetchDatasetFilesFromDatadaseByUUID(
             }
 
             if (resp.complete) {
-                // call.cancel();
+                // stream.cancel();
                 return;
             }
 
@@ -188,12 +193,13 @@ export async function fetchDatasetFilesFromDatadaseByUUID(
             }
         });
 
-        call.on("end", () => {
+        stream.on("end", () => {
+            // XXX: should I close the client??
             client.close();
             resolve(files);
         });
 
-        call.on("error", (err: grpc.ServiceError) => {
+        stream.on("error", (err: grpc.ServiceError) => {
             client.close();
             reject(err);
         });
@@ -283,4 +289,58 @@ export async function findTools(files: FileMeta[]): Promise<ToolMeta[]> {
             resolve(response!.tools);
         });
     });
+}
+
+// data player service
+// TODO: string as id is not a good type, use TaskId and ToolId to distinguish them can be more clear.
+export async function launchTool(toolId: string, slotsMapping: Record<string, FileMeta>): Promise<string> {
+    const token = createToken(); 
+    const metadata = makeAuthMetadata(token);
+
+    // XXX: if I deploy the grpc server with client in the same NAT, I can use insecure channel, but if goes to ethz deployment, should not.
+    // Should use SSL for msg over wire.
+    const client = new DataplayerServiceClient(GRPC_TARGET, createInsecureChannel());
+
+    const msgSlotsMapping = {} as {string: FileEntry};
+    for (const k in slotsMapping) {
+        msgSlotsMapping[k] = FileMetaToFileEntry(slotsMapping[k]); 
+    }
+
+    const request: LaunchToolRequest = {
+        toolId,
+        slotsMapping: msgSlotsMapping,
+    }
+
+    return new Promise((resolve, reject) => {
+        client.launchTool(request, metadata, (error, response) => {
+            if (error) {
+                // TODO: log needed?
+                reject(error);
+                return;
+            }
+
+            resolve(response.handlerId);
+        }); 
+    });
+}
+
+// export async function watchTaskStatus(taskId: string): Promise<> {
+//     const token = createToken(); 
+//     const metadata = makeAuthMetadata(token);
+//
+//     // XXX: if I deploy the grpc server with client in the same NAT, I can use insecure channel, but if goes to ethz deployment, should not.
+//     // Should use SSL for msg over wire.
+//     const client = new DataplayerServiceClient(GRPC_TARGET, createInsecureChannel());
+//     client.monitorStatus
+// }
+
+let player_client: DataplayerServiceClient | null = null;
+export function getDataplayerClient() {
+    if (!player_client) {
+        player_client = new DataplayerServiceClient(
+            GRPC_TARGET,
+            createInsecureChannel()
+        );
+    }
+    return player_client;
 }

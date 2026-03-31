@@ -27,6 +27,7 @@ export const DataplayerPage = () => {
             console.log("Start loading");
             try {
                 setLoading(true);
+                // TODO: I should wrap api call in a function so it is well typed.
                 const res = await fetch(`/api/coordinator/files?handle=${encodeURIComponent(datasetHandle)}`);
                 const files = await res.json();
                 console.log("Fetched data");
