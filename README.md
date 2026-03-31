@@ -124,18 +124,38 @@ docker run -p 5173:80 ghcr.io/eosc-data-commons/matchmaker-frontend:latest
 >
 > If running backend and frontend in separate containers, you may need to adjust CORS or network settings for them to communicate.
 
-## grpc codegen
+## Coordinator server
+
+The matchmaker talk to backend services such as dataplayer, tool registry and file fetcher through the coordinator server.
+The messages in between follow the same protobuf as the contract.
+Matchmaker implement the client side of grpc in typescript by `grpc-js`.
+To synchronous the protobuf with the coordinator code base so to avaid contract out of sync in the local development, the coordinator code base (called `req-packager` for historical reason) is set as a submodule in the repo.
+
+For developer, clone the repo by:
+
+```console
+git clone --recurse-submodules https://github.com/EOSC-Data-Commons/matchmaker.git
+```
+
+If you already cloned the project and forgot `--recurse-submodules`, you can combine the `git submodule init` and `git submodule update` steps by running `git submodule update --init`. 
+To also initialize, fetch and checkout any nested submodules, you can use the foolproof `git submodule update --init --recursive`.
+
+Check https://git-scm.com/book/en/v2/Git-Tools-Submodules for more information for submodule management.
+
+### grpc codegen
+
+Generate the typescript code that whic grpc related types and functions by:
 
 ```console
 npx protoc \
   --plugin=./node_modules/.bin/protoc-gen-ts_proto \
   --ts_proto_out=./src/generated \
   --ts_proto_opt=outputServices=grpc-js,esModuleInterop=true,env=node,useOptionals=messages \
-  --proto_path=./proto \
-  ./proto/service.proto
+  --proto_path=./req-packager/proto \
+  ./req-packager/proto/coordinator.proto
 ```
 
-This will generate a `./src/generated/service.ts` file contains all types to be implemented for client.
+This will generate a `./src/generated/coordinator.ts` file contains all types to be implemented for client.
 
 ## How to Search
 
