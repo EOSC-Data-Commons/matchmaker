@@ -4,14 +4,11 @@ import {LoaderIcon, CheckCircleIcon, XCircleIcon, AlertCircleIcon} from 'lucide-
 import {Footer} from '../components/Footer';
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 import eoscLogo from '@/assets/logo-eosc-data-commons.svg';
-import { fetchWithTimeout } from '@/lib/utils';
 import { FileMeta } from '@/lib/grpcClient';
 
 export interface FileMetrixResponse {
     files: FileMetrixFile[];
 }
-
-const FILEMETRIX_BASE = 'https://filemetrix.labs.dansdemo.nl/api/v1';
 
 export type TaskStatus = 'PENDING' | 'SUCCESS' | 'FAILURE' | 'RETRY' | 'STARTED';
 
@@ -77,24 +74,6 @@ const areAllParametersMapped = (
     return config.slots.every(param => mappedParameters.has(param));
 };
 
-
-const fetchFilesLegacy = async (
-    datasetHandle: string,
-    timeoutMs: number = 60000 // Default 1 minute timeout
-): Promise<FileMeta[]> => {
-    const response = await fetchWithTimeout(
-        `${FILEMETRIX_BASE}/${encodeURIComponent(datasetHandle)}`,
-        {},
-        timeoutMs
-    );
-
-    if (!response.ok) {
-        throw new Error(`Failed to fetch files: ${response.status}`);
-    }
-
-    const {files} =  await response.json() as { files: FileMeta[] };
-    return files;
-};
 
 interface ToolConfig {
     name: string;
