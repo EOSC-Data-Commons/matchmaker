@@ -6,10 +6,6 @@ import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 import eoscLogo from '@/assets/logo-eosc-data-commons.svg';
 import { FileMeta } from '@/lib/server/grpcClient';
 
-export interface FileMetrixResponse {
-    files: FileMetrixFile[];
-}
-
 export type TaskStatus = 'PENDING' | 'SUCCESS' | 'FAILURE' | 'RETRY' | 'STARTED';
 
 export interface DispatcherResult {
@@ -23,41 +19,6 @@ export interface TaskStatusResponse {
 }
 
 export type StepType = 'select-analysis' | 'map-files' | 'submitting' | 'monitoring';
-
-export interface FileMetrixFile {
-    link: string;
-    name: string;
-    size: number;
-    hash: string | null;
-    hash_type: string;
-    ro_crate_extensions: {
-        'onedata:onezoneDomain': string;
-        'onedata:spaceId': string;
-        'onedata:fileId': string;
-        'onedata:publicAccess': boolean;
-    };
-}
-
-export interface FileMetrixResponse {
-    files: FileMetrixFile[];
-}
-
-export interface DispatcherConfig {
-    name: string;
-    description: string;
-    template: Record<string, unknown>;
-    datasetHandle: string;
-    parameters: string[];
-}
-
-
-export interface DispatcherConfig {
-    name: string;
-    description: string;
-    template: Record<string, unknown>;
-    datasetHandle: string;
-    parameters: string[];
-}
 
 /**
  * Check if all required analysis parameters are mapped
@@ -74,44 +35,19 @@ const areAllParametersMapped = (
     return config.slots.every(param => mappedParameters.has(param));
 };
 
-
 interface ToolConfig {
     name: string;
     description: string;
     slots: string[];
 }
-
-const FoundTools: Record<string, ToolConfig> = {
-    "uuid-1": {
-        name: 'Text file reversion (Galaxy)',
-        description: 'Reverse the content of a text file',
-        slots: ['simpletext_input']
-    },
-    "uuid-2": {
-        name: 'OCR + word cloud (Galaxy)',
-        description: 'Perform OCR on an image and generate a word cloud',
-        slots: ['Input Image', 'Upload Stopwords']
-    }
-};
-
-const queryTools = async (): Promise<Record<string, ToolConfig>> => {
-    return FoundTools;
-}
-
-const getToolConfigById = async (id: string): Promise<ToolConfig> => {
-    console.debug("get tool config by its id: " + id);
-    // XXX: this is a call to the tool registry through coordinator rpc.
-    // and put inside the useeffect
-    return FoundTools[id]
-}
-
 export const DataplayerPage = () => {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
 
     // Step management
     const [currentStep, setCurrentStep] = useState<StepType>('select-analysis');
-    const [selectedTool, setSelectedTool] = useState<string>(null);
+    // tool uuid
+    const [selectedToolId, setSelectedToolId] = useState<string>(null);
 
     // File management
     const [files, setFiles] = useState<FileMeta[]>([]);
@@ -158,20 +94,22 @@ export const DataplayerPage = () => {
 
     useEffect(() => {
         async function load() {
-            const config = await getToolConfigById(selectedTool);
+            const res = await fetch(`/api/coordinator/tool/get/${selectedToolId}`);
+            const config = await res.json();
             setToolConfig(config);
         }
 
-        if (selectedTool != null) {
+        if (selectedToolId != null) {
             load();
         }
-    }, [selectedTool]);
+    }, [selectedToolId]);
 
     const [queryToolResults, setQueryToolResults] = useState<Record<string, ToolConfig>>({});
 
     useEffect(() => {
         async function load() {
-            const tools = await queryTools();
+            const res = await fetch(`/api/coordinator/tool/query`);
+            const tools = await res.json();
             setQueryToolResults(tools);
         }
 
@@ -182,7 +120,7 @@ export const DataplayerPage = () => {
     const handleToolSelect = async (tool_id: string) => {
         if (!tool_id) return;
 
-        setSelectedTool(tool_id);
+        setSelectedToolId(tool_id);
         setLoadingFiles(true);
         setFilesError(null);
 
@@ -224,15 +162,15 @@ export const DataplayerPage = () => {
     };
 
     const handleSubmit = async () => {
-        if (!selectedTool) return;
+        if (!selectedToolId) return;
 
         try {
             setCurrentStep("submitting");
             setStatusMessage("Preparing Virtual Research Environment metadata...");
             setStatusType("info");
 
-            console.log("selected tool id:" + selectedTool);
-            const slotToMetaMapping = ((mapping, fs) => {
+            console.log("selected tool id:" + selectedToolId);
+            const slotToFileMetaMapping = ((mapping, fs) => {
                 const result: Record<string, FileMeta> = {};
 
                 for (const [idxStr, slot] of Object.entries(mapping)) {
@@ -246,7 +184,7 @@ export const DataplayerPage = () => {
             const statusRes = await fetch("/api/coordinator/start-task", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ selectedTool, slotToMetaMapping }),
+                body: JSON.stringify({ selectedToolId, slotToFileMetaMapping }),
             });
 
             if (!statusRes.ok) throw new Error("Failed to start task");
@@ -372,7 +310,7 @@ export const DataplayerPage = () => {
                 <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-red-50 rounded-lg border border-red-200">
                     <p className="text-sm sm:text-base text-red-900 wrap-break-word">{filesError}</p>
                     <button
-                        onClick={() => selectedTool && handleToolSelect(selectedTool)}
+                        onClick={() => selectedToolId && handleToolSelect(selectedToolId)}
                         className="mt-2 sm:mt-3 text-xs sm:text-sm text-red-700 underline"
                     >
                         Try again
@@ -393,7 +331,7 @@ export const DataplayerPage = () => {
 
     // Render file mapping step
     const renderFileMapping = () => {
-        if (!selectedTool) return null;
+        if (!selectedToolId) return null;
 
         const allParametersMapped = areAllParametersMapped(toolConfig, fileParameterMappings);
 
@@ -526,7 +464,7 @@ export const DataplayerPage = () => {
                     <button
                         onClick={() => {
                             setCurrentStep('select-analysis');
-                            setSelectedTool(null);
+                            setSelectedToolId(null);
                             setFiles([]);
                             setFileParameterMappings({});
                         }}
@@ -566,7 +504,7 @@ export const DataplayerPage = () => {
                         <h2 className="text-lg sm:text-xl font-semibold mb-2">Virtual Research Environment Status</h2>
                         <p className="text-base sm:text-lg mb-4 wrap-break-word">{statusMessage}</p>
 
-                        {selectedTool && (
+                        {selectedToolId && (
                             <div className="mb-3 sm:mb-4 p-3 sm:p-4 bg-white rounded border">
                                 <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">Virtual Research
                                     Environment:</p>
@@ -615,7 +553,7 @@ export const DataplayerPage = () => {
                                 <button
                                     onClick={() => {
                                         setCurrentStep('select-analysis');
-                                        setSelectedTool(null);
+                                        setSelectedToolId(null);
                                         setFiles([]);
                                         setFileParameterMappings({});
                                         setTaskId(null);
