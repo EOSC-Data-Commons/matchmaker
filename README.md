@@ -159,11 +159,15 @@ This will generate a `./src/generated/coordinator.ts` file contains all types to
 
 ### data flow
 
-UI frontend `pages/FooPage.tsx` -> `lib/coordinatorApi.ts` (implement wrapper of request call of `/api/bar...`)  
+UI frontend `pages/FooPage.tsx` -\- `lib/coordinatorApi.ts` (implement wrapper of request call of `/api/bar...`)  
 
 <----> 
 
-UI server `server.ts` -> `lib/server/grpcClient.ts` (grpc client run on the UI server talk to grpc server deployed by req-packager).
+UI server `server.ts` -\- `lib/server/grpcClient.ts` (grpc client run on the UI server talk to grpc server deployed by req-packager).
+
+<--HTTP/2--> 
+
+coordinator server run as a binary (as grpc server) which hide the backend services from UI.
 
 ## How to Search
 
