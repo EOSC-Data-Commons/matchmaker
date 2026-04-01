@@ -9,6 +9,7 @@ import {
     fetchDatasetFilesFromDatahuggerByUrl,
     FileMeta,
     getDataplayerClient,
+    getToolSrcClient,
     launchTool,
 } from "./src/lib/server/grpcClient.ts";
 
@@ -19,10 +20,12 @@ import {
 } from './src/lib/deprecatedDispatcherApi.ts';
 
 import { 
+    FindToolsRequest,
     GetArtifactRequest, 
-    MonitorStatusRequest, 
-    MonitorStatusResponse, 
-    ToolStatus_State,
+    GetToolRequest, 
+    MonitorStateRequest, 
+    MonitorStateResponse, 
+    ToolState_State,
 } from "./src/lib/server/generated/coordinator.ts";
 
 
@@ -64,22 +67,29 @@ app.use('/api/coordinator-online', createProxyMiddleware({
     }
 }));
 
+// TODO: rename to task/start
 app.use(express.json());
 app.post("/api/coordinator/start-task", async (req, res) => {
     console.debug("headers:", req.headers);
     console.debug("body:", req.body);
+    // TODO: compile time type safety through a type/api.ts to share type info with client.
+    // this can prevent the parsing typos etc.
+    //
+    // XXX: @reggie can I assume the unique id of tool in the tool registry is a valid UUID?
     const { 
-        selectedTool, 
+        selectedToolId, 
         slotToFileMetaMapping, 
     }: {
-        selectedTool: string, 
+        selectedToolId: string, 
         slotToFileMetaMapping: Record<string, FileMeta>, 
     } = req.body;
 
     try {
         // 2️⃣ launch tool
+        console.warn(selectedToolId);
+        console.warn(slotToFileMetaMapping);
         const taskId = await launchTool(
-            selectedTool,
+            selectedToolId,
             slotToFileMetaMapping,
         );
 
@@ -95,6 +105,7 @@ app.post("/api/coordinator/start-task", async (req, res) => {
     }
 });
 
+// TODO: rename to task/status/:taskId
 app.get("/api/coordinator/task-status/:taskId", async (req, res) => {
     // TODO: token or session cookie to prevent access from anywhere.
 
@@ -107,16 +118,16 @@ app.get("/api/coordinator/task-status/:taskId", async (req, res) => {
 
     // XXX: per user connection as well, so the token or the user name need to be an argument passed in
     const client = getDataplayerClient();
-    const grpc_req: MonitorStatusRequest = {
+    const grpc_req: MonitorStateRequest = {
         id: taskId,
     };
-    const stream = client.monitorStatus(grpc_req);
-    let lastState: ToolStatus_State | null = null;  
+    const stream = client.monitorState(grpc_req);
+    let lastState: ToolState_State | null = null;  
 
-    stream.on("data", (resp: MonitorStatusResponse) => {
+    stream.on("data", (resp: MonitorStateResponse) => {
         // when state machine transit to the end state.
-        const toolStatus = resp.status;
-        const currentState = toolStatus?.state ?? null;
+        const toolState = resp.status;
+        const currentState = toolState?.state ?? null;
 
         // Stream progress
         if (currentState && currentState != lastState) {
@@ -124,21 +135,21 @@ app.get("/api/coordinator/task-status/:taskId", async (req, res) => {
 
             let stateStr = null;
             // XXX: ??? why currentState don't match?
-            // if (currentState === ToolStatus_State.PREPARING) {
+            // if (currentState === ToolState_State.PREPARING) {
             //     stateStr = "PREPARING";
             // }
-            if (currentState === ToolStatus_State.READY)  {
+            if (currentState === ToolState_State.READY)  {
                 stateStr = "READY";
             }
-            if (currentState === ToolStatus_State.DROPPED) {
+            if (currentState === ToolState_State.DROPPED) {
                 stateStr = "DROPPED";
             } 
-            if (currentState === ToolStatus_State.UNRECOGNIZED) {
+            if (currentState === ToolState_State.UNRECOGNIZED) {
                 stateStr = "UNRECOGNIZED";
             }
             res.write(`event: state\ndata: ${JSON.stringify({
                 state: stateStr,
-                message: toolStatus?.log,
+                message: toolState?.log,
             })}\n\n`);
         }
     });
@@ -148,6 +159,7 @@ app.get("/api/coordinator/task-status/:taskId", async (req, res) => {
     });
 });
 
+// TODO: rename to task/result/:taskId
 app.use(express.json());
 app.get("/api/coordinator/tasks-result/:taskId", async (req, res) => {
     const { taskId } = req.params;
@@ -163,7 +175,6 @@ app.get("/api/coordinator/tasks-result/:taskId", async (req, res) => {
                 console.error(err);
                 return;
             }
-            // response is your GetArtifactResponse
             let callbackUrl: string | undefined;
 
             if (response.eoscInline) {
@@ -178,6 +189,80 @@ app.get("/api/coordinator/tasks-result/:taskId", async (req, res) => {
             res.send(v_callbackUrl);
         });
 
+    } catch (err) {
+        console.error(err);
+    }
+});
+
+interface ToolConfig {
+    name: string;
+    description: string;
+    slots: string[];
+}
+
+app.use(express.json());
+app.get("/api/coordinator/tool/query", async (_req, res) => {
+    const client = getToolSrcClient();
+    try {
+        // XXX: @reggie here is the abstract interface to the tool registry.
+        const grpc_req: FindToolsRequest = {
+            files: [],
+        };
+
+        client.findTools(grpc_req, (err, response) => {
+            if (err) {
+                console.error(err);
+                return;
+            }
+
+            const foundTools: Record<string, ToolConfig> = {};
+            for (const tool of response.tools) {
+                const config: ToolConfig = { 
+                    name: tool.name, 
+                    description: tool.description, 
+                    slots: tool.slots
+                };
+
+                foundTools[tool.id] = config;
+            }
+            res.json(foundTools);
+        });
+    } catch (err) {
+        console.error(err);
+    }
+});
+
+
+app.use(express.json());
+app.get("/api/coordinator/tool/get/:toolId", async (req, res) => {
+    const { toolId: id } = req.params;
+    const client = getToolSrcClient();
+    try {
+        // XXX: @reggie here is the abstract interface to the tool registry.
+        const grpc_req: GetToolRequest = {
+            id,
+        };
+
+        client.getTool(grpc_req, (err, response) => {
+            if (err) {
+                console.error(err);
+                return;
+            }
+
+            const tool = response.tool;
+            if (!tool) {
+                console.error("not a valid tool"); 
+                return;
+            }
+
+            const config: ToolConfig = { 
+                name: tool.name, 
+                description: tool.description, 
+                slots: tool.slots
+            };
+
+            res.json(config);
+        });
     } catch (err) {
         console.error(err);
     }

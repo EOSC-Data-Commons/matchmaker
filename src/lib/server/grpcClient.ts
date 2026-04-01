@@ -98,15 +98,16 @@ function fileEntryToFileMeta(entry: FileEntry): FileMeta {
 }
 
 /** mirrors Rust `impl From<FileMeta> for grpc::FileEntry` */
+// XXX: not well done on converting, same for the reverse convert above.
 function fileMetaToFileEntry(meta: FileMeta): FileEntry {
     return {
-        downloadUrl: meta.downloadUrl ?? null,
+        downloadUrl: meta.downloadUrl ?? undefined,
         path: meta.dataPath,
         sizeBytes: 0, // FIXME: same as Rust — original size lost after display conversion
         isDir: meta.isDir,
-        mimeType: meta.mimetype ?? null,
-        checksum: null,
-        modifiedAt: null,
+        mimeType: meta.mimetype ?? undefined,
+        checksum: undefined,
+        modifiedAt: undefined,
     };
 }
 
@@ -303,7 +304,7 @@ export async function launchTool(toolId: string, slotsMapping: Record<string, Fi
 
     const msgSlotsMapping = {} as {string: FileEntry};
     for (const k in slotsMapping) {
-        msgSlotsMapping[k] = FileMetaToFileEntry(slotsMapping[k]); 
+        msgSlotsMapping[k] = fileMetaToFileEntry(slotsMapping[k]); 
     }
 
     const request: LaunchToolRequest = {
@@ -324,16 +325,6 @@ export async function launchTool(toolId: string, slotsMapping: Record<string, Fi
     });
 }
 
-// export async function watchTaskStatus(taskId: string): Promise<> {
-//     const token = createToken(); 
-//     const metadata = makeAuthMetadata(token);
-//
-//     // XXX: if I deploy the grpc server with client in the same NAT, I can use insecure channel, but if goes to ethz deployment, should not.
-//     // Should use SSL for msg over wire.
-//     const client = new DataplayerServiceClient(GRPC_TARGET, createInsecureChannel());
-//     client.monitorStatus
-// }
-
 let player_client: DataplayerServiceClient | null = null;
 export function getDataplayerClient() {
     if (!player_client) {
@@ -343,4 +334,15 @@ export function getDataplayerClient() {
         );
     }
     return player_client;
+}
+
+let toolsrc_client: ToolServiceClient | null = null;
+export function getToolSrcClient() {
+    if (!toolsrc_client) {
+        toolsrc_client = new ToolServiceClient(
+            GRPC_TARGET,
+            createInsecureChannel()
+        );
+    }
+    return toolsrc_client;
 }
