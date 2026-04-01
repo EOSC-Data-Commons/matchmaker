@@ -246,11 +246,15 @@ export interface BrowseComplete {
 /**
  * -------------- Start of Tool Service --------------
  * this is what response to client about the vre entity it can utilize.
+ * NOTE: @reggie here is what supposed to be stored in the registry.
  */
 export interface ToolMeta {
   /** id in the tool registry */
   id: string;
   version: string;
+  name: string;
+  description: string;
+  slots: string[];
 }
 
 export interface BrowseToolsRequest {
@@ -260,6 +264,7 @@ export interface BrowseToolsResponse {
 }
 
 export interface GetToolRequest {
+  id: string;
 }
 
 export interface ToolResponse {
@@ -279,45 +284,45 @@ export interface FindToolsResponse {
  * the lightweight tool do not need resources can be always ready.
  * the tool that need resource preparing, start frond preparing, and end with the resource being dropped
  */
-export interface ToolStatus {
+export interface ToolState {
   log: string;
-  state: ToolStatus_State;
+  state: ToolState_State;
 }
 
-export enum ToolStatus_State {
+export enum ToolState_State {
   PREPARING = 0,
   READY = 8,
   DROPPED = 9,
   UNRECOGNIZED = -1,
 }
 
-export function toolStatus_StateFromJSON(object: any): ToolStatus_State {
+export function toolState_StateFromJSON(object: any): ToolState_State {
   switch (object) {
     case 0:
     case "PREPARING":
-      return ToolStatus_State.PREPARING;
+      return ToolState_State.PREPARING;
     case 8:
     case "READY":
-      return ToolStatus_State.READY;
+      return ToolState_State.READY;
     case 9:
     case "DROPPED":
-      return ToolStatus_State.DROPPED;
+      return ToolState_State.DROPPED;
     case -1:
     case "UNRECOGNIZED":
     default:
-      return ToolStatus_State.UNRECOGNIZED;
+      return ToolState_State.UNRECOGNIZED;
   }
 }
 
-export function toolStatus_StateToJSON(object: ToolStatus_State): string {
+export function toolState_StateToJSON(object: ToolState_State): string {
   switch (object) {
-    case ToolStatus_State.PREPARING:
+    case ToolState_State.PREPARING:
       return "PREPARING";
-    case ToolStatus_State.READY:
+    case ToolState_State.READY:
       return "READY";
-    case ToolStatus_State.DROPPED:
+    case ToolState_State.DROPPED:
       return "DROPPED";
-    case ToolStatus_State.UNRECOGNIZED:
+    case ToolState_State.UNRECOGNIZED:
     default:
       return "UNRECOGNIZED";
   }
@@ -343,30 +348,34 @@ export interface UserId {
   inner: string;
 }
 
-export interface ToolHandler {
-  state?: ToolStatus | undefined;
+export interface HandlerId {
+  inner: string;
+}
+
+export interface ToolTaskHandler {
+  id?: HandlerId | undefined;
+  state?: ToolState | undefined;
   owner?: UserId | undefined;
-  id: string;
 }
 
 export interface LaunchToolResponse {
   handlerId: string;
 }
 
-export interface MonitorStatusRequest {
+export interface MonitorStateRequest {
   id: string;
 }
 
-export interface MonitorStatusResponse {
-  status?: ToolStatus | undefined;
+export interface MonitorStateResponse {
+  status?: ToolState | undefined;
 }
 
-export interface GetStatusRequest {
-  id: string;
+export interface GetStateRequest {
+  taskUuid: string;
 }
 
-export interface GetStatusResponse {
-  status?: ToolStatus | undefined;
+export interface GetStateResponse {
+  status?: ToolState | undefined;
 }
 
 export interface DropRequest {
@@ -382,7 +391,7 @@ export interface QueryUserRequest {
 }
 
 export interface QueryUserResponse {
-  ths: ToolHandler[];
+  ths: ToolTaskHandler[];
 }
 
 export interface GetArtifactRequest {
@@ -1661,7 +1670,7 @@ export const BrowseComplete: MessageFns<BrowseComplete> = {
 };
 
 function createBaseToolMeta(): ToolMeta {
-  return { id: "", version: "" };
+  return { id: "", version: "", name: "", description: "", slots: [] };
 }
 
 export const ToolMeta: MessageFns<ToolMeta> = {
@@ -1671,6 +1680,15 @@ export const ToolMeta: MessageFns<ToolMeta> = {
     }
     if (message.version !== "") {
       writer.uint32(18).string(message.version);
+    }
+    if (message.name !== "") {
+      writer.uint32(26).string(message.name);
+    }
+    if (message.description !== "") {
+      writer.uint32(34).string(message.description);
+    }
+    for (const v of message.slots) {
+      writer.uint32(42).string(v!);
     }
     return writer;
   },
@@ -1698,6 +1716,30 @@ export const ToolMeta: MessageFns<ToolMeta> = {
           message.version = reader.string();
           continue;
         }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.name = reader.string();
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.description = reader.string();
+          continue;
+        }
+        case 5: {
+          if (tag !== 42) {
+            break;
+          }
+
+          message.slots.push(reader.string());
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -1711,6 +1753,9 @@ export const ToolMeta: MessageFns<ToolMeta> = {
     return {
       id: isSet(object.id) ? globalThis.String(object.id) : "",
       version: isSet(object.version) ? globalThis.String(object.version) : "",
+      name: isSet(object.name) ? globalThis.String(object.name) : "",
+      description: isSet(object.description) ? globalThis.String(object.description) : "",
+      slots: globalThis.Array.isArray(object?.slots) ? object.slots.map((e: any) => globalThis.String(e)) : [],
     };
   },
 
@@ -1722,6 +1767,15 @@ export const ToolMeta: MessageFns<ToolMeta> = {
     if (message.version !== "") {
       obj.version = message.version;
     }
+    if (message.name !== "") {
+      obj.name = message.name;
+    }
+    if (message.description !== "") {
+      obj.description = message.description;
+    }
+    if (message.slots?.length) {
+      obj.slots = message.slots;
+    }
     return obj;
   },
 
@@ -1732,6 +1786,9 @@ export const ToolMeta: MessageFns<ToolMeta> = {
     const message = createBaseToolMeta();
     message.id = object.id ?? "";
     message.version = object.version ?? "";
+    message.name = object.name ?? "";
+    message.description = object.description ?? "";
+    message.slots = object.slots?.map((e) => e) || [];
     return message;
   },
 };
@@ -1823,11 +1880,14 @@ export const BrowseToolsResponse: MessageFns<BrowseToolsResponse> = {
 };
 
 function createBaseGetToolRequest(): GetToolRequest {
-  return {};
+  return { id: "" };
 }
 
 export const GetToolRequest: MessageFns<GetToolRequest> = {
-  encode(_: GetToolRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(message: GetToolRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.id !== "") {
+      writer.uint32(10).string(message.id);
+    }
     return writer;
   },
 
@@ -1838,6 +1898,14 @@ export const GetToolRequest: MessageFns<GetToolRequest> = {
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.id = reader.string();
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -1847,20 +1915,24 @@ export const GetToolRequest: MessageFns<GetToolRequest> = {
     return message;
   },
 
-  fromJSON(_: any): GetToolRequest {
-    return {};
+  fromJSON(object: any): GetToolRequest {
+    return { id: isSet(object.id) ? globalThis.String(object.id) : "" };
   },
 
-  toJSON(_: GetToolRequest): unknown {
+  toJSON(message: GetToolRequest): unknown {
     const obj: any = {};
+    if (message.id !== "") {
+      obj.id = message.id;
+    }
     return obj;
   },
 
   create<I extends Exact<DeepPartial<GetToolRequest>, I>>(base?: I): GetToolRequest {
     return GetToolRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<GetToolRequest>, I>>(_: I): GetToolRequest {
+  fromPartial<I extends Exact<DeepPartial<GetToolRequest>, I>>(object: I): GetToolRequest {
     const message = createBaseGetToolRequest();
+    message.id = object.id ?? "";
     return message;
   },
 };
@@ -2041,12 +2113,12 @@ export const FindToolsResponse: MessageFns<FindToolsResponse> = {
   },
 };
 
-function createBaseToolStatus(): ToolStatus {
+function createBaseToolState(): ToolState {
   return { log: "", state: 0 };
 }
 
-export const ToolStatus: MessageFns<ToolStatus> = {
-  encode(message: ToolStatus, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+export const ToolState: MessageFns<ToolState> = {
+  encode(message: ToolState, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.log !== "") {
       writer.uint32(10).string(message.log);
     }
@@ -2056,10 +2128,10 @@ export const ToolStatus: MessageFns<ToolStatus> = {
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): ToolStatus {
+  decode(input: BinaryReader | Uint8Array, length?: number): ToolState {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseToolStatus();
+    const message = createBaseToolState();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -2088,29 +2160,29 @@ export const ToolStatus: MessageFns<ToolStatus> = {
     return message;
   },
 
-  fromJSON(object: any): ToolStatus {
+  fromJSON(object: any): ToolState {
     return {
       log: isSet(object.log) ? globalThis.String(object.log) : "",
-      state: isSet(object.state) ? toolStatus_StateFromJSON(object.state) : 0,
+      state: isSet(object.state) ? toolState_StateFromJSON(object.state) : 0,
     };
   },
 
-  toJSON(message: ToolStatus): unknown {
+  toJSON(message: ToolState): unknown {
     const obj: any = {};
     if (message.log !== "") {
       obj.log = message.log;
     }
     if (message.state !== 0) {
-      obj.state = toolStatus_StateToJSON(message.state);
+      obj.state = toolState_StateToJSON(message.state);
     }
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<ToolStatus>, I>>(base?: I): ToolStatus {
-    return ToolStatus.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<ToolState>, I>>(base?: I): ToolState {
+    return ToolState.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<ToolStatus>, I>>(object: I): ToolStatus {
-    const message = createBaseToolStatus();
+  fromPartial<I extends Exact<DeepPartial<ToolState>, I>>(object: I): ToolState {
+    const message = createBaseToolState();
     message.log = object.log ?? "";
     message.state = object.state ?? 0;
     return message;
@@ -2370,28 +2442,22 @@ export const UserId: MessageFns<UserId> = {
   },
 };
 
-function createBaseToolHandler(): ToolHandler {
-  return { state: undefined, owner: undefined, id: "" };
+function createBaseHandlerId(): HandlerId {
+  return { inner: "" };
 }
 
-export const ToolHandler: MessageFns<ToolHandler> = {
-  encode(message: ToolHandler, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.state !== undefined) {
-      ToolStatus.encode(message.state, writer.uint32(10).fork()).join();
-    }
-    if (message.owner !== undefined) {
-      UserId.encode(message.owner, writer.uint32(18).fork()).join();
-    }
-    if (message.id !== "") {
-      writer.uint32(26).string(message.id);
+export const HandlerId: MessageFns<HandlerId> = {
+  encode(message: HandlerId, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.inner !== "") {
+      writer.uint32(10).string(message.inner);
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): ToolHandler {
+  decode(input: BinaryReader | Uint8Array, length?: number): HandlerId {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseToolHandler();
+    const message = createBaseHandlerId();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -2400,23 +2466,7 @@ export const ToolHandler: MessageFns<ToolHandler> = {
             break;
           }
 
-          message.state = ToolStatus.decode(reader, reader.uint32());
-          continue;
-        }
-        case 2: {
-          if (tag !== 18) {
-            break;
-          }
-
-          message.owner = UserId.decode(reader, reader.uint32());
-          continue;
-        }
-        case 3: {
-          if (tag !== 26) {
-            break;
-          }
-
-          message.id = reader.string();
+          message.inner = reader.string();
           continue;
         }
       }
@@ -2428,40 +2478,120 @@ export const ToolHandler: MessageFns<ToolHandler> = {
     return message;
   },
 
-  fromJSON(object: any): ToolHandler {
-    return {
-      state: isSet(object.state) ? ToolStatus.fromJSON(object.state) : undefined,
-      owner: isSet(object.owner) ? UserId.fromJSON(object.owner) : undefined,
-      id: isSet(object.id) ? globalThis.String(object.id) : "",
-    };
+  fromJSON(object: any): HandlerId {
+    return { inner: isSet(object.inner) ? globalThis.String(object.inner) : "" };
   },
 
-  toJSON(message: ToolHandler): unknown {
+  toJSON(message: HandlerId): unknown {
     const obj: any = {};
-    if (message.state !== undefined) {
-      obj.state = ToolStatus.toJSON(message.state);
-    }
-    if (message.owner !== undefined) {
-      obj.owner = UserId.toJSON(message.owner);
-    }
-    if (message.id !== "") {
-      obj.id = message.id;
+    if (message.inner !== "") {
+      obj.inner = message.inner;
     }
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<ToolHandler>, I>>(base?: I): ToolHandler {
-    return ToolHandler.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<HandlerId>, I>>(base?: I): HandlerId {
+    return HandlerId.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<ToolHandler>, I>>(object: I): ToolHandler {
-    const message = createBaseToolHandler();
+  fromPartial<I extends Exact<DeepPartial<HandlerId>, I>>(object: I): HandlerId {
+    const message = createBaseHandlerId();
+    message.inner = object.inner ?? "";
+    return message;
+  },
+};
+
+function createBaseToolTaskHandler(): ToolTaskHandler {
+  return { id: undefined, state: undefined, owner: undefined };
+}
+
+export const ToolTaskHandler: MessageFns<ToolTaskHandler> = {
+  encode(message: ToolTaskHandler, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.id !== undefined) {
+      HandlerId.encode(message.id, writer.uint32(10).fork()).join();
+    }
+    if (message.state !== undefined) {
+      ToolState.encode(message.state, writer.uint32(18).fork()).join();
+    }
+    if (message.owner !== undefined) {
+      UserId.encode(message.owner, writer.uint32(26).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ToolTaskHandler {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseToolTaskHandler();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.id = HandlerId.decode(reader, reader.uint32());
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.state = ToolState.decode(reader, reader.uint32());
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.owner = UserId.decode(reader, reader.uint32());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ToolTaskHandler {
+    return {
+      id: isSet(object.id) ? HandlerId.fromJSON(object.id) : undefined,
+      state: isSet(object.state) ? ToolState.fromJSON(object.state) : undefined,
+      owner: isSet(object.owner) ? UserId.fromJSON(object.owner) : undefined,
+    };
+  },
+
+  toJSON(message: ToolTaskHandler): unknown {
+    const obj: any = {};
+    if (message.id !== undefined) {
+      obj.id = HandlerId.toJSON(message.id);
+    }
+    if (message.state !== undefined) {
+      obj.state = ToolState.toJSON(message.state);
+    }
+    if (message.owner !== undefined) {
+      obj.owner = UserId.toJSON(message.owner);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ToolTaskHandler>, I>>(base?: I): ToolTaskHandler {
+    return ToolTaskHandler.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ToolTaskHandler>, I>>(object: I): ToolTaskHandler {
+    const message = createBaseToolTaskHandler();
+    message.id = (object.id !== undefined && object.id !== null) ? HandlerId.fromPartial(object.id) : undefined;
     message.state = (object.state !== undefined && object.state !== null)
-      ? ToolStatus.fromPartial(object.state)
+      ? ToolState.fromPartial(object.state)
       : undefined;
     message.owner = (object.owner !== undefined && object.owner !== null)
       ? UserId.fromPartial(object.owner)
       : undefined;
-    message.id = object.id ?? "";
     return message;
   },
 };
@@ -2530,22 +2660,22 @@ export const LaunchToolResponse: MessageFns<LaunchToolResponse> = {
   },
 };
 
-function createBaseMonitorStatusRequest(): MonitorStatusRequest {
+function createBaseMonitorStateRequest(): MonitorStateRequest {
   return { id: "" };
 }
 
-export const MonitorStatusRequest: MessageFns<MonitorStatusRequest> = {
-  encode(message: MonitorStatusRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+export const MonitorStateRequest: MessageFns<MonitorStateRequest> = {
+  encode(message: MonitorStateRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.id !== "") {
       writer.uint32(10).string(message.id);
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): MonitorStatusRequest {
+  decode(input: BinaryReader | Uint8Array, length?: number): MonitorStateRequest {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseMonitorStatusRequest();
+    const message = createBaseMonitorStateRequest();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -2566,11 +2696,11 @@ export const MonitorStatusRequest: MessageFns<MonitorStatusRequest> = {
     return message;
   },
 
-  fromJSON(object: any): MonitorStatusRequest {
+  fromJSON(object: any): MonitorStateRequest {
     return { id: isSet(object.id) ? globalThis.String(object.id) : "" };
   },
 
-  toJSON(message: MonitorStatusRequest): unknown {
+  toJSON(message: MonitorStateRequest): unknown {
     const obj: any = {};
     if (message.id !== "") {
       obj.id = message.id;
@@ -2578,32 +2708,32 @@ export const MonitorStatusRequest: MessageFns<MonitorStatusRequest> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<MonitorStatusRequest>, I>>(base?: I): MonitorStatusRequest {
-    return MonitorStatusRequest.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<MonitorStateRequest>, I>>(base?: I): MonitorStateRequest {
+    return MonitorStateRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<MonitorStatusRequest>, I>>(object: I): MonitorStatusRequest {
-    const message = createBaseMonitorStatusRequest();
+  fromPartial<I extends Exact<DeepPartial<MonitorStateRequest>, I>>(object: I): MonitorStateRequest {
+    const message = createBaseMonitorStateRequest();
     message.id = object.id ?? "";
     return message;
   },
 };
 
-function createBaseMonitorStatusResponse(): MonitorStatusResponse {
+function createBaseMonitorStateResponse(): MonitorStateResponse {
   return { status: undefined };
 }
 
-export const MonitorStatusResponse: MessageFns<MonitorStatusResponse> = {
-  encode(message: MonitorStatusResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+export const MonitorStateResponse: MessageFns<MonitorStateResponse> = {
+  encode(message: MonitorStateResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.status !== undefined) {
-      ToolStatus.encode(message.status, writer.uint32(10).fork()).join();
+      ToolState.encode(message.status, writer.uint32(10).fork()).join();
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): MonitorStatusResponse {
+  decode(input: BinaryReader | Uint8Array, length?: number): MonitorStateResponse {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseMonitorStatusResponse();
+    const message = createBaseMonitorStateResponse();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -2612,7 +2742,7 @@ export const MonitorStatusResponse: MessageFns<MonitorStatusResponse> = {
             break;
           }
 
-          message.status = ToolStatus.decode(reader, reader.uint32());
+          message.status = ToolState.decode(reader, reader.uint32());
           continue;
         }
       }
@@ -2624,46 +2754,46 @@ export const MonitorStatusResponse: MessageFns<MonitorStatusResponse> = {
     return message;
   },
 
-  fromJSON(object: any): MonitorStatusResponse {
-    return { status: isSet(object.status) ? ToolStatus.fromJSON(object.status) : undefined };
+  fromJSON(object: any): MonitorStateResponse {
+    return { status: isSet(object.status) ? ToolState.fromJSON(object.status) : undefined };
   },
 
-  toJSON(message: MonitorStatusResponse): unknown {
+  toJSON(message: MonitorStateResponse): unknown {
     const obj: any = {};
     if (message.status !== undefined) {
-      obj.status = ToolStatus.toJSON(message.status);
+      obj.status = ToolState.toJSON(message.status);
     }
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<MonitorStatusResponse>, I>>(base?: I): MonitorStatusResponse {
-    return MonitorStatusResponse.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<MonitorStateResponse>, I>>(base?: I): MonitorStateResponse {
+    return MonitorStateResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<MonitorStatusResponse>, I>>(object: I): MonitorStatusResponse {
-    const message = createBaseMonitorStatusResponse();
+  fromPartial<I extends Exact<DeepPartial<MonitorStateResponse>, I>>(object: I): MonitorStateResponse {
+    const message = createBaseMonitorStateResponse();
     message.status = (object.status !== undefined && object.status !== null)
-      ? ToolStatus.fromPartial(object.status)
+      ? ToolState.fromPartial(object.status)
       : undefined;
     return message;
   },
 };
 
-function createBaseGetStatusRequest(): GetStatusRequest {
-  return { id: "" };
+function createBaseGetStateRequest(): GetStateRequest {
+  return { taskUuid: "" };
 }
 
-export const GetStatusRequest: MessageFns<GetStatusRequest> = {
-  encode(message: GetStatusRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.id !== "") {
-      writer.uint32(10).string(message.id);
+export const GetStateRequest: MessageFns<GetStateRequest> = {
+  encode(message: GetStateRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.taskUuid !== "") {
+      writer.uint32(10).string(message.taskUuid);
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): GetStatusRequest {
+  decode(input: BinaryReader | Uint8Array, length?: number): GetStateRequest {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseGetStatusRequest();
+    const message = createBaseGetStateRequest();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -2672,7 +2802,7 @@ export const GetStatusRequest: MessageFns<GetStatusRequest> = {
             break;
           }
 
-          message.id = reader.string();
+          message.taskUuid = reader.string();
           continue;
         }
       }
@@ -2684,44 +2814,50 @@ export const GetStatusRequest: MessageFns<GetStatusRequest> = {
     return message;
   },
 
-  fromJSON(object: any): GetStatusRequest {
-    return { id: isSet(object.id) ? globalThis.String(object.id) : "" };
+  fromJSON(object: any): GetStateRequest {
+    return {
+      taskUuid: isSet(object.taskUuid)
+        ? globalThis.String(object.taskUuid)
+        : isSet(object.task_uuid)
+        ? globalThis.String(object.task_uuid)
+        : "",
+    };
   },
 
-  toJSON(message: GetStatusRequest): unknown {
+  toJSON(message: GetStateRequest): unknown {
     const obj: any = {};
-    if (message.id !== "") {
-      obj.id = message.id;
+    if (message.taskUuid !== "") {
+      obj.taskUuid = message.taskUuid;
     }
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<GetStatusRequest>, I>>(base?: I): GetStatusRequest {
-    return GetStatusRequest.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<GetStateRequest>, I>>(base?: I): GetStateRequest {
+    return GetStateRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<GetStatusRequest>, I>>(object: I): GetStatusRequest {
-    const message = createBaseGetStatusRequest();
-    message.id = object.id ?? "";
+  fromPartial<I extends Exact<DeepPartial<GetStateRequest>, I>>(object: I): GetStateRequest {
+    const message = createBaseGetStateRequest();
+    message.taskUuid = object.taskUuid ?? "";
     return message;
   },
 };
 
-function createBaseGetStatusResponse(): GetStatusResponse {
+function createBaseGetStateResponse(): GetStateResponse {
   return { status: undefined };
 }
 
-export const GetStatusResponse: MessageFns<GetStatusResponse> = {
-  encode(message: GetStatusResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+export const GetStateResponse: MessageFns<GetStateResponse> = {
+  encode(message: GetStateResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.status !== undefined) {
-      ToolStatus.encode(message.status, writer.uint32(10).fork()).join();
+      ToolState.encode(message.status, writer.uint32(10).fork()).join();
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): GetStatusResponse {
+  decode(input: BinaryReader | Uint8Array, length?: number): GetStateResponse {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseGetStatusResponse();
+    const message = createBaseGetStateResponse();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -2730,7 +2866,7 @@ export const GetStatusResponse: MessageFns<GetStatusResponse> = {
             break;
           }
 
-          message.status = ToolStatus.decode(reader, reader.uint32());
+          message.status = ToolState.decode(reader, reader.uint32());
           continue;
         }
       }
@@ -2742,25 +2878,25 @@ export const GetStatusResponse: MessageFns<GetStatusResponse> = {
     return message;
   },
 
-  fromJSON(object: any): GetStatusResponse {
-    return { status: isSet(object.status) ? ToolStatus.fromJSON(object.status) : undefined };
+  fromJSON(object: any): GetStateResponse {
+    return { status: isSet(object.status) ? ToolState.fromJSON(object.status) : undefined };
   },
 
-  toJSON(message: GetStatusResponse): unknown {
+  toJSON(message: GetStateResponse): unknown {
     const obj: any = {};
     if (message.status !== undefined) {
-      obj.status = ToolStatus.toJSON(message.status);
+      obj.status = ToolState.toJSON(message.status);
     }
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<GetStatusResponse>, I>>(base?: I): GetStatusResponse {
-    return GetStatusResponse.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<GetStateResponse>, I>>(base?: I): GetStateResponse {
+    return GetStateResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<GetStatusResponse>, I>>(object: I): GetStatusResponse {
-    const message = createBaseGetStatusResponse();
+  fromPartial<I extends Exact<DeepPartial<GetStateResponse>, I>>(object: I): GetStateResponse {
+    const message = createBaseGetStateResponse();
     message.status = (object.status !== undefined && object.status !== null)
-      ? ToolStatus.fromPartial(object.status)
+      ? ToolState.fromPartial(object.status)
       : undefined;
     return message;
   },
@@ -2955,7 +3091,7 @@ function createBaseQueryUserResponse(): QueryUserResponse {
 export const QueryUserResponse: MessageFns<QueryUserResponse> = {
   encode(message: QueryUserResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     for (const v of message.ths) {
-      ToolHandler.encode(v!, writer.uint32(10).fork()).join();
+      ToolTaskHandler.encode(v!, writer.uint32(10).fork()).join();
     }
     return writer;
   },
@@ -2972,7 +3108,7 @@ export const QueryUserResponse: MessageFns<QueryUserResponse> = {
             break;
           }
 
-          message.ths.push(ToolHandler.decode(reader, reader.uint32()));
+          message.ths.push(ToolTaskHandler.decode(reader, reader.uint32()));
           continue;
         }
       }
@@ -2985,13 +3121,15 @@ export const QueryUserResponse: MessageFns<QueryUserResponse> = {
   },
 
   fromJSON(object: any): QueryUserResponse {
-    return { ths: globalThis.Array.isArray(object?.ths) ? object.ths.map((e: any) => ToolHandler.fromJSON(e)) : [] };
+    return {
+      ths: globalThis.Array.isArray(object?.ths) ? object.ths.map((e: any) => ToolTaskHandler.fromJSON(e)) : [],
+    };
   },
 
   toJSON(message: QueryUserResponse): unknown {
     const obj: any = {};
     if (message.ths?.length) {
-      obj.ths = message.ths.map((e) => ToolHandler.toJSON(e));
+      obj.ths = message.ths.map((e) => ToolTaskHandler.toJSON(e));
     }
     return obj;
   },
@@ -3001,7 +3139,7 @@ export const QueryUserResponse: MessageFns<QueryUserResponse> = {
   },
   fromPartial<I extends Exact<DeepPartial<QueryUserResponse>, I>>(object: I): QueryUserResponse {
     const message = createBaseQueryUserResponse();
-    message.ths = object.ths?.map((e) => ToolHandler.fromPartial(e)) || [];
+    message.ths = object.ths?.map((e) => ToolTaskHandler.fromPartial(e)) || [];
     return message;
   },
 };
@@ -3527,24 +3665,24 @@ export const DataplayerServiceService = {
     responseDeserialize: (value: Buffer): GetArtifactResponse => GetArtifactResponse.decode(value),
   },
   /** monitoring the status of one running session */
-  monitorStatus: {
-    path: "/coordinator.v1.DataplayerService/MonitorStatus" as const,
+  monitorState: {
+    path: "/coordinator.v1.DataplayerService/MonitorState" as const,
     requestStream: false as const,
     responseStream: true as const,
-    requestSerialize: (value: MonitorStatusRequest): Buffer => Buffer.from(MonitorStatusRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): MonitorStatusRequest => MonitorStatusRequest.decode(value),
-    responseSerialize: (value: MonitorStatusResponse): Buffer =>
-      Buffer.from(MonitorStatusResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): MonitorStatusResponse => MonitorStatusResponse.decode(value),
+    requestSerialize: (value: MonitorStateRequest): Buffer => Buffer.from(MonitorStateRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): MonitorStateRequest => MonitorStateRequest.decode(value),
+    responseSerialize: (value: MonitorStateResponse): Buffer =>
+      Buffer.from(MonitorStateResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): MonitorStateResponse => MonitorStateResponse.decode(value),
   },
-  getStatus: {
-    path: "/coordinator.v1.DataplayerService/GetStatus" as const,
+  getState: {
+    path: "/coordinator.v1.DataplayerService/GetState" as const,
     requestStream: false as const,
     responseStream: false as const,
-    requestSerialize: (value: GetStatusRequest): Buffer => Buffer.from(GetStatusRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): GetStatusRequest => GetStatusRequest.decode(value),
-    responseSerialize: (value: GetStatusResponse): Buffer => Buffer.from(GetStatusResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): GetStatusResponse => GetStatusResponse.decode(value),
+    requestSerialize: (value: GetStateRequest): Buffer => Buffer.from(GetStateRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): GetStateRequest => GetStateRequest.decode(value),
+    responseSerialize: (value: GetStateResponse): Buffer => Buffer.from(GetStateResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): GetStateResponse => GetStateResponse.decode(value),
   },
   /**
    * ??? who should drop? vre call drop or from edc system call drop?
@@ -3569,8 +3707,8 @@ export interface DataplayerServiceServer extends UntypedServiceImplementation {
   /** Get the artifact from id. */
   getArtifact: handleUnaryCall<GetArtifactRequest, GetArtifactResponse>;
   /** monitoring the status of one running session */
-  monitorStatus: handleServerStreamingCall<MonitorStatusRequest, MonitorStatusResponse>;
-  getStatus: handleUnaryCall<GetStatusRequest, GetStatusResponse>;
+  monitorState: handleServerStreamingCall<MonitorStateRequest, MonitorStateResponse>;
+  getState: handleUnaryCall<GetStateRequest, GetStateResponse>;
   /**
    * ??? who should drop? vre call drop or from edc system call drop?
    * Is the use case always after the control move to vre, it never goes back to eosc?
@@ -3628,29 +3766,29 @@ export interface DataplayerServiceClient extends Client {
     callback: (error: ServiceError | null, response: GetArtifactResponse) => void,
   ): ClientUnaryCall;
   /** monitoring the status of one running session */
-  monitorStatus(
-    request: MonitorStatusRequest,
+  monitorState(
+    request: MonitorStateRequest,
     options?: Partial<CallOptions>,
-  ): ClientReadableStream<MonitorStatusResponse>;
-  monitorStatus(
-    request: MonitorStatusRequest,
+  ): ClientReadableStream<MonitorStateResponse>;
+  monitorState(
+    request: MonitorStateRequest,
     metadata?: Metadata,
     options?: Partial<CallOptions>,
-  ): ClientReadableStream<MonitorStatusResponse>;
-  getStatus(
-    request: GetStatusRequest,
-    callback: (error: ServiceError | null, response: GetStatusResponse) => void,
+  ): ClientReadableStream<MonitorStateResponse>;
+  getState(
+    request: GetStateRequest,
+    callback: (error: ServiceError | null, response: GetStateResponse) => void,
   ): ClientUnaryCall;
-  getStatus(
-    request: GetStatusRequest,
+  getState(
+    request: GetStateRequest,
     metadata: Metadata,
-    callback: (error: ServiceError | null, response: GetStatusResponse) => void,
+    callback: (error: ServiceError | null, response: GetStateResponse) => void,
   ): ClientUnaryCall;
-  getStatus(
-    request: GetStatusRequest,
+  getState(
+    request: GetStateRequest,
     metadata: Metadata,
     options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: GetStatusResponse) => void,
+    callback: (error: ServiceError | null, response: GetStateResponse) => void,
   ): ClientUnaryCall;
   /**
    * ??? who should drop? vre call drop or from edc system call drop?
