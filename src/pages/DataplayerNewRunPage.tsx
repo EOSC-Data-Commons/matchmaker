@@ -335,12 +335,6 @@ export const DataplayerPage = () => {
                     Environment</h2>
                 <p className="text-sm sm:text-base text-gray-600">Choose the Virtual Research Environment you want to
                     use with your dataset</p>
-                {datasetTitle && (
-                    <div className="mt-4 p-3 sm:p-4 bg-blue-50 rounded-lg border border-blue-200">
-                        <p className="text-xs sm:text-sm font-medium text-gray-700">Dataset:</p>
-                        <p className="text-sm sm:text-base text-gray-900 wrap-break-word">{datasetTitle}</p>
-                    </div>
-                )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
@@ -651,29 +645,32 @@ export const DataplayerPage = () => {
                 </div>
             </header>
 
-            <div className="flex-1 min-w-0 p-4">
+            <div className="container mx-auto p-4">
                 {datasetTitle && (
-                    <div className="mb-4 p-4 bg-white rounded border">
-                        <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">
-              Dataset:
-                        </p>
-                        <p className="text-sm sm:text-base text-gray-900 wrap-break-words">
-                            {datasetTitle}
-                        </p>
+                    <div className="mt-4 p-3 sm:p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        <p className="text-xs sm:text-sm font-medium text-gray-700">Dataset:</p>
+                        <p className="text-sm sm:text-base text-gray-900 wrap-break-word">{datasetTitle}</p>
                     </div>
                 )}
-
-                <div className="bg-white rounded border p-4">
-                    <h2 className="text-lg font-semibold mb-2">Files</h2>
-                    {content}
-                </div>
             </div>
 
-            <main className="flex-1 container mx-auto py-4 sm:py-6 md:py-8">
-                {currentStep === 'select-analysis' && renderToolSelection()}
-                {currentStep === 'map-files' && renderFileMapping()}
-                {(currentStep === 'submitting' || currentStep === 'monitoring') && renderMonitoring()}
-            </main>
+            <div className="flex-1 container mx-auto p-4">
+                <div className="flex flex-col md:flex-row gap-4">
+
+                    <div className="flex-1 min-w-0 space-y-4">
+                        <div className="bg-white rounded border p-4">
+                            <h2 className="text-lg font-semibold mb-2">Files</h2>
+                            {content}
+                        </div>
+                    </div>
+
+                    <div className="flex-1 container mx-auto py-4 sm:py-6 md:py-8">
+                        {currentStep === 'select-analysis' && renderToolSelection()}
+                        {currentStep === 'map-files' && renderFileMapping()}
+                        {(currentStep === 'submitting' || currentStep === 'monitoring') && renderMonitoring()}
+                    </div>
+                </div>
+            </div>
 
             <Footer/>
         </div>
