@@ -1,4 +1,4 @@
-import {useEffect, useState} from 'react';
+import {JSX, useEffect, useState} from 'react';
 import {useSearchParams, useNavigate} from 'react-router';
 import {LoaderIcon, CheckCircleIcon, XCircleIcon, AlertCircleIcon} from 'lucide-react';
 import {Footer} from '../components/Footer';
@@ -42,6 +42,9 @@ interface ToolConfig {
 }
 export const DataplayerPage = () => {
     const [searchParams] = useSearchParams();
+
+    const datasetTitle = searchParams.get('title');
+    const datasetHandle = searchParams.get('datasetId');
     const navigate = useNavigate();
 
     // Step management
@@ -58,15 +61,71 @@ export const DataplayerPage = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    useEffect(() => {
+        const load = async () => {
+            console.log("Start loading");
+            try {
+                setLoading(true);
+                // TODO: I should wrap api call in a function so it is well typed.
+                const res = await fetch(`/api/coordinator/files?handle=${encodeURIComponent(datasetHandle)}`);
+                const files = await res.json();
+                console.log("Fetched data");
+                setFiles(files);
+            } catch (err) {
+                console.error(err);
+                setError("Failed to fetch files");
+            } finally {
+                setLoading(false);
+                console.log("Finished loading");
+            }
+        };
+
+        load();
+    }, [datasetHandle]);
+    let content: JSX.Element | null;
+    if (loading) {
+        content = <div className="text-gray-600">Loading...</div>;
+    } else if (error) {
+        content = <div className="text-red-500">{error}</div>;
+    } else if (!files.length) {
+        content = <div className="text-gray-500">No files found</div>;
+    } else {
+        content = (
+            <ul style={{ listStyle: "none", padding: 0 }}>
+                {files.map((file) => (
+                    <li
+                        key={file.dataPath}
+                        className="flex justify-between items-center p-2 border-b border-gray-200"
+                    >
+                        <div>
+                            {file.isDir ? "📁" : "📄"} {file.filename}
+                        </div>
+
+                        <div className="flex gap-4 items-center">
+                            {!file.isDir && <span className="text-gray-600">{file.size}</span>}
+                            {file.downloadUrl && (
+                                <a
+                                    href={file.downloadUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-blue-600 hover:underline"
+                                >
+                  Download
+                                </a>
+                            )}
+                        </div>
+                    </li>
+                ))}
+            </ul>
+        );
+    }
+
     // Submission tracking
     const [statusMessage, setStatusMessage] = useState('');
     // TODO: this state type should one to one mapped to tool state in grpc definition.
     const [statusType, setStatusType] = useState<'info' | 'success' | 'error' | 'warning'>('info');
     const [taskId, setTaskId] = useState<string | null>(null);
     const [taskResult, setTaskResult] = useState<DispatcherResult | null>(null);
-
-    const datasetTitle = searchParams.get('title');
-    const datasetHandle = searchParams.get('datasetId');
 
     const [toolConfig, setToolConfig] = useState<ToolConfig | null>(null);
     
@@ -592,7 +651,23 @@ export const DataplayerPage = () => {
                 </div>
             </header>
 
-            {/* <div> file list and selection (unimplemnted) </div> */}
+            <div className="flex-1 min-w-0 p-4">
+                {datasetTitle && (
+                    <div className="mb-4 p-4 bg-white rounded border">
+                        <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">
+              Dataset:
+                        </p>
+                        <p className="text-sm sm:text-base text-gray-900 wrap-break-words">
+                            {datasetTitle}
+                        </p>
+                    </div>
+                )}
+
+                <div className="bg-white rounded border p-4">
+                    <h2 className="text-lg font-semibold mb-2">Files</h2>
+                    {content}
+                </div>
+            </div>
 
             <main className="flex-1 container mx-auto py-4 sm:py-6 md:py-8">
                 {currentStep === 'select-analysis' && renderToolSelection()}
