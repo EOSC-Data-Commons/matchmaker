@@ -271,12 +271,21 @@ export interface ToolResponse {
   tool?: ToolMeta | undefined;
 }
 
-export interface FindToolsRequest {
+export interface MatchToolsByDataRequest {
   files: FileEntry[];
 }
 
-/** Find Tools response include the tool response and the state of the stream */
-export interface FindToolsResponse {
+/** Match Tools response include the tool response and the state of the stream */
+export interface MatchToolsByDataResponse {
+  tools: ToolMeta[];
+}
+
+export interface SearchToolsByTextRequest {
+  text: string;
+}
+
+/** Match Tools response include the tool response and the state of the stream */
+export interface SearchToolsByTextResponse {
   tools: ToolMeta[];
 }
 
@@ -1995,22 +2004,22 @@ export const ToolResponse: MessageFns<ToolResponse> = {
   },
 };
 
-function createBaseFindToolsRequest(): FindToolsRequest {
+function createBaseMatchToolsByDataRequest(): MatchToolsByDataRequest {
   return { files: [] };
 }
 
-export const FindToolsRequest: MessageFns<FindToolsRequest> = {
-  encode(message: FindToolsRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+export const MatchToolsByDataRequest: MessageFns<MatchToolsByDataRequest> = {
+  encode(message: MatchToolsByDataRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     for (const v of message.files) {
       FileEntry.encode(v!, writer.uint32(18).fork()).join();
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): FindToolsRequest {
+  decode(input: BinaryReader | Uint8Array, length?: number): MatchToolsByDataRequest {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseFindToolsRequest();
+    const message = createBaseMatchToolsByDataRequest();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -2031,13 +2040,13 @@ export const FindToolsRequest: MessageFns<FindToolsRequest> = {
     return message;
   },
 
-  fromJSON(object: any): FindToolsRequest {
+  fromJSON(object: any): MatchToolsByDataRequest {
     return {
       files: globalThis.Array.isArray(object?.files) ? object.files.map((e: any) => FileEntry.fromJSON(e)) : [],
     };
   },
 
-  toJSON(message: FindToolsRequest): unknown {
+  toJSON(message: MatchToolsByDataRequest): unknown {
     const obj: any = {};
     if (message.files?.length) {
       obj.files = message.files.map((e) => FileEntry.toJSON(e));
@@ -2045,32 +2054,32 @@ export const FindToolsRequest: MessageFns<FindToolsRequest> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<FindToolsRequest>, I>>(base?: I): FindToolsRequest {
-    return FindToolsRequest.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<MatchToolsByDataRequest>, I>>(base?: I): MatchToolsByDataRequest {
+    return MatchToolsByDataRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<FindToolsRequest>, I>>(object: I): FindToolsRequest {
-    const message = createBaseFindToolsRequest();
+  fromPartial<I extends Exact<DeepPartial<MatchToolsByDataRequest>, I>>(object: I): MatchToolsByDataRequest {
+    const message = createBaseMatchToolsByDataRequest();
     message.files = object.files?.map((e) => FileEntry.fromPartial(e)) || [];
     return message;
   },
 };
 
-function createBaseFindToolsResponse(): FindToolsResponse {
+function createBaseMatchToolsByDataResponse(): MatchToolsByDataResponse {
   return { tools: [] };
 }
 
-export const FindToolsResponse: MessageFns<FindToolsResponse> = {
-  encode(message: FindToolsResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+export const MatchToolsByDataResponse: MessageFns<MatchToolsByDataResponse> = {
+  encode(message: MatchToolsByDataResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     for (const v of message.tools) {
       ToolMeta.encode(v!, writer.uint32(10).fork()).join();
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): FindToolsResponse {
+  decode(input: BinaryReader | Uint8Array, length?: number): MatchToolsByDataResponse {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseFindToolsResponse();
+    const message = createBaseMatchToolsByDataResponse();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -2091,11 +2100,11 @@ export const FindToolsResponse: MessageFns<FindToolsResponse> = {
     return message;
   },
 
-  fromJSON(object: any): FindToolsResponse {
+  fromJSON(object: any): MatchToolsByDataResponse {
     return { tools: globalThis.Array.isArray(object?.tools) ? object.tools.map((e: any) => ToolMeta.fromJSON(e)) : [] };
   },
 
-  toJSON(message: FindToolsResponse): unknown {
+  toJSON(message: MatchToolsByDataResponse): unknown {
     const obj: any = {};
     if (message.tools?.length) {
       obj.tools = message.tools.map((e) => ToolMeta.toJSON(e));
@@ -2103,11 +2112,127 @@ export const FindToolsResponse: MessageFns<FindToolsResponse> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<FindToolsResponse>, I>>(base?: I): FindToolsResponse {
-    return FindToolsResponse.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<MatchToolsByDataResponse>, I>>(base?: I): MatchToolsByDataResponse {
+    return MatchToolsByDataResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<FindToolsResponse>, I>>(object: I): FindToolsResponse {
-    const message = createBaseFindToolsResponse();
+  fromPartial<I extends Exact<DeepPartial<MatchToolsByDataResponse>, I>>(object: I): MatchToolsByDataResponse {
+    const message = createBaseMatchToolsByDataResponse();
+    message.tools = object.tools?.map((e) => ToolMeta.fromPartial(e)) || [];
+    return message;
+  },
+};
+
+function createBaseSearchToolsByTextRequest(): SearchToolsByTextRequest {
+  return { text: "" };
+}
+
+export const SearchToolsByTextRequest: MessageFns<SearchToolsByTextRequest> = {
+  encode(message: SearchToolsByTextRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.text !== "") {
+      writer.uint32(10).string(message.text);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): SearchToolsByTextRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseSearchToolsByTextRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.text = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): SearchToolsByTextRequest {
+    return { text: isSet(object.text) ? globalThis.String(object.text) : "" };
+  },
+
+  toJSON(message: SearchToolsByTextRequest): unknown {
+    const obj: any = {};
+    if (message.text !== "") {
+      obj.text = message.text;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<SearchToolsByTextRequest>, I>>(base?: I): SearchToolsByTextRequest {
+    return SearchToolsByTextRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<SearchToolsByTextRequest>, I>>(object: I): SearchToolsByTextRequest {
+    const message = createBaseSearchToolsByTextRequest();
+    message.text = object.text ?? "";
+    return message;
+  },
+};
+
+function createBaseSearchToolsByTextResponse(): SearchToolsByTextResponse {
+  return { tools: [] };
+}
+
+export const SearchToolsByTextResponse: MessageFns<SearchToolsByTextResponse> = {
+  encode(message: SearchToolsByTextResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    for (const v of message.tools) {
+      ToolMeta.encode(v!, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): SearchToolsByTextResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseSearchToolsByTextResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.tools.push(ToolMeta.decode(reader, reader.uint32()));
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): SearchToolsByTextResponse {
+    return { tools: globalThis.Array.isArray(object?.tools) ? object.tools.map((e: any) => ToolMeta.fromJSON(e)) : [] };
+  },
+
+  toJSON(message: SearchToolsByTextResponse): unknown {
+    const obj: any = {};
+    if (message.tools?.length) {
+      obj.tools = message.tools.map((e) => ToolMeta.toJSON(e));
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<SearchToolsByTextResponse>, I>>(base?: I): SearchToolsByTextResponse {
+    return SearchToolsByTextResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<SearchToolsByTextResponse>, I>>(object: I): SearchToolsByTextResponse {
+    const message = createBaseSearchToolsByTextResponse();
     message.tools = object.tools?.map((e) => ToolMeta.fromPartial(e)) || [];
     return message;
   },
@@ -3552,16 +3677,31 @@ export const ToolServiceService = {
     responseSerialize: (value: ToolResponse): Buffer => Buffer.from(ToolResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): ToolResponse => ToolResponse.decode(value),
   },
-  /** Find tools from the file list input provided, and maybe some information from user profile. */
-  findTools: {
-    path: "/coordinator.v1.ToolService/FindTools" as const,
+  /** Match tools from the file list input provided, and maybe some information from user profile. */
+  matchToolsByData: {
+    path: "/coordinator.v1.ToolService/MatchToolsByData" as const,
     requestStream: false as const,
     responseStream: false as const,
-    requestSerialize: (value: FindToolsRequest): Buffer => Buffer.from(FindToolsRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): FindToolsRequest => FindToolsRequest.decode(value),
-    responseSerialize: (value: FindToolsResponse): Buffer => Buffer.from(FindToolsResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): FindToolsResponse => FindToolsResponse.decode(value),
+    requestSerialize: (value: MatchToolsByDataRequest): Buffer =>
+      Buffer.from(MatchToolsByDataRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): MatchToolsByDataRequest => MatchToolsByDataRequest.decode(value),
+    responseSerialize: (value: MatchToolsByDataResponse): Buffer =>
+      Buffer.from(MatchToolsByDataResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): MatchToolsByDataResponse => MatchToolsByDataResponse.decode(value),
   },
+  /** Search tools from an input text */
+  searchToolsByText: {
+    path: "/coordinator.v1.ToolService/SearchToolsByText" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: SearchToolsByTextRequest): Buffer =>
+      Buffer.from(SearchToolsByTextRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): SearchToolsByTextRequest => SearchToolsByTextRequest.decode(value),
+    responseSerialize: (value: SearchToolsByTextResponse): Buffer =>
+      Buffer.from(SearchToolsByTextResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): SearchToolsByTextResponse => SearchToolsByTextResponse.decode(value),
+  },
+  /** XXX: this might useless, deprecate it. */
   browseTools: {
     path: "/coordinator.v1.ToolService/BrowseTools" as const,
     requestStream: false as const,
@@ -3576,8 +3716,11 @@ export const ToolServiceService = {
 export interface ToolServiceServer extends UntypedServiceImplementation {
   /** Get a specific tool by id */
   getTool: handleUnaryCall<GetToolRequest, ToolResponse>;
-  /** Find tools from the file list input provided, and maybe some information from user profile. */
-  findTools: handleUnaryCall<FindToolsRequest, FindToolsResponse>;
+  /** Match tools from the file list input provided, and maybe some information from user profile. */
+  matchToolsByData: handleUnaryCall<MatchToolsByDataRequest, MatchToolsByDataResponse>;
+  /** Search tools from an input text */
+  searchToolsByText: handleUnaryCall<SearchToolsByTextRequest, SearchToolsByTextResponse>;
+  /** XXX: this might useless, deprecate it. */
   browseTools: handleServerStreamingCall<BrowseToolsRequest, BrowseToolsResponse>;
 }
 
@@ -3598,22 +3741,39 @@ export interface ToolServiceClient extends Client {
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: ToolResponse) => void,
   ): ClientUnaryCall;
-  /** Find tools from the file list input provided, and maybe some information from user profile. */
-  findTools(
-    request: FindToolsRequest,
-    callback: (error: ServiceError | null, response: FindToolsResponse) => void,
+  /** Match tools from the file list input provided, and maybe some information from user profile. */
+  matchToolsByData(
+    request: MatchToolsByDataRequest,
+    callback: (error: ServiceError | null, response: MatchToolsByDataResponse) => void,
   ): ClientUnaryCall;
-  findTools(
-    request: FindToolsRequest,
+  matchToolsByData(
+    request: MatchToolsByDataRequest,
     metadata: Metadata,
-    callback: (error: ServiceError | null, response: FindToolsResponse) => void,
+    callback: (error: ServiceError | null, response: MatchToolsByDataResponse) => void,
   ): ClientUnaryCall;
-  findTools(
-    request: FindToolsRequest,
+  matchToolsByData(
+    request: MatchToolsByDataRequest,
     metadata: Metadata,
     options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: FindToolsResponse) => void,
+    callback: (error: ServiceError | null, response: MatchToolsByDataResponse) => void,
   ): ClientUnaryCall;
+  /** Search tools from an input text */
+  searchToolsByText(
+    request: SearchToolsByTextRequest,
+    callback: (error: ServiceError | null, response: SearchToolsByTextResponse) => void,
+  ): ClientUnaryCall;
+  searchToolsByText(
+    request: SearchToolsByTextRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: SearchToolsByTextResponse) => void,
+  ): ClientUnaryCall;
+  searchToolsByText(
+    request: SearchToolsByTextRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: SearchToolsByTextResponse) => void,
+  ): ClientUnaryCall;
+  /** XXX: this might useless, deprecate it. */
   browseTools(request: BrowseToolsRequest, options?: Partial<CallOptions>): ClientReadableStream<BrowseToolsResponse>;
   browseTools(
     request: BrowseToolsRequest,
