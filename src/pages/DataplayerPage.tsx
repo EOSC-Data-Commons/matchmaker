@@ -164,16 +164,30 @@ export const DataplayerPage = () => {
     }, [selectedToolId]);
 
     const [queryToolResults, setQueryToolResults] = useState<Record<string, ToolConfig>>({});
+    const [toolSearch, setToolSearch] =  useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
 
     useEffect(() => {
+        const timeout = setTimeout(() => {
+            setDebouncedSearch(toolSearch);
+        }, 500);
+
+        return () => clearTimeout(timeout);
+    }, [toolSearch]);
+
+    useEffect(() => {
+        if (debouncedSearch.trim().length < 2) {
+            setQueryToolResults({});
+            return;
+        }
         async function load() {
-            const res = await fetch(`/api/coordinator/tool/query`);
+            const res = await fetch(`/api/coordinator/tool/search?q=${encodeURIComponent(toolSearch)}`);
             const tools = await res.json();
             setQueryToolResults(tools);
         }
 
         load();
-    }, []);
+    }, [debouncedSearch]);
 
     // Handle tool selection
     const handleToolSelect = async (tool_id: string) => {
@@ -335,6 +349,13 @@ export const DataplayerPage = () => {
                 <p className="text-sm sm:text-base text-gray-600">Choose the tool you want to
                     use with your dataset</p>
             </div>
+            <input
+                type="text"
+                placeholder="Search tools..."
+                value={toolSearch}
+                onChange={(e) => setToolSearch(e.target.value)}
+                className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 {(Object.entries(queryToolResults) as [string, ToolConfig][]).map(([key, config]) => (
