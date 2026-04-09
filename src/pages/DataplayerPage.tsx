@@ -331,9 +331,8 @@ export const DataplayerPage = () => {
     const renderToolSelection = () => (
         <div className="max-w-4xl mx-auto px-4 sm:px-6">
             <div className="mb-6">
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Select Virtual Research
-                    Environment</h2>
-                <p className="text-sm sm:text-base text-gray-600">Choose the Virtual Research Environment you want to
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Select a tool</h2>
+                <p className="text-sm sm:text-base text-gray-600">Choose the tool you want to
                     use with your dataset</p>
             </div>
 
@@ -391,17 +390,23 @@ export const DataplayerPage = () => {
         return (
             <div className="max-w-5xl mx-auto px-4 sm:px-6">
                 <div className="mb-4 sm:mb-6">
-                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Map Files to VRE Parameters</h2>
-                    <p className="text-sm sm:text-base text-gray-600">Assign each file to a Virtual Research Environment
-                        parameter. Each
-                        parameter must have
-                        exactly one file.</p>
+                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Map input files and set input parameters</h2>
+                    <p className="text-sm sm:text-base text-gray-600">
+                        Setup required input parameters for running tool.
+                        Assign files to a tool file input, and each file slot must have exactly one file.</p>
 
                     <div className="mt-3 sm:mt-4 p-3 sm:p-4 bg-blue-50 rounded-lg border border-blue-200">
-                        <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">Selected Virtual Research
-                            Environment:</p>
+                        <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                            Selected tool:
+                        </p>
                         <p className="text-sm sm:text-base text-gray-900 font-semibold wrap-break-word">
                             {toolConfig ? toolConfig.name : "Loading tool config..."}
+                        </p>
+                        <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                            Select VRE to run tool:
+                        </p>
+                        <p className="text-sm sm:text-base text-gray-900 font-semibold wrap-break-word">
+                            (placeholder) this is for different entities of VRE (e.g. galaxy.eu / galaxy.ch if there are more than one)
                         </p>
                     </div>
                 </div>
@@ -554,21 +559,24 @@ export const DataplayerPage = () => {
                         {getStatusIcon()}
                     </div>
                     <div className="flex-1 min-w-0">
-                        <h2 className="text-lg sm:text-xl font-semibold mb-2">Virtual Research Environment Status</h2>
+                        <h2 className="text-lg sm:text-xl font-semibold mb-2">Tool launching status</h2>
                         <p className="text-base sm:text-lg mb-4 wrap-break-word">{statusMessage}</p>
-
-                        {selectedToolId && (
-                            <div className="mb-3 sm:mb-4 p-3 sm:p-4 bg-white rounded border">
-                                <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">Virtual Research
-                                    Environment:</p>
-                                <p className="text-sm sm:text-base text-gray-900 wrap-break-word">{toolConfig ? toolConfig.name : "Loading tool config..."}</p>
-                            </div>
-                        )}
 
                         {datasetTitle && (
                             <div className="mb-3 sm:mb-4 p-3 sm:p-4 bg-white rounded border">
                                 <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">Dataset:</p>
                                 <p className="text-sm sm:text-base text-gray-900 wrap-break-word">{datasetTitle}</p>
+                            </div>
+                        )}
+
+                        {selectedToolId && (
+                            <div className="mb-3 sm:mb-4 p-3 sm:p-4 bg-white rounded border">
+                                <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                                    Tool:
+                                </p>
+                                <p className="text-sm sm:text-base text-gray-900 wrap-break-word">{toolConfig ? toolConfig.name : "Loading tool config..."}</p>
+                                <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">VRE:</p>
+                                <p className="text-sm sm:text-base text-gray-900 wrap-break-word">(placeholder for VRE entity)</p>
                             </div>
                         )}
 
@@ -581,15 +589,17 @@ export const DataplayerPage = () => {
 
                         {taskResult && taskResult.url && (
                             <div className="mb-3 sm:mb-4 p-3 sm:p-4 bg-white rounded border">
-                                <p className="text-xs sm:text-sm font-medium text-gray-700 mb-2">Virtual Research
-                                    Environment is Ready!</p>
-                                <p className="text-xs sm:text-sm text-gray-600 mb-3">Your Virtual Research Environment
-                                    is ready to run your analysis.</p>
+                                <p className="text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                                    Tool in the Virtual Research Environment is Ready!
+                                </p>
+                                <p className="text-xs sm:text-sm text-gray-600 mb-3">
+                                    Your tool is ready to run your analysis.
+                                </p>
                                 <button
                                     onClick={() => window.open(taskResult.url, '_blank', 'noopener,noreferrer')}
                                     className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 transition-colors cursor-pointer"
                                 >
-                                    Open Virtual Research Environment →
+                                    Open the tool →
                                 </button>
                             </div>
                         )}

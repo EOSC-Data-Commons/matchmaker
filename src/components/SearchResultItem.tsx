@@ -1,5 +1,5 @@
 import type {BackendDataset} from "../types/commons.ts";
-import {CalendarIcon, UserIcon, ExternalLinkIcon, TagIcon, Rocket} from "lucide-react";
+import {CalendarIcon, UserIcon, ExternalLinkIcon, TagIcon, Rocket, Tractor} from "lucide-react";
 import {ProportionalStar} from './ProportionalStar';
 import {CitationExport} from './CitationExport';
 import {stripHtml} from "../lib/utils";
@@ -203,20 +203,20 @@ export const SearchResultItem = ({hit, isAiRanked = false}: SearchResultItemProp
                     <button
                         onClick={handleDataplayerLegacyRun}
                         aria-label={`Play dataset for ${hit.title}`}
-                        className="inline-flex items-center justify-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-colors cursor-pointer">
-                        <Rocket className="h-4 w-4"/>
-                        <span className="leading-none">Run (to be deprecated)</span>
+                        className="inline-flex items-center justify-center gap-1 rounded-md bg-orange-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 transition-colors cursor-pointer">
+                        <Tractor className="h-4 w-4"/>
+                        <span className="leading-none">Run (deprecated)</span>
                     </button>
                     <button
                         onClick={handleDataplayer}
                         aria-label={`View dataset for ${hit.title}`}
-                        className="inline-flex items-center justify-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-colors cursor-pointer">
+                        className="inline-flex items-center justify-center gap-1 rounded-md bg-green-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 transition-colors">
                         <Rocket className="h-4 w-4"/>
-                        <span className="leading-none">View</span>
+                        <span className="leading-none">Play</span>
                     </button>
                     <a href={hit._id} target="_blank" rel="noopener noreferrer"
                         aria-label={`Redinect to the source of dataset ${hit.title}`}
-                        className="inline-flex items-center justify-center gap-1 rounded-md bg-green-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 transition-colors">
+                        className="inline-flex items-center justify-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-colors cursor-pointer">
                         <ExternalLinkIcon className="h-4 w-4"/>
                         <span className="leading-none">Source</span>
                     </a>
