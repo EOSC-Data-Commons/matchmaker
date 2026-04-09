@@ -6,6 +6,6 @@ export default [
     route("chat/:id?", "pages/ChatPage.tsx"),
     route("dispatcher/run", "pages/DispatcherRunPage.tsx"),
     route("dataplayer_legacy_run", "pages/DataplayerLegacyRunPage.tsx"),
-    route("dataplayer", "pages/DataplayerNewRunPage.tsx"),
+    route("dataplayer", "pages/DataplayerPage.tsx"),
     route("*", "pages/NotFound.tsx"),
 ] satisfies RouteConfig;
