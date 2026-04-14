@@ -32,6 +32,7 @@ import {
     ToolMeta,
     ToolServiceClient,
 } from "./generated/coordinator.ts";
+import { FileMeta } from "../types.ts";
 
 const GRPC_TARGET = "[::1]:50051";
 
@@ -49,26 +50,6 @@ export function createToken(): string {
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
-/**
- * Application-level view of a file — mirrors the Rust `FileMeta` struct.
- * Converts the raw proto `FileEntry` into something more UI-friendly
- * (human-readable size, flattened path → filename).
- */
-export interface FileMeta {
-  downloadUrl?: string;
-  /** abs path as received from the server */
-  dataPath: string;
-  /** basename, same as dataPath for now — mirrors Rust impl */
-  filename: string;
-  /** human-readable decimal size string, e.g. "1.2 MB" */
-  // XXX: is it good to use human-readable string size, I only display it or it involve with some calculation?
-  size: string;
-  hash: string | null;
-  hash_type: string;
-  isDir: boolean;
-  mimetype?: string;
-}
 
 // ---------------------------------------------------------------------------
 // Helpers
