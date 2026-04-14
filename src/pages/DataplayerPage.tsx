@@ -4,17 +4,14 @@ import {LoaderIcon, CheckCircleIcon, XCircleIcon, AlertCircleIcon} from 'lucide-
 import {Footer} from '../components/Footer';
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 import eoscLogo from '@/assets/logo-eosc-data-commons.svg';
-import { FileMeta } from '@/lib/server/grpcClient';
+import { DispatchResult, FileMeta, ToolConfig } from '@/types/dataplayerTypes';
+import { fetchFilesMetaByDatasetHandle, getDispatchResultById, getToolById, matchToolsByFiles, searchToolsByText, startLaunchTask, taskStatusAsEventSource } from '@/lib/coordinatorApi';
 
 export type TaskStatus = 'PENDING' | 'SUCCESS' | 'FAILURE' | 'RETRY' | 'STARTED';
 
-export interface DispatcherResult {
-    url?: string;
-}
-
 export interface TaskStatusResponse {
     status: TaskStatus;
-    result?: DispatcherResult;
+    result?: DispatchResult;
     error?: string;
 }
 
@@ -35,11 +32,6 @@ const areAllParametersMapped = (
     return config.slots.every(param => mappedParameters.has(param));
 };
 
-interface ToolConfig {
-    name: string;
-    description: string;
-    slots: string[];
-}
 export const DataplayerPage = () => {
     const [searchParams] = useSearchParams();
 
@@ -66,10 +58,7 @@ export const DataplayerPage = () => {
             console.log("Start loading");
             try {
                 setLoading(true);
-                // TODO: I should wrap api call in a function so it is well typed.
-                const res = await fetch(`/api/coordinator/files?handle=${encodeURIComponent(datasetHandle)}`);
-                const files = await res.json();
-                console.log("Fetched data");
+                const files = await fetchFilesMetaByDatasetHandle(datasetHandle);
                 setFiles(files);
             } catch (err) {
                 console.error(err);
@@ -126,7 +115,7 @@ export const DataplayerPage = () => {
     // TODO: this state type should one to one mapped to tool state in grpc definition.
     const [statusType, setStatusType] = useState<'info' | 'success' | 'error' | 'warning'>('info');
     const [taskId, setTaskId] = useState<string | null>(null);
-    const [taskResult, setTaskResult] = useState<DispatcherResult | null>(null);
+    const [taskResult, setTaskResult] = useState<DispatchResult | null>(null);
 
     const [toolConfig, setToolConfig] = useState<ToolConfig | null>(null);
 
@@ -138,12 +127,9 @@ export const DataplayerPage = () => {
             console.log("Start loading");
             try {
                 setLoading(true);
-                // TODO: I should wrap api call in a function so it is well typed.
-                const res = await fetch(`/api/coordinator/files?handle=${encodeURIComponent(datasetHandle)}`);
-                const files = await res.json();
-                console.log("Fetched data");
-                setFiles(files);
-                // TODO: @Ritwik not yet provide the checkboxes for user to select files (even not sure that is intuitive)
+                const files = await fetchFilesMetaByDatasetHandle(datasetHandle);
+
+                // TODO: @Ritwik, I not yet provide the checkboxes for user to select files (even not sure that is intuitive)
                 // So the seleceted files are initialized with dataset, but I leave this as the port for future file selection support.
                 setselectedFiles(files);
             } catch (err) {
@@ -159,19 +145,11 @@ export const DataplayerPage = () => {
     }, [datasetHandle]);
 
     useEffect(() => {
+        if (selectedFiles.length < 1) {
+            return;
+        }
         async function load() {
-            const res = await fetch(`/api/coordinator/tool/match`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Accept": "application/json",
-                },
-                body: JSON.stringify({
-                    files: selectedFiles,
-                }),
-            });
-
-            const tools = await res.json();
+            const tools = await matchToolsByFiles(selectedFiles);
             setQueryToolResults(tools);
         }
 
@@ -180,8 +158,7 @@ export const DataplayerPage = () => {
 
     useEffect(() => {
         async function load() {
-            const res = await fetch(`/api/coordinator/tool/get/${selectedToolId}`);
-            const config = await res.json();
+            const config = await getToolById(selectedToolId);
             setToolConfig(config);
         }
 
@@ -191,16 +168,16 @@ export const DataplayerPage = () => {
     }, [selectedToolId]);
 
     const [queryToolResults, setQueryToolResults] = useState<Record<string, ToolConfig>>({});
-    const [toolSearch, setToolSearch] =  useState("");
+    const [toolSearchText, setToolSearchText] =  useState("");
     const [debouncedSearch, setDebouncedSearch] = useState("");
 
     useEffect(() => {
         const timeout = setTimeout(() => {
-            setDebouncedSearch(toolSearch);
+            setDebouncedSearch(toolSearchText);
         }, 500);
 
         return () => clearTimeout(timeout);
-    }, [toolSearch]);
+    }, [toolSearchText]);
 
     useEffect(() => {
         if (debouncedSearch.trim().length < 2) {
@@ -208,13 +185,12 @@ export const DataplayerPage = () => {
             return;
         }
         async function load() {
-            const res = await fetch(`/api/coordinator/tool/search?q=${encodeURIComponent(toolSearch)}`);
-            const tools = await res.json();
+            const tools = await searchToolsByText(toolSearchText);
             setQueryToolResults(tools);
         }
 
         load();
-    }, [debouncedSearch, toolSearch]);
+    }, [debouncedSearch, toolSearchText]);
 
     // Handle tool selection
     const handleToolSelect = async (tool_id: string) => {
@@ -270,7 +246,7 @@ export const DataplayerPage = () => {
             setStatusType("info");
 
             console.log("selected tool id:" + selectedToolId);
-            const slotToFileMetaMapping = ((mapping, fs) => {
+            const slotToFileMapping = ((mapping, fs) => {
                 const result: Record<string, FileMeta> = {};
 
                 for (const [idxStr, slot] of Object.entries(mapping)) {
@@ -280,26 +256,15 @@ export const DataplayerPage = () => {
                 return result;
             })(fileParameterMappings, files);
 
-            // TODO: having a type for this call will be very helpful.
-            const statusRes = await fetch("/api/coordinator/start-task", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ selectedToolId, slotToFileMetaMapping }),
-            });
-
-            if (!statusRes.ok) throw new Error("Failed to start task");
-
-            const taskId = await statusRes.json();
+            const taskId = await startLaunchTask(selectedToolId, slotToFileMapping);
             setTaskId(taskId);
-            setStatusMessage("Task submitted! Monitoring progress...");
+
+            setStatusMessage(`Task ${taskId} submitted! Monitoring progress...`);
             setStatusType("info");
 
-            console.warn(taskId);
-
-            // SSE for task progress
-            const sse = new EventSource(`/api/coordinator/task-status/${taskId}`);
-
-            sse.addEventListener("state", async (event) => {
+            // SSE for task progress update
+            const es = taskStatusAsEventSource(taskId);
+            es.addEventListener("state", async (event) => {
                 const data = JSON.parse(event.data);
                 setStatusMessage(data.message);
                 setStatusType(
@@ -309,20 +274,12 @@ export const DataplayerPage = () => {
                 );
                 console.warn(data.state);
                 if (data.state === "READY") {
-                    sse.close();
+                    es.close();
                     
                     try {
-                        const toolRes = await fetch(`/api/coordinator/tasks-result/${taskId}`, {
-                            method: "GET",
-                        });
-                        console.warn(toolRes);
-
-                        if (!toolRes.ok) throw new Error("Failed to fetch result");
-
-                        const url = await toolRes.text();
-
-                        const dispatcherResult: DispatcherResult = { url };
+                        const dispatcherResult = await getDispatchResultById(taskId);
                         setTaskResult(dispatcherResult);
+                        
                         setCurrentStep("monitoring");
                         setStatusMessage("Virtual Research Environment task completed!");
                     } catch (err) {
@@ -379,8 +336,8 @@ export const DataplayerPage = () => {
             <input
                 type="text"
                 placeholder="Search tools..."
-                value={toolSearch}
-                onChange={(e) => setToolSearch(e.target.value)}
+                value={toolSearchText}
+                onChange={(e) => setToolSearchText(e.target.value)}
                 className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
 
