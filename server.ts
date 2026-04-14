@@ -7,7 +7,6 @@ import { createRequestHandler } from "@react-router/express";
 
 import {
     fetchDatasetFilesFromDatahuggerByUrl,
-    FileMeta,
     fileMetaToFileEntry,
     getDataplayerClient,
     getToolSrcClient,
@@ -29,6 +28,7 @@ import {
     SearchToolsByTextRequest,
     ToolState_State,
 } from "./src/lib/server/generated/coordinator.ts";
+import { FileMeta, TypLaunchToolRequest } from "./src/types/dataplayerTypes.ts";
 
 // Constants
 const DEVELOPMENT = process.env.NODE_ENV !== "production";
@@ -86,20 +86,17 @@ app.post("/api/coordinator/start-task", async (req, res) => {
     //
     // XXX: @reggie can I assume the unique id of tool in the tool registry is a valid UUID?
     const {
-        selectedToolId,
-        slotToFileMetaMapping,
-    }: {
-    selectedToolId: string;
-    slotToFileMetaMapping: Record<string, FileMeta>;
-  } = req.body;
+        toolId,
+        slotToFileMapping,
+    } = req.body as TypLaunchToolRequest;
 
     try {
-    // 2️⃣ launch tool
-        console.warn(selectedToolId);
-        console.warn(slotToFileMetaMapping);
+        // launch tool
+        console.warn(toolId);
+        console.warn(slotToFileMapping);
         const taskId = await launchTool(
-            selectedToolId,
-            slotToFileMetaMapping,
+            toolId,
+            slotToFileMapping,
         );
 
         if (!taskId) {
