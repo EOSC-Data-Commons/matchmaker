@@ -8,6 +8,7 @@ import { createRequestHandler } from "@react-router/express";
 import {
     fetchDatasetFilesFromDatahuggerByUrl,
     FileMeta,
+    fileMetaToFileEntry,
     getDataplayerClient,
     getToolSrcClient,
     launchTool,
@@ -212,12 +213,15 @@ interface ToolConfig {
 }
 
 app.use(express.json());
-app.get("/api/coordinator/tool/match", async (_req, res) => {
+app.post("/api/coordinator/tool/match", async (req, res) => {
     const client = getToolSrcClient();
     try {
-    // XXX: @reggie here is the abstract interface to the tool registry.
+        // XXX: @reggie here is the abstract interface to the tool registry.
+        const { files } = req.body as { files: FileMeta[] };
         const grpc_req: MatchToolsByDataRequest = {
-            files: [],
+            files: files
+                .filter(f => !f.isDir)
+                .map(f => (fileMetaToFileEntry(f))),
         };
 
         client.matchToolsByData(grpc_req, (err, response) => {
