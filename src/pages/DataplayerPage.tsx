@@ -120,6 +120,7 @@ export const DataplayerPage = () => {
         );
     }
 
+
     // Submission tracking
     const [statusMessage, setStatusMessage] = useState('');
     // TODO: this state type should one to one mapped to tool state in grpc definition.
@@ -128,6 +129,9 @@ export const DataplayerPage = () => {
     const [taskResult, setTaskResult] = useState<DispatcherResult | null>(null);
 
     const [toolConfig, setToolConfig] = useState<ToolConfig | null>(null);
+
+    // user selected files for matching
+    const [selectedFiles, setselectedFiles] = useState<FileMeta[]>([]);
     
     useEffect(() => {
         const load = async () => {
@@ -139,6 +143,9 @@ export const DataplayerPage = () => {
                 const files = await res.json();
                 console.log("Fetched data");
                 setFiles(files);
+                // TODO: @Ritwik not yet provide the checkboxes for user to select files (even not sure that is intuitive)
+                // So the seleceted files are initialized with dataset, but I leave this as the port for future file selection support.
+                setselectedFiles(files);
             } catch (err) {
                 console.error(err);
                 setError("Failed to fetch files");
@@ -150,6 +157,26 @@ export const DataplayerPage = () => {
 
         load();
     }, [datasetHandle]);
+
+    useEffect(() => {
+        async function load() {
+            const res = await fetch(`/api/coordinator/tool/match`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                },
+                body: JSON.stringify({
+                    files: selectedFiles,
+                }),
+            });
+
+            const tools = await res.json();
+            setQueryToolResults(tools);
+        }
+
+        load();
+    }, [selectedFiles]);
 
     useEffect(() => {
         async function load() {
@@ -187,7 +214,7 @@ export const DataplayerPage = () => {
         }
 
         load();
-    }, [debouncedSearch]);
+    }, [debouncedSearch, toolSearch]);
 
     // Handle tool selection
     const handleToolSelect = async (tool_id: string) => {
@@ -358,17 +385,22 @@ export const DataplayerPage = () => {
             />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                {(Object.entries(queryToolResults) as [string, ToolConfig][]).map(([key, config]) => (
-                    <button
-                        key={key}
-                        onClick={() => handleToolSelect(key)}
-                        disabled={loadingFiles}
-                        className="p-4 sm:p-6 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1 sm:mb-2">{config.name}</h3>
-                        <p className="text-xs sm:text-sm text-gray-600">{config.description}</p>
-                    </button>
-                ))}
+                {Object.entries(queryToolResults).length === 0 ? (
+                    <div className="col-span-full text-center py-8 text-gray-500">
+                        No tools found.
+                    </div>
+                ) :
+                    (Object.entries(queryToolResults) as [string, ToolConfig][]).map(([key, config]) => (
+                        <button
+                            key={key}
+                            onClick={() => handleToolSelect(key)}
+                            disabled={loadingFiles}
+                            className="p-4 sm:p-6 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1 sm:mb-2">{config.name}</h3>
+                            <p className="text-xs sm:text-sm text-gray-600">{config.description}</p>
+                        </button>
+                    ))}
             </div>
 
             {loadingFiles && (

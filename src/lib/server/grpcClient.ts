@@ -99,7 +99,7 @@ function fileEntryToFileMeta(entry: FileEntry): FileMeta {
 
 /** mirrors Rust `impl From<FileMeta> for grpc::FileEntry` */
 // XXX: not well done on converting, same for the reverse convert above.
-function fileMetaToFileEntry(meta: FileMeta): FileEntry {
+export function fileMetaToFileEntry(meta: FileMeta): FileEntry {
     return {
         downloadUrl: meta.downloadUrl ?? undefined,
         path: meta.dataPath,
