@@ -4,6 +4,8 @@ import {useAuth} from "@/hooks/useAuth.ts";
 import {Conversation, Message} from "@/types/chat.ts";
 import {BackendDataset} from "@/types/commons.ts";
 import {sendChatMessage} from "@/lib/api.ts";
+import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
+import {Footer} from "@/components/Footer.tsx";
 
 const ChatPage: FC = () => {
     const {id: urlId} = useParams();
@@ -188,9 +190,21 @@ const ChatPage: FC = () => {
     };
 
     return (
-        <div className="flex h-screen bg-white">
-            {/* Sidebar */}
-            <div className="w-80 bg-gray-50 border-r border-gray-200 flex flex-col">
+        <div className="flex flex-col h-[100dvh] bg-white overflow-hidden">
+            {/* Header */}
+            <header
+                className="bg-white border-b border-gray-200 shrink-0 py-3 px-6 flex items-center justify-between shadow-sm z-10">
+                <img
+                    src={dataCommonsIconBlue}
+                    alt="EOSC Logo"
+                    className="h-8 cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => navigate('/')}
+                />
+            </header>
+
+            <div className="flex-1 flex overflow-hidden">
+                {/* Sidebar */}
+                <div className="w-80 bg-gray-50 border-r border-gray-200 flex flex-col shrink-0">
                 <div className="p-4 border-b border-gray-200">
                     <button
                         onClick={() => {
@@ -382,6 +396,12 @@ const ChatPage: FC = () => {
                         AI-generated content may be incomplete or occasionally incorrect. Please verify critical data.
                     </div>
                 </div>
+            </div>
+            </div>
+
+            {/* Footer */}
+            <div className="shrink-0 bg-white shadow-[0_-1px_3px_rgba(0,0,0,0.1)] z-10 w-full relative">
+                <Footer className="!mt-0 !py-4 scale-[0.85] origin-bottom overflow-hidden" translucent={false}/>
             </div>
         </div>
     );
