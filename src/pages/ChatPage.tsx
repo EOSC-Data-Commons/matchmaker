@@ -45,20 +45,21 @@ const ChatPage: FC = () => {
             .then(data => {
                 const parsedMessages: Message[] = [];
                 if (data.items && Array.isArray(data.items)) {
-                    data.items.forEach((item: any) => {
+                    data.items.forEach((item: Record<string, unknown>) => {
                         if (item.type === 'message' && item.role === 'user') {
-                            const text = Array.isArray(item.content) && item.content[0]?.text
-                                ? item.content[0].text
+                            const contentObj = Array.isArray(item.content) && item.content[0] as Record<string, unknown>;
+                            const text = Array.isArray(item.content) && contentObj?.text
+                                ? String(contentObj.text)
                                 : typeof item.content === 'string' ? item.content : '';
                             parsedMessages.push({sender: 'user', content: text});
-                        } else if (item.type === 'tool_result' && (item.call_id === 'rerank_results' || item.metadata?.name === 'rerank_results')) {
+                        } else if (item.type === 'tool_result' && (item.call_id === 'rerank_results' || (item.metadata as Record<string, unknown>)?.name === 'rerank_results')) {
                             try {
                                 const contentObj = typeof item.content === 'string' ? JSON.parse(item.content) : item.content;
                                 if (contentObj && contentObj.summary && contentObj.hits) {
                                     const {summary, hits} = contentObj;
                                     let formattedContent = summary + "\n\n";
-                                    hits.forEach((hit: any, index: number) => {
-                                        formattedContent += `${index + 1}. ${hit.title}\n`;
+                                    hits.forEach((hit: Record<string, unknown>, index: number) => {
+                                        formattedContent += `${index + 1}. ${hit.title || (hit._source as Record<string, unknown> | undefined)?.titles?.[0]?.title || 'Unknown Dataset'}\n`;
                                     });
                                     parsedMessages.push({sender: 'bot', content: formattedContent});
                                 }
