@@ -13,6 +13,7 @@ const ChatPage: FC = () => {
     const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
     const [loading, setLoading] = useState(true);
     const [newMessage, setNewMessage] = useState("");
+    const [isSending, setIsSending] = useState(false);
 
     const fetchConversations = useCallback(() => {
         if (user?.sub) {
@@ -59,7 +60,9 @@ const ChatPage: FC = () => {
                                     const {summary, hits} = contentObj;
                                     let formattedContent = summary + "\n\n";
                                     hits.forEach((hit: Record<string, unknown>, index: number) => {
-                                        formattedContent += `${index + 1}. ${hit.title || (hit._source as Record<string, unknown> | undefined)?.titles?.[0]?.title || 'Unknown Dataset'}\n`;
+                                        const title = hit.title || (hit._source as Record<string, unknown> | undefined)?.titles?.[0]?.title || 'Unknown Dataset';
+                                        const url = hit._id || (hit._source as Record<string, unknown> | undefined)?.doi || '#';
+                                        formattedContent += `${index + 1}. [${title}](${url})\n`;
                                     });
                                     parsedMessages.push({sender: 'bot', content: formattedContent});
                                 }
@@ -114,98 +117,265 @@ const ChatPage: FC = () => {
             messages: updatedMessages,
         });
         setNewMessage("");
+        setIsSending(true);
 
-        await sendChatMessage(
-            updatedMessages,
-            'einfracz/qwen3-coder',
-            (event) => {
-                if (event.type === 'TOOL_CALL_RESULT' && event.tool_call_id === 'rerank_results' && event.content) {
-                    const result = JSON.parse(event.content);
-                    const {summary, hits} = result;
+        try {
+            await sendChatMessage(
+                updatedMessages,
+                'einfracz/qwen3-coder',
+                (event) => {
+                    if (event.type === 'TOOL_CALL_RESULT' && event.tool_call_id === 'rerank_results' && event.content) {
+                        const result = JSON.parse(event.content);
+                        const {summary, hits} = result;
 
-                    let formattedContent = summary + "\n\n";
-                    hits.forEach((hit: BackendDataset, index: number) => {
-                        formattedContent += `${index + 1}. ${hit.title}\n`;
-                    });
+                        let formattedContent = summary + "\n\n";
+                        hits.forEach((hit: BackendDataset, index: number) => {
+                            const title = hit.title || 'Unknown Dataset';
+                            const url = hit._id || '#';
+                            formattedContent += `${index + 1}. [${title}](${url})\n`;
+                        });
 
-                    const botMessage: Message = {sender: 'bot', content: formattedContent};
+                        const botMessage: Message = {sender: 'bot', content: formattedContent};
 
-                    setSelectedConversation(prev => {
-                        if (!prev) return null;
-                        return {...prev, messages: [...prev.messages, botMessage]};
-                    });
+                        setSelectedConversation(prev => {
+                            if (!prev) return null;
+                            return {...prev, messages: [...prev.messages, botMessage]};
+                        });
+                        setIsSending(false);
+                    } else if (event.error) {
+                        setIsSending(false);
+                        console.error("Event error:", event.error);
+                    }
+                },
+                (error) => {
+                    console.error("Failed to send message", error);
+                    setIsSending(false);
                 }
-            },
-            (error) => {
-                console.error("Failed to send message", error);
+            );
+        } catch (e) {
+            console.error("Failed to send message", e);
+            setIsSending(false);
+        } finally {
+            fetchConversations();
+        }
+    };
+
+    const renderMessageContent = (content: string) => {
+        const lines = content.split('\n');
+        return lines.map((line, i) => {
+            const linkRegex = /\[(.*?)\]\((.*?)\)/g;
+            const parts = [];
+            let lastIndex = 0;
+            let match;
+            let keyIndex = 0;
+            while ((match = linkRegex.exec(line)) !== null) {
+                parts.push(line.substring(lastIndex, match.index));
+                parts.push(
+                    <a key={`${i}-${keyIndex++}`} href={match[2]} target="_blank" rel="noopener noreferrer"
+                       className="text-blue-500 hover:text-blue-700 underline font-medium">
+                        {match[1]}
+                    </a>
+                );
+                lastIndex = match.index + match[0].length;
             }
-        );
-        fetchConversations();
+            parts.push(line.substring(lastIndex));
+            return (
+                <p key={i} className="leading-relaxed min-h-[1.5rem]">
+                    {parts}
+                </p>
+            );
+        });
     };
 
     return (
-        <div className="flex h-screen bg-gray-100">
-            <div className="w-1/4 bg-white border-r border-gray-200">
+        <div className="flex h-screen bg-white">
+            {/* Sidebar */}
+            <div className="w-80 bg-gray-50 border-r border-gray-200 flex flex-col">
                 <div className="p-4 border-b border-gray-200">
-                    <h2 className="text-lg font-semibold">Conversations</h2>
+                    <button
+                        onClick={() => {
+                            setSelectedConversation(null);
+                            if (urlId) navigate('/chat');
+                        }}
+                        className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors shadow-sm cursor-pointer"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20"
+                             fill="currentColor">
+                            <path fillRule="evenodd"
+                                  d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                                  clipRule="evenodd"/>
+                        </svg>
+                        New Chat
+                    </button>
                 </div>
-                <div className="overflow-y-auto">
-                    {loading ? (
-                        <p className="p-4">Loading conversations...</p>
+                <div className="flex-1 overflow-y-auto p-3 space-y-1">
+                    {loading && conversations.length === 0 ? (
+                        <p className="text-sm text-gray-500 text-center mt-4">Loading conversations...</p>
                     ) : (
-                        <ul>
-                            {conversations.map(convo => (
-                                <li
+                        conversations.map(convo => {
+                            const isActive = convo.id === selectedConversation?.id || convo.id === urlId;
+                            return (
+                                <div
                                     key={convo.id}
-                                    className={`p-4 cursor-pointer hover:bg-gray-50 ${convo.id === selectedConversation?.id || convo.id === urlId ? 'bg-gray-100' : ''}`}
+                                    className={`px-3 py-2.5 rounded-lg cursor-pointer transition-colors text-sm truncate ${
+                                        isActive
+                                            ? 'bg-blue-100 text-blue-800 font-medium'
+                                            : 'text-gray-700 hover:bg-gray-200'
+                                    }`}
                                     onClick={() => handleSelectConversation(convo.id)}
                                 >
                                     {convo.title}
-                                </li>
-                            ))}
-                        </ul>
+                                </div>
+                            );
+                        })
                     )}
                 </div>
             </div>
-            <div className="flex-1 flex flex-col">
-                <div className="flex-1 p-4 overflow-y-auto">
-                    {selectedConversation ? (
-                        <div>
-                            <h1 className="text-2xl font-bold mb-4">{selectedConversation.title}</h1>
-                            <div>
-                                {selectedConversation.messages.map((msg, index) => (
-                                    <div key={index}
-                                         className={`p-2 my-2 rounded-lg ${msg.sender === 'user' ? 'bg-blue-100 ml-auto' : 'bg-gray-200'}`}>
-                                        <p><strong>{msg.sender}:</strong> {msg.content}</p>
-                                    </div>
-                                ))}
+
+            {/* Main Chat Area */}
+            <div className="flex-1 flex flex-col bg-white">
+                {/* Header */}
+                {selectedConversation && (
+                    <div className="px-6 py-4 border-b border-gray-100 bg-white">
+                        <h1 className="text-lg font-semibold text-gray-800">{selectedConversation.title}</h1>
+                    </div>
+                )}
+
+                {/* Messages */}
+                <div className="flex-1 p-6 overflow-y-auto bg-gray-50">
+                    <div className="max-w-4xl mx-auto space-y-6">
+                        {!selectedConversation || selectedConversation.messages.length === 0 ? (
+                            <div
+                                className="flex flex-col items-center justify-center h-full min-h-[16rem] text-center mt-20">
+                                <div
+                                    className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none"
+                                         viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                              d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+                                    </svg>
+                                </div>
+                                <h2 className="text-xl font-semibold text-gray-700 mb-2">Welcome to EOSC Chat</h2>
+                                <p className="text-gray-500 max-w-md">Start a new conversation by typing a message below
+                                    to search datasets or ask questions.</p>
                             </div>
-                        </div>
-                    ) : (
-                        <div className="flex items-center justify-center h-full">
-                            <p className="text-gray-500">Select a conversation to start chatting.</p>
-                        </div>
-                    )}
+                        ) : (
+                            selectedConversation.messages.map((msg, index) => (
+                                <div key={index}
+                                     className={`flex gap-3 ${msg.sender === 'user' ? 'justify-end flex-row-reverse' : 'justify-start'}`}>
+                                    {/* Avatar */}
+                                    <div
+                                        className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center shadow-sm ${msg.sender === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-blue-600 border border-gray-200'}`}>
+                                        {msg.sender === 'user' ? (
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5"
+                                                 viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd"
+                                                      d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                                                      clipRule="evenodd"/>
+                                            </svg>
+                                        ) : (
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5"
+                                                 viewBox="0 0 20 20" fill="currentColor">
+                                                <path
+                                                    d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/>
+                                            </svg>
+                                        )}
+                                    </div>
+                                    <div
+                                        className={`max-w-[80%] rounded-2xl px-5 py-3 shadow-sm text-[15px] ${
+                                            msg.sender === 'user'
+                                                ? 'bg-blue-600 text-white rounded-tr-sm'
+                                                : 'bg-white border border-gray-200 text-gray-800 rounded-tl-sm whitespace-pre-wrap'
+                                        }`}
+                                    >
+                                        {msg.sender === 'user' ? (
+                                            <p className="leading-relaxed">{msg.content}</p>
+                                        ) : (
+                                            renderMessageContent(msg.content)
+                                        )}
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                        {/* Loading Indicator */}
+                        {isSending && (
+                            <div className="flex gap-3 justify-start">
+                                <div
+                                    className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center shadow-sm bg-gray-100 text-blue-600 border border-gray-200">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 animate-pulse"
+                                         viewBox="0 0 20 20" fill="currentColor">
+                                        <path
+                                            d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/>
+                                    </svg>
+                                </div>
+                                <div
+                                    className="max-w-[80%] rounded-2xl px-5 py-3 shadow-sm text-[15px] bg-white border border-gray-200 text-gray-500 rounded-tl-sm flex items-center gap-3">
+                                    <span className="flex gap-1.5 opacity-70">
+                                        <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
+                                        <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                                              style={{animationDelay: '0.2s'}}></span>
+                                        <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                                              style={{animationDelay: '0.4s'}}></span>
+                                    </span>
+                                    <span className="font-medium text-sm">Searching for datasets...</span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
-                <div className="p-4 bg-white border-t border-gray-200 flex">
-                    <input
-                        type="text"
-                        placeholder="Type your message..."
-                        className="w-full p-2 border border-gray-300 rounded-lg"
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                                handleSendMessage();
-                            }
-                        }}
-                    />
-                    <button
-                        onClick={handleSendMessage}
-                        className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg cursor-pointer hover:bg-blue-600 transition-colors"
-                    >
-                        Send
-                    </button>
+
+                {/* Input Area */}
+                <div className="p-4 bg-white border-t border-gray-200">
+                    <div className="max-w-4xl mx-auto relative flex items-end gap-3">
+                        <textarea
+                            rows={1}
+                            placeholder="Ask anything or search for datasets..."
+                            className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none max-h-32 overflow-y-auto bg-gray-50 text-gray-800 shadow-sm"
+                            value={newMessage}
+                            disabled={isSending}
+                            onChange={(e) => {
+                                setNewMessage(e.target.value);
+                                e.target.style.height = 'auto';
+                                e.target.style.height = Math.min(e.target.scrollHeight, 128) + 'px';
+                            }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey && !isSending) {
+                                    e.preventDefault();
+                                    handleSendMessage();
+                                }
+                            }}
+                        />
+                        <button
+                            onClick={handleSendMessage}
+                            disabled={!newMessage.trim() || isSending}
+                            className={`px-5 py-3 rounded-xl font-medium transition-colors shadow-sm flex items-center justify-center h-[50px] ${
+                                newMessage.trim() && !isSending
+                                    ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'
+                                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                            }`}
+                        >
+                            {isSending ? (
+                                <svg className="animate-spin h-5 w-5 sm:mr-2" xmlns="http://www.w3.org/2000/svg"
+                                     fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                            strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor"
+                                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 hidden sm:block sm:mr-2"
+                                     viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd"
+                                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z"
+                                          clipRule="evenodd"/>
+                                </svg>
+                            )}
+                            {isSending ? 'Sending...' : 'Send'}
+                        </button>
+                    </div>
+                    <div className="max-w-4xl mx-auto text-center mt-3 text-xs text-gray-400">
+                        AI-generated content may be incomplete or occasionally incorrect. Please verify critical data.
+                    </div>
                 </div>
             </div>
         </div>
