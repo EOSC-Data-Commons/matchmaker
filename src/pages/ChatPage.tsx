@@ -1,22 +1,30 @@
-import {FC, useState, useEffect} from "react";
+import {FC, useState, useEffect, useCallback} from "react";
+import {useNavigate, useParams} from "react-router";
 import {useAuth} from "@/hooks/useAuth.ts";
 import {Conversation, Message} from "@/types/chat.ts";
 import {BackendDataset} from "@/types/commons.ts";
 import {sendChatMessage} from "@/lib/api.ts";
 
 const ChatPage: FC = () => {
+    const {id: urlId} = useParams();
+    const navigate = useNavigate();
     const {user} = useAuth();
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
     const [loading, setLoading] = useState(true);
     const [newMessage, setNewMessage] = useState("");
 
-    useEffect(() => {
+    const fetchConversations = useCallback(() => {
         if (user?.sub) {
             fetch('/api/search/conversations')
                 .then(res => res.json())
                 .then(data => {
-                    setConversations(data);
+                    const mapped_data = data.map((item: Record<string, string>) => ({
+                        id: item.thread_id || item.id,
+                        title: item.label || item.title,
+                        ...item
+                    }));
+                    setConversations(mapped_data as Conversation[]);
                     setLoading(false);
                 })
                 .catch(err => {
@@ -26,19 +34,66 @@ const ChatPage: FC = () => {
         }
     }, [user?.sub]);
 
-    const handleSelectConversation = (id: string) => {
+    useEffect(() => {
+        fetchConversations();
+    }, [fetchConversations]);
+
+    const handleSelectConversation = useCallback((id: string) => {
         setLoading(true);
         fetch(`/api/search/conversation/${id}`)
             .then(res => res.json())
             .then(data => {
-                setSelectedConversation(data);
+                const parsedMessages: Message[] = [];
+                if (data.items && Array.isArray(data.items)) {
+                    data.items.forEach((item: any) => {
+                        if (item.type === 'message' && item.role === 'user') {
+                            const text = Array.isArray(item.content) && item.content[0]?.text
+                                ? item.content[0].text
+                                : typeof item.content === 'string' ? item.content : '';
+                            parsedMessages.push({sender: 'user', content: text});
+                        } else if (item.type === 'tool_result' && (item.call_id === 'rerank_results' || item.metadata?.name === 'rerank_results')) {
+                            try {
+                                const contentObj = typeof item.content === 'string' ? JSON.parse(item.content) : item.content;
+                                if (contentObj && contentObj.summary && contentObj.hits) {
+                                    const {summary, hits} = contentObj;
+                                    let formattedContent = summary + "\n\n";
+                                    hits.forEach((hit: any, index: number) => {
+                                        formattedContent += `${index + 1}. ${hit.title}\n`;
+                                    });
+                                    parsedMessages.push({sender: 'bot', content: formattedContent});
+                                }
+                            } catch (e) {
+                                console.error("Failed to parse tool result content", e);
+                            }
+                        }
+                    });
+                }
+
+                const formattedConversation: Conversation = {
+                    id: data.thread_id || data.id || id,
+                    title: data.label || data.title || 'Conversation',
+                    messages: parsedMessages.length > 0 ? parsedMessages : (data.messages || [])
+                };
+
+                setSelectedConversation(formattedConversation);
                 setLoading(false);
+                if (urlId !== id) {
+                    navigate(`/chat/${id}`);
+                }
             })
             .catch(err => {
                 console.error("Failed to fetch conversation", err);
                 setLoading(false);
             });
-    };
+    }, [navigate, urlId]);
+
+    useEffect(() => {
+        if (urlId) {
+            handleSelectConversation(urlId);
+        } else {
+            setSelectedConversation(null);
+        }
+    }, [urlId, handleSelectConversation]);
 
     const handleSendMessage = async () => {
         if (!newMessage.trim()) return;
@@ -84,6 +139,7 @@ const ChatPage: FC = () => {
                 console.error("Failed to send message", error);
             }
         );
+        fetchConversations();
     };
 
     return (
@@ -100,7 +156,7 @@ const ChatPage: FC = () => {
                             {conversations.map(convo => (
                                 <li
                                     key={convo.id}
-                                    className="p-4 cursor-pointer hover:bg-gray-50"
+                                    className={`p-4 cursor-pointer hover:bg-gray-50 ${convo.id === selectedConversation?.id || convo.id === urlId ? 'bg-gray-100' : ''}`}
                                     onClick={() => handleSelectConversation(convo.id)}
                                 >
                                     {convo.title}
