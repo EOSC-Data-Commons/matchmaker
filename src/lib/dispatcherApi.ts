@@ -11,7 +11,7 @@ import {fetchWithTimeout} from './utils';
 // Use proxy to avoid CORS issues
 const API_BASE = '/api/player';
 const METADATA_ENDPOINT = '/anon_requests/metadata_rocrate/';
-const FILEMETRIX_BASE = 'https://filemetrix.labs.dansdemo.nl/api/v1';
+const FILEMETRIX_BASE = 'https://filemetrix.eosc-data-commons.dansdemo.nl/api/v1';
 
 /**
  * Fetch files from FileMetrix API for a given dataset handle
