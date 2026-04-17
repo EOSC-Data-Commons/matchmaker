@@ -262,62 +262,67 @@ const ChatPage: FC = () => {
                         ) : (
                             selectedConversation.messages.map((msg, index) => (
                                 <div key={index}
-                                     className={`flex gap-3 ${msg.sender === 'user' ? 'justify-end flex-row-reverse' : 'justify-start'}`}>
-                                    {/* Avatar */}
+                                     className={`w-full flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                                     <div
-                                        className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center shadow-sm ${msg.sender === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-blue-600 border border-gray-200'}`}>
-                                        {msg.sender === 'user' ? (
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5"
-                                                 viewBox="0 0 20 20" fill="currentColor">
-                                                <path fillRule="evenodd"
-                                                      d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                                                      clipRule="evenodd"/>
-                                            </svg>
-                                        ) : (
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5"
-                                                 viewBox="0 0 20 20" fill="currentColor">
-                                                <path
-                                                    d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/>
-                                            </svg>
-                                        )}
-                                    </div>
-                                    <div
-                                        className={`max-w-[80%] rounded-2xl px-5 py-3 shadow-sm text-[15px] ${
-                                            msg.sender === 'user'
-                                                ? 'bg-blue-600 text-white rounded-tr-sm'
-                                                : 'bg-white border border-gray-200 text-gray-800 rounded-tl-sm whitespace-pre-wrap'
-                                        }`}
-                                    >
-                                        {msg.sender === 'user' ? (
-                                            <p className="leading-relaxed">{msg.content}</p>
-                                        ) : (
-                                            renderMessageContent(msg.content)
-                                        )}
+                                        className={`flex gap-3 max-w-[85%] ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
+                                        {/* Avatar */}
+                                        <div
+                                            className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center shadow-sm mt-1 ${msg.sender === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-blue-600 border border-gray-200'}`}>
+                                            {msg.sender === 'user' ? (
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5"
+                                                     viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fillRule="evenodd"
+                                                          d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                                                          clipRule="evenodd"/>
+                                                </svg>
+                                            ) : (
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5"
+                                                     viewBox="0 0 20 20" fill="currentColor">
+                                                    <path
+                                                        d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/>
+                                                </svg>
+                                            )}
+                                        </div>
+                                        <div
+                                            className={`rounded-2xl px-5 py-3 shadow-sm text-[15px] ${
+                                                msg.sender === 'user'
+                                                    ? 'bg-blue-600 text-white rounded-tr-sm'
+                                                    : 'bg-white border border-gray-200 text-gray-800 rounded-tl-sm whitespace-pre-wrap'
+                                            }`}
+                                        >
+                                            {msg.sender === 'user' ? (
+                                                <p className="leading-relaxed">{msg.content}</p>
+                                            ) : (
+                                                renderMessageContent(msg.content)
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             ))
                         )}
                         {/* Loading Indicator */}
                         {isSending && (
-                            <div className="flex gap-3 justify-start">
-                                <div
-                                    className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center shadow-sm bg-gray-100 text-blue-600 border border-gray-200">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 animate-pulse"
-                                         viewBox="0 0 20 20" fill="currentColor">
-                                        <path
-                                            d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/>
-                                    </svg>
-                                </div>
-                                <div
-                                    className="max-w-[80%] rounded-2xl px-5 py-3 shadow-sm text-[15px] bg-white border border-gray-200 text-gray-500 rounded-tl-sm flex items-center gap-3">
-                                    <span className="flex gap-1.5 opacity-70">
-                                        <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
-                                        <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                                              style={{animationDelay: '0.2s'}}></span>
-                                        <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                                              style={{animationDelay: '0.4s'}}></span>
-                                    </span>
-                                    <span className="font-medium text-sm">Searching for datasets...</span>
+                            <div className="w-full flex justify-start">
+                                <div className="flex gap-3 max-w-[85%]">
+                                    <div
+                                        className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center shadow-sm bg-gray-100 text-blue-600 border border-gray-200 mt-1">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 animate-pulse"
+                                             viewBox="0 0 20 20" fill="currentColor">
+                                            <path
+                                                d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/>
+                                        </svg>
+                                    </div>
+                                    <div
+                                        className="rounded-2xl px-5 py-3 shadow-sm text-[15px] bg-white border border-gray-200 text-gray-500 rounded-tl-sm flex items-center gap-3">
+                                        <span className="flex gap-1.5 opacity-70">
+                                            <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
+                                            <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                                                  style={{animationDelay: '0.2s'}}></span>
+                                            <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                                                  style={{animationDelay: '0.4s'}}></span>
+                                        </span>
+                                        <span className="font-medium text-sm">Searching for datasets...</span>
+                                    </div>
                                 </div>
                             </div>
                         )}
