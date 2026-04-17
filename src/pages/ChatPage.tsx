@@ -1,4 +1,4 @@
-import {FC, useState, useEffect, useCallback} from "react";
+import {FC, useState, useEffect, useCallback, Fragment} from "react";
 import {useNavigate, useParams} from "react-router";
 import {useAuth} from "@/hooks/useAuth.ts";
 import {Conversation, Message} from "@/types/chat.ts";
@@ -165,7 +165,7 @@ const ChatPage: FC = () => {
     const renderMessageContent = (content: string) => {
         const lines = content.split('\n');
         return lines.map((line, i) => {
-            const linkRegex = /\[(.*?)\]\((.*?)\)/g;
+            const linkRegex = /\[(.*?)](.*?)\)/g;
             const parts = [];
             let lastIndex = 0;
             let match;
@@ -182,15 +182,15 @@ const ChatPage: FC = () => {
             }
             parts.push(line.substring(lastIndex));
             return (
-                <p key={i} className="leading-relaxed min-h-[1.5rem]">
-                    {parts}
+                <p key={i} className="leading-relaxed min-h-6">
+                    {parts.map((part, idx) => <Fragment key={idx}>{part}</Fragment>)}
                 </p>
             );
         });
     };
 
     return (
-        <div className="flex flex-col h-[100dvh] bg-white overflow-hidden">
+        <div className="flex flex-col h-dvh bg-white overflow-hidden">
             {/* Header */}
             <header
                 className="bg-white border-b border-gray-200 shrink-0 py-3 px-6 flex items-center justify-between shadow-sm z-10">
@@ -260,7 +260,7 @@ const ChatPage: FC = () => {
                     <div className="max-w-4xl mx-auto space-y-6">
                         {!selectedConversation || selectedConversation.messages.length === 0 ? (
                             <div
-                                className="flex flex-col items-center justify-center h-full min-h-[16rem] text-center mt-20">
+                                className="flex flex-col items-center justify-center h-full min-h-64 text-center mt-20">
                                 <div
                                     className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none"
@@ -281,7 +281,7 @@ const ChatPage: FC = () => {
                                         className={`flex gap-3 max-w-[85%] ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
                                         {/* Avatar */}
                                         <div
-                                            className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center shadow-sm mt-1 ${msg.sender === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-blue-600 border border-gray-200'}`}>
+                                            className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center shadow-sm mt-1 ${msg.sender === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-blue-600 border border-gray-200'}`}>
                                             {msg.sender === 'user' ? (
                                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5"
                                                      viewBox="0 0 20 20" fill="currentColor">
@@ -319,7 +319,7 @@ const ChatPage: FC = () => {
                             <div className="w-full flex justify-start">
                                 <div className="flex gap-3 max-w-[85%]">
                                     <div
-                                        className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center shadow-sm bg-gray-100 text-blue-600 border border-gray-200 mt-1">
+                                        className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center shadow-sm bg-gray-100 text-blue-600 border border-gray-200 mt-1">
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 animate-pulse"
                                              viewBox="0 0 20 20" fill="currentColor">
                                             <path
@@ -367,7 +367,7 @@ const ChatPage: FC = () => {
                         <button
                             onClick={handleSendMessage}
                             disabled={!newMessage.trim() || isSending}
-                            className={`px-5 py-3 rounded-xl font-medium transition-colors shadow-sm flex items-center justify-center h-[50px] ${
+                            className={`px-5 py-3 rounded-xl font-medium transition-colors shadow-sm flex items-center justify-center h-12.5 ${
                                 newMessage.trim() && !isSending
                                     ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'
                                     : 'bg-gray-200 text-gray-400 cursor-not-allowed'
@@ -401,7 +401,7 @@ const ChatPage: FC = () => {
 
             {/* Footer */}
             <div className="shrink-0 bg-white shadow-[0_-1px_3px_rgba(0,0,0,0.1)] z-10 w-full relative">
-                <Footer className="!mt-0 !py-4 scale-[0.85] origin-bottom overflow-hidden" translucent={false}/>
+                <Footer className="mt-0! py-4! scale-[0.85] origin-bottom overflow-hidden" translucent={false}/>
             </div>
         </div>
     );
