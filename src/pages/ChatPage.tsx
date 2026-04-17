@@ -1,12 +1,15 @@
 import {FC, useState, useEffect} from "react";
 import {useAuth} from "@/hooks/useAuth.ts";
-import {Conversation} from "@/types/chat.ts";
+import {Conversation, Message} from "@/types/chat.ts";
+import {BackendDataset} from "@/types/commons.ts";
+import {sendChatMessage} from "@/lib/api.ts";
 
 const ChatPage: FC = () => {
     const {user} = useAuth();
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
     const [loading, setLoading] = useState(true);
+    const [newMessage, setNewMessage] = useState("");
 
     useEffect(() => {
         if (user?.sub) {
@@ -35,6 +38,52 @@ const ChatPage: FC = () => {
                 console.error("Failed to fetch conversation", err);
                 setLoading(false);
             });
+    };
+
+    const handleSendMessage = async () => {
+        if (!newMessage.trim()) return;
+
+        const userMessage: Message = {sender: 'user', content: newMessage};
+
+        const currentConversation = selectedConversation || {
+            id: 'new-' + Date.now(),
+            title: 'New Conversation',
+            messages: []
+        };
+
+        const updatedMessages = [...currentConversation.messages, userMessage];
+
+        setSelectedConversation({
+            ...currentConversation,
+            messages: updatedMessages,
+        });
+        setNewMessage("");
+
+        await sendChatMessage(
+            updatedMessages,
+            'einfracz/qwen3-coder',
+            (event) => {
+                if (event.type === 'TOOL_CALL_RESULT' && event.tool_call_id === 'rerank_results' && event.content) {
+                    const result = JSON.parse(event.content);
+                    const {summary, hits} = result;
+
+                    let formattedContent = summary + "\n\n";
+                    hits.forEach((hit: BackendDataset, index: number) => {
+                        formattedContent += `${index + 1}. ${hit.title}\n`;
+                    });
+
+                    const botMessage: Message = {sender: 'bot', content: formattedContent};
+
+                    setSelectedConversation(prev => {
+                        if (!prev) return null;
+                        return {...prev, messages: [...prev.messages, botMessage]};
+                    });
+                }
+            },
+            (error) => {
+                console.error("Failed to send message", error);
+            }
+        );
     };
 
     return (
@@ -81,12 +130,25 @@ const ChatPage: FC = () => {
                         </div>
                     )}
                 </div>
-                <div className="p-4 bg-white border-t border-gray-200">
+                <div className="p-4 bg-white border-t border-gray-200 flex">
                     <input
                         type="text"
                         placeholder="Type your message..."
                         className="w-full p-2 border border-gray-300 rounded-lg"
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                handleSendMessage();
+                            }
+                        }}
                     />
+                    <button
+                        onClick={handleSendMessage}
+                        className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg cursor-pointer hover:bg-blue-600 transition-colors"
+                    >
+                        Send
+                    </button>
                 </div>
             </div>
         </div>

@@ -1,5 +1,6 @@
 import {BackendSearchResponse} from '../types/commons';
 import {logError, fetchWithTimeout} from './utils.ts';
+import {Message} from "@/types/chat.ts";
 
 // --- API HELPERS ---
 export const BACKEND_API_URL = '/api/search';
@@ -124,7 +125,7 @@ export const searchWithBackend = async (
 /**
  * Generic SSE stream handler - parses data: field and calls onMessage with parsed JSON
  */
-const handleStream = async (
+export const handleStream = async (
     response: Response,
     onMessage: (data: SSEEvent) => BackendSearchResponse | null
 ): Promise<BackendSearchResponse> => {
@@ -177,5 +178,48 @@ const handleStream = async (
         return latestResults;
     } finally {
         reader.releaseLock();
+    }
+};
+
+export const sendChatMessage = async (
+    messages: Message[],
+    model: string = 'einfracz/qwen3-coder',
+    onEvent: (event: SSEEvent) => void,
+    onError: (error: Error) => void
+) => {
+    const requestBody = {
+        items: messages.map(msg => ({
+            type: 'message',
+            role: msg.sender === 'user' ? 'user' : 'assistant',
+            content: [{text: msg.content}]
+        })),
+        model: model
+    };
+
+    try {
+        const response = await fetch('/api/search/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'text/event-stream',
+            },
+            body: JSON.stringify(requestBody),
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        await handleStream(response, (event) => {
+            onEvent(event);
+            return null;
+        });
+
+    } catch (error) {
+        if (error instanceof Error) {
+            onError(error);
+        } else {
+            onError(new Error('An unknown error occurred'));
+        }
     }
 };
