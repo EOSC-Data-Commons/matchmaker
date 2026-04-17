@@ -30,6 +30,10 @@ export const LandingPage = () => {
         navigate(`/search?q=${encodeURIComponent(query)}&model=${encodeURIComponent(model)}`);
     };
 
+    const handleChat = () => {
+        navigate('/chat');
+    };
+
     const handleAbout = () => {
         window.open('https://www.eosc-data-commons.eu/service/eosc-matchmaker', '_blank', 'noopener,noreferrer');
     };
@@ -75,6 +79,14 @@ export const LandingPage = () => {
                     >
                         About
                     </button>
+                    {user && (
+                        <button
+                            onClick={handleChat}
+                            className="bg-white border border-eosc-border rounded-lg px-4 py-2 text-sm font-light text-eosc-text hover:bg-gray-50 hover:border-eosc-light-blue transition-colors cursor-pointer"
+                        >
+                            Chat
+                        </button>
+                    )}
                     {!loading && (
                         user ? (
                             <UserMenu user={user} onLogout={logout}/>
