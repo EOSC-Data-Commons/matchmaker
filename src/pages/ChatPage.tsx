@@ -231,7 +231,7 @@ const ChatPage: FC = () => {
                             return (
                                 <div
                                     key={convo.id}
-                                    className={`px-3 py-2.5 rounded-lg cursor-pointer transition-colors text-sm truncate ${
+                                    className={`px-3 py-2.5 rounded-lg cursor-pointer transition-colors text-sm line-clamp-2 break-words ${
                                         isActive
                                             ? 'bg-blue-100 text-blue-800 font-medium'
                                             : 'text-gray-700 hover:bg-gray-200'
@@ -247,11 +247,11 @@ const ChatPage: FC = () => {
             </div>
 
             {/* Main Chat Area */}
-            <div className="flex-1 flex flex-col bg-white">
+                <div className="flex-1 flex flex-col bg-white min-w-0">
                 {/* Header */}
                 {selectedConversation && (
-                    <div className="px-6 py-4 border-b border-gray-100 bg-white">
-                        <h1 className="text-lg font-semibold text-gray-800">{selectedConversation.title}</h1>
+                    <div className="px-6 py-4 border-b border-gray-100 bg-white shrink-0">
+                        <h1 className="text-lg font-semibold text-gray-800 wrap-break-word line-clamp-2 md:line-clamp-none">{selectedConversation.title}</h1>
                     </div>
                 )}
 
