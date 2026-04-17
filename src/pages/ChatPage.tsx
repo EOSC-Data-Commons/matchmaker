@@ -205,129 +205,130 @@ const ChatPage: FC = () => {
             <div className="flex-1 flex overflow-hidden">
                 {/* Sidebar */}
                 <div className="w-80 bg-gray-50 border-r border-gray-200 flex flex-col shrink-0">
-                <div className="p-4 border-b border-gray-200">
-                    <button
-                        onClick={() => {
-                            setSelectedConversation(null);
-                            if (urlId) navigate('/chat');
-                        }}
-                        className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors shadow-sm cursor-pointer"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20"
-                             fill="currentColor">
-                            <path fillRule="evenodd"
-                                  d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
-                                  clipRule="evenodd"/>
-                        </svg>
-                        New Chat
-                    </button>
-                </div>
-                <div className="flex-1 overflow-y-auto p-3 space-y-1">
-                    {loading && conversations.length === 0 ? (
-                        <p className="text-sm text-gray-500 text-center mt-4">Loading conversations...</p>
-                    ) : (
-                        conversations.map(convo => {
-                            const isActive = convo.id === selectedConversation?.id || convo.id === urlId;
-                            return (
-                                <div
-                                    key={convo.id}
-                                    className={`px-3 py-2.5 rounded-lg cursor-pointer transition-colors text-sm line-clamp-2 break-words ${
-                                        isActive
-                                            ? 'bg-blue-100 text-blue-800 font-medium'
-                                            : 'text-gray-700 hover:bg-gray-200'
-                                    }`}
-                                    onClick={() => handleSelectConversation(convo.id)}
-                                >
-                                    {convo.title}
-                                </div>
-                            );
-                        })
-                    )}
-                </div>
-            </div>
-
-            {/* Main Chat Area */}
-                <div className="flex-1 flex flex-col bg-white min-w-0">
-                {/* Header */}
-                {selectedConversation && (
-                    <div className="px-6 py-4 border-b border-gray-100 bg-white shrink-0">
-                        <h1 className="text-lg font-semibold text-gray-800 wrap-break-word line-clamp-2 md:line-clamp-none">{selectedConversation.title}</h1>
+                    <div className="p-4 border-b border-gray-200">
+                        <button
+                            onClick={() => {
+                                setSelectedConversation(null);
+                                if (urlId) navigate('/chat');
+                            }}
+                            className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors shadow-sm cursor-pointer"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20"
+                                 fill="currentColor">
+                                <path fillRule="evenodd"
+                                      d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                                      clipRule="evenodd"/>
+                            </svg>
+                            New Chat
+                        </button>
                     </div>
-                )}
-
-                {/* Messages */}
-                <div className="flex-1 p-6 overflow-y-auto bg-gray-50">
-                    <div className="max-w-4xl mx-auto space-y-6">
-                        {!selectedConversation || selectedConversation.messages.length === 0 ? (
-                            <div
-                                className="flex flex-col items-center justify-center h-full min-h-64 text-center mt-20">
-                                <div
-                                    className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none"
-                                         viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                              d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
-                                    </svg>
-                                </div>
-                                <h2 className="text-xl font-semibold text-gray-700 mb-2">Welcome to EOSC Chat</h2>
-                                <p className="text-gray-500 max-w-md">Start a new conversation by typing a message below
-                                    to search datasets or ask questions.</p>
-                            </div>
+                    <div className="flex-1 overflow-y-auto p-3 space-y-1">
+                        {loading && conversations.length === 0 ? (
+                            <p className="text-sm text-gray-500 text-center mt-4">Loading conversations...</p>
                         ) : (
-                            selectedConversation.messages.map((msg, index) => (
-                                <div key={index}
-                                     className={`w-full flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                            conversations.map(convo => {
+                                const isActive = convo.id === selectedConversation?.id || convo.id === urlId;
+                                return (
                                     <div
-                                        className={`flex gap-3 max-w-[85%] ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
-                                        {/* Avatar */}
-                                        <div
-                                            className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center shadow-sm mt-1 ${msg.sender === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-blue-600 border border-gray-200'}`}>
-                                            {msg.sender === 'user' ? (
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5"
-                                                     viewBox="0 0 20 20" fill="currentColor">
-                                                    <path fillRule="evenodd"
-                                                          d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                                                          clipRule="evenodd"/>
-                                                </svg>
-                                            ) : (
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5"
-                                                     viewBox="0 0 20 20" fill="currentColor">
-                                                    <path
-                                                        d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/>
-                                                </svg>
-                                            )}
-                                        </div>
-                                        <div
-                                            className={`rounded-2xl px-5 py-3 shadow-sm text-[15px] ${
-                                                msg.sender === 'user'
-                                                    ? 'bg-blue-600 text-white rounded-tr-sm'
-                                                    : 'bg-white border border-gray-200 text-gray-800 rounded-tl-sm whitespace-pre-wrap'
-                                            }`}
-                                        >
-                                            {msg.sender === 'user' ? (
-                                                <p className="leading-relaxed">{msg.content}</p>
-                                            ) : (
-                                                renderMessageContent(msg.content)
-                                            )}
-                                        </div>
+                                        key={convo.id}
+                                        className={`px-3 py-2.5 rounded-lg cursor-pointer transition-colors text-sm line-clamp-2 break-words ${
+                                            isActive
+                                                ? 'bg-blue-100 text-blue-800 font-medium'
+                                                : 'text-gray-700 hover:bg-gray-200'
+                                        }`}
+                                        onClick={() => handleSelectConversation(convo.id)}
+                                    >
+                                        {convo.title}
                                     </div>
-                                </div>
-                            ))
+                                );
+                            })
                         )}
-                        {/* Loading Indicator */}
-                        {isSending && (
-                            <div className="w-full flex justify-start">
-                                <div className="flex gap-3 max-w-[85%]">
+                    </div>
+                </div>
+
+                {/* Main Chat Area */}
+                <div className="flex-1 flex flex-col bg-white min-w-0">
+                    {/* Header */}
+                    {selectedConversation && (
+                        <div className="px-6 py-4 border-b border-gray-100 bg-white shrink-0">
+                            <h1 className="text-lg font-semibold text-gray-800 wrap-break-word line-clamp-2 md:line-clamp-none">{selectedConversation.title}</h1>
+                        </div>
+                    )}
+
+                    {/* Messages */}
+                    <div className="flex-1 p-6 overflow-y-auto bg-gray-50">
+                        <div className="max-w-4xl mx-auto space-y-6">
+                            {!selectedConversation || selectedConversation.messages.length === 0 ? (
+                                <div
+                                    className="flex flex-col items-center justify-center h-full min-h-64 text-center mt-20">
                                     <div
-                                        className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center shadow-sm bg-gray-100 text-blue-600 border border-gray-200 mt-1">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 animate-pulse"
-                                             viewBox="0 0 20 20" fill="currentColor">
-                                            <path
-                                                d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/>
+                                        className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none"
+                                             viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                                  d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
                                         </svg>
                                     </div>
-                                    <div
-                                        className="rounded-2xl px-5 py-3 shadow-sm text-[15px] bg-white border border-gray-200 text-gray-500 rounded-tl-sm flex items-center gap-3">
+                                    <h2 className="text-xl font-semibold text-gray-700 mb-2">Welcome to EOSC Chat</h2>
+                                    <p className="text-gray-500 max-w-md">Start a new conversation by typing a message
+                                        below
+                                        to search datasets or ask questions.</p>
+                                </div>
+                            ) : (
+                                selectedConversation.messages.map((msg, index) => (
+                                    <div key={index}
+                                         className={`w-full flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                        <div
+                                            className={`flex gap-3 max-w-[85%] ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
+                                            {/* Avatar */}
+                                            <div
+                                                className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center shadow-sm mt-1 ${msg.sender === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-blue-600 border border-gray-200'}`}>
+                                                {msg.sender === 'user' ? (
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5"
+                                                         viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fillRule="evenodd"
+                                                              d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                                                              clipRule="evenodd"/>
+                                                    </svg>
+                                                ) : (
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5"
+                                                         viewBox="0 0 20 20" fill="currentColor">
+                                                        <path
+                                                            d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/>
+                                                    </svg>
+                                                )}
+                                            </div>
+                                            <div
+                                                className={`rounded-2xl px-5 py-3 shadow-sm text-[15px] ${
+                                                    msg.sender === 'user'
+                                                        ? 'bg-blue-600 text-white rounded-tr-sm'
+                                                        : 'bg-white border border-gray-200 text-gray-800 rounded-tl-sm whitespace-pre-wrap'
+                                                }`}
+                                            >
+                                                {msg.sender === 'user' ? (
+                                                    <p className="leading-relaxed">{msg.content}</p>
+                                                ) : (
+                                                    renderMessageContent(msg.content)
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                            {/* Loading Indicator */}
+                            {isSending && (
+                                <div className="w-full flex justify-start">
+                                    <div className="flex gap-3 max-w-[85%]">
+                                        <div
+                                            className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center shadow-sm bg-gray-100 text-blue-600 border border-gray-200 mt-1">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 animate-pulse"
+                                                 viewBox="0 0 20 20" fill="currentColor">
+                                                <path
+                                                    d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/>
+                                            </svg>
+                                        </div>
+                                        <div
+                                            className="rounded-2xl px-5 py-3 shadow-sm text-[15px] bg-white border border-gray-200 text-gray-500 rounded-tl-sm flex items-center gap-3">
                                         <span className="flex gap-1.5 opacity-70">
                                             <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
                                             <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
@@ -335,17 +336,17 @@ const ChatPage: FC = () => {
                                             <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
                                                   style={{animationDelay: '0.4s'}}></span>
                                         </span>
-                                        <span className="font-medium text-sm">Searching for datasets...</span>
+                                            <span className="font-medium text-sm">Searching for datasets...</span>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        )}
+                            )}
+                        </div>
                     </div>
-                </div>
 
-                {/* Input Area */}
-                <div className="p-4 bg-white border-t border-gray-200">
-                    <div className="max-w-4xl mx-auto relative flex items-end gap-3">
+                    {/* Input Area */}
+                    <div className="p-4 bg-white border-t border-gray-200">
+                        <div className="max-w-4xl mx-auto relative flex items-end gap-3">
                         <textarea
                             rows={1}
                             placeholder="Ask anything or search for datasets..."
@@ -364,39 +365,40 @@ const ChatPage: FC = () => {
                                 }
                             }}
                         />
-                        <button
-                            onClick={handleSendMessage}
-                            disabled={!newMessage.trim() || isSending}
-                            className={`px-5 py-3 rounded-xl font-medium transition-colors shadow-sm flex items-center justify-center h-12.5 ${
-                                newMessage.trim() && !isSending
-                                    ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'
-                                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                            }`}
-                        >
-                            {isSending ? (
-                                <svg className="animate-spin h-5 w-5 sm:mr-2" xmlns="http://www.w3.org/2000/svg"
-                                     fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
-                                            strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor"
-                                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                            ) : (
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 hidden sm:block sm:mr-2"
-                                     viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd"
-                                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z"
-                                          clipRule="evenodd"/>
-                                </svg>
-                            )}
-                            {isSending ? 'Sending...' : 'Send'}
-                        </button>
-                    </div>
-                    <div className="max-w-4xl mx-auto text-center mt-3 text-xs text-gray-400">
-                        AI-generated content may be incomplete or occasionally incorrect. Please verify critical data.
+                            <button
+                                onClick={handleSendMessage}
+                                disabled={!newMessage.trim() || isSending}
+                                className={`px-5 py-3 rounded-xl font-medium transition-colors shadow-sm flex items-center justify-center h-12.5 ${
+                                    newMessage.trim() && !isSending
+                                        ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'
+                                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                }`}
+                            >
+                                {isSending ? (
+                                    <svg className="animate-spin h-5 w-5 sm:mr-2" xmlns="http://www.w3.org/2000/svg"
+                                         fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                                strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor"
+                                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                ) : (
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 hidden sm:block sm:mr-2"
+                                         viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd"
+                                              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z"
+                                              clipRule="evenodd"/>
+                                    </svg>
+                                )}
+                                {isSending ? 'Sending...' : 'Send'}
+                            </button>
+                        </div>
+                        <div className="max-w-4xl mx-auto text-center mt-3 text-xs text-gray-400">
+                            AI-generated content may be incomplete or occasionally incorrect. Please verify critical
+                            data.
+                        </div>
                     </div>
                 </div>
-            </div>
             </div>
 
             {/* Footer */}

@@ -53,7 +53,7 @@ export const searchWithBackend = async (
     timeoutMs: number = 60000 // Default 1 minute timeout
 ): Promise<BackendSearchResponse> => {
     const requestBody: SearchRequest = {
-        messages: [{ role: 'user', content: query }],
+        messages: [{role: 'user', content: query}],
         model: model
     };
 
@@ -138,7 +138,7 @@ export const handleStream = async (
 
     try {
         while (true) {
-            const { done, value } = await reader.read();
+            const {done, value} = await reader.read();
             if (done) break;
             buffer += value;
             const parts = buffer.split('\n\n');
