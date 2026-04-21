@@ -1,5 +1,5 @@
 import type {BackendDataset} from "../types/commons.ts";
-import {CalendarIcon, UserIcon, ExternalLinkIcon, TagIcon, Rocket, Tractor} from "lucide-react";
+import {CalendarIcon, UserIcon, ExternalLinkIcon, TagIcon, Rocket} from "lucide-react";
 import {ProportionalStar} from './ProportionalStar';
 import {CitationExport} from './CitationExport';
 import {stripHtml} from "../lib/utils";
@@ -35,21 +35,6 @@ export const SearchResultItem = ({hit, isAiRanked = false}: SearchResultItemProp
             params.set('q', currentQuery);
         }
         window.open(`/dataplayer?${params.toString()}`, '_blank');
-    };
-
-    const handleDataplayerLegacyRun = () => {
-        // Open the dispatcher run page in a new tab with dataset info
-        const params = new URLSearchParams();
-        params.set('datasetId', hit._id);
-        if (hit.title) {
-            params.set('title', hit.title);
-        }
-        // Preserve the search query for back navigation
-        const currentQuery = searchParams.get('q');
-        if (currentQuery) {
-            params.set('q', currentQuery);
-        }
-        window.open(`/dataplayer_legacy_run?${params.toString()}`, '_blank');
     };
 
     const scorePercent = (hit.score || 0) * 100;
@@ -200,13 +185,6 @@ export const SearchResultItem = ({hit, isAiRanked = false}: SearchResultItemProp
             <div
                 className="flex flex-col sm:flex-row items-center justify-between pt-4 border-t border-gray-100 gap-4 sm:gap-0">
                 <div className="flex space-x-4">
-                    <button
-                        onClick={handleDataplayerLegacyRun}
-                        aria-label={`Play dataset for ${hit.title}`}
-                        className="inline-flex items-center justify-center gap-1 rounded-md bg-orange-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 transition-colors cursor-pointer">
-                        <Tractor className="h-4 w-4"/>
-                        <span className="leading-none">Run (deprecated)</span>
-                    </button>
                     <button
                         onClick={handleDataplayer}
                         aria-label={`View dataset for ${hit.title}`}
