@@ -4,6 +4,7 @@ import {useAuth} from "@/hooks/useAuth.ts";
 import {Conversation, Message} from "@/types/chat.ts";
 import {BackendDataset} from "@/types/commons.ts";
 import {sendChatMessage} from "@/lib/api.ts";
+import {stripHtml} from "@/lib/utils.ts";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 import {Footer} from "@/components/Footer.tsx";
 
@@ -61,10 +62,23 @@ const ChatPage: FC = () => {
                                 if (contentObj && contentObj.summary && contentObj.hits) {
                                     const {summary, hits} = contentObj;
                                     let formattedContent = summary + "\n\n";
-                                    hits.forEach((hit: Record<string, unknown>, index: number) => {
-                                        const title = hit.title || (hit._source as Record<string, unknown> | undefined)?.titles?.[0]?.title || 'Unknown Dataset';
-                                        const url = hit._id || (hit._source as Record<string, unknown> | undefined)?.doi || '#';
+                                    hits.forEach((rawHit: Record<string, unknown>, index: number) => {
+                                        const hit = rawHit as unknown as BackendDataset;
+                                        const title = hit.title || hit._source?.titles?.[0]?.title || 'Unknown Dataset';
+                                        const url = hit._id || hit._source?.doi || '#';
+                                        let description = hit.description || hit._source?.descriptions?.[0]?.description || '';
+                                        if (typeof description === 'string') description = stripHtml(description);
+                                        const creator = hit.creator || (hit._source?.creators ? hit._source.creators.map(c => c.creatorName).filter(Boolean).join(', ') : '');
+                                        const date = hit.publication_date || hit._source?.publicationYear || '';
+
                                         formattedContent += `${index + 1}. [${title}](${url})\n`;
+                                        if (creator) formattedContent += `   **Creator:** ${creator}\n`;
+                                        if (date) formattedContent += `   **Published:** ${date}\n`;
+                                        if (description) {
+                                            const truncDesc = description.length > 250 ? description.substring(0, 250) + '...' : description;
+                                            formattedContent += `   **Description:** ${truncDesc}\n`;
+                                        }
+                                        formattedContent += '\n';
                                     });
                                     parsedMessages.push({sender: 'bot', content: formattedContent});
                                 }
@@ -122,19 +136,36 @@ const ChatPage: FC = () => {
         setIsSending(true);
 
         try {
+            let currentTextContent = "";
+            let receivedRerank = false;
+
             await sendChatMessage(
                 updatedMessages,
                 'einfracz/qwen3-coder',
                 (event) => {
                     if (event.type === 'TOOL_CALL_RESULT' && event.tool_call_id === 'rerank_results' && event.content) {
+                        receivedRerank = true;
                         const result = JSON.parse(event.content);
                         const {summary, hits} = result;
 
                         let formattedContent = summary + "\n\n";
-                        hits.forEach((hit: BackendDataset, index: number) => {
-                            const title = hit.title || 'Unknown Dataset';
-                            const url = hit._id || '#';
+                        hits.forEach((rawHit: unknown, index: number) => {
+                            const hit = rawHit as BackendDataset;
+                            const title = hit.title || hit._source?.titles?.[0]?.title || 'Unknown Dataset';
+                            const url = hit._id || hit._source?.doi || '#';
+                            let description = hit.description || hit._source?.descriptions?.[0]?.description || '';
+                            if (typeof description === 'string') description = stripHtml(description);
+                            const creator = hit.creator || (hit._source?.creators ? hit._source.creators.map(c => c.creatorName).filter(Boolean).join(', ') : '');
+                            const date = hit.publication_date || hit._source?.publicationYear || '';
+
                             formattedContent += `${index + 1}. [${title}](${url})\n`;
+                            if (creator) formattedContent += `**Creator:** ${creator}\n`;
+                            if (date) formattedContent += `**Published:** ${date}\n`;
+                            if (description) {
+                                const truncDesc = description.length > 500 ? description.substring(0, 500) + '...' : description;
+                                formattedContent += `**Description:** ${truncDesc}\n`;
+                            }
+                            formattedContent += '\n';
                         });
 
                         const botMessage: Message = {sender: 'bot', content: formattedContent};
@@ -143,6 +174,19 @@ const ChatPage: FC = () => {
                             if (!prev) return null;
                             return {...prev, messages: [...prev.messages, botMessage]};
                         });
+                        setIsSending(false);
+                    } else if (event.type === 'TEXT_MESSAGE_CHUNK' && event.delta) {
+                        currentTextContent += event.delta;
+                    } else if (event.type === 'TEXT_MESSAGE_END') {
+                        if (currentTextContent.trim() && !receivedRerank) {
+                            const botMessage: Message = {sender: 'bot', content: currentTextContent};
+                            setSelectedConversation(prev => {
+                                if (!prev) return null;
+                                return {...prev, messages: [...prev.messages, botMessage]};
+                            });
+                        }
+                        setIsSending(false);
+                    } else if (event.type === 'RUN_FINISHED') {
                         setIsSending(false);
                     } else if (event.error) {
                         setIsSending(false);

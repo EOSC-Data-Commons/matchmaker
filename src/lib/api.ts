@@ -37,6 +37,7 @@ export interface SSEEvent {
     error?: string; // For RUN_ERROR events
     timestamp?: string | null;
     raw_event?: unknown;
+    delta?: string;
 }
 
 export interface SSEEventHandler {
