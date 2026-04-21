@@ -9,6 +9,29 @@ import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 import {Footer} from "@/components/Footer.tsx";
 import {Plus, MessageSquare, User, Bot, Send, Loader2, Copy, Check} from "lucide-react";
 
+const formatDatasetHits = (hits: unknown[], summary: string, maxDescLength: number = 500) => {
+    let formattedContent = summary + "\n\n";
+    hits.forEach((rawHit: unknown, index: number) => {
+        const hit = rawHit as BackendDataset;
+        const title = hit.title || hit._source?.titles?.[0]?.title || 'Unknown Dataset';
+        const url = hit._id || hit._source?.doi || '#';
+        let description = hit.description || hit._source?.descriptions?.[0]?.description || '';
+        if (typeof description === 'string') description = stripHtml(description);
+        const creator = hit.creator || (hit._source?.creators ? hit._source.creators.map(c => c.creatorName).filter(Boolean).join(', ') : '');
+        const date = hit.publication_date || hit._source?.publicationYear || '';
+
+        formattedContent += `${index + 1}. [${title}](${url})\n`;
+        if (creator) formattedContent += `**Creator:** ${creator}\n`;
+        if (date) formattedContent += `**Published:** ${date}\n`;
+        if (description) {
+            const truncDesc = description.length > maxDescLength ? description.substring(0, maxDescLength) + '...' : description;
+            formattedContent += `**Description:** ${truncDesc}\n`;
+        }
+        formattedContent += '\n';
+    });
+    return formattedContent;
+};
+
 const ChatPage: FC = () => {
     const {id: urlId} = useParams();
     const navigate = useNavigate();
@@ -63,25 +86,7 @@ const ChatPage: FC = () => {
                                 const contentObj = typeof item.content === 'string' ? JSON.parse(item.content) : item.content;
                                 if (contentObj && contentObj.summary && contentObj.hits) {
                                     const {summary, hits} = contentObj;
-                                    let formattedContent = summary + "\n\n";
-                                    hits.forEach((rawHit: Record<string, unknown>, index: number) => {
-                                        const hit = rawHit as unknown as BackendDataset;
-                                        const title = hit.title || hit._source?.titles?.[0]?.title || 'Unknown Dataset';
-                                        const url = hit._id || hit._source?.doi || '#';
-                                        let description = hit.description || hit._source?.descriptions?.[0]?.description || '';
-                                        if (typeof description === 'string') description = stripHtml(description);
-                                        const creator = hit.creator || (hit._source?.creators ? hit._source.creators.map(c => c.creatorName).filter(Boolean).join(', ') : '');
-                                        const date = hit.publication_date || hit._source?.publicationYear || '';
-
-                                        formattedContent += `${index + 1}. [${title}](${url})\n`;
-                                        if (creator) formattedContent += `   **Creator:** ${creator}\n`;
-                                        if (date) formattedContent += `   **Published:** ${date}\n`;
-                                        if (description) {
-                                            const truncDesc = description.length > 250 ? description.substring(0, 250) + '...' : description;
-                                            formattedContent += `   **Description:** ${truncDesc}\n`;
-                                        }
-                                        formattedContent += '\n';
-                                    });
+                                    const formattedContent = formatDatasetHits(hits, summary, 250);
                                     parsedMessages.push({sender: 'bot', content: formattedContent});
                                 }
                             } catch (e) {
@@ -150,25 +155,7 @@ const ChatPage: FC = () => {
                         const result = JSON.parse(event.content);
                         const {summary, hits} = result;
 
-                        let formattedContent = summary + "\n\n";
-                        hits.forEach((rawHit: unknown, index: number) => {
-                            const hit = rawHit as BackendDataset;
-                            const title = hit.title || hit._source?.titles?.[0]?.title || 'Unknown Dataset';
-                            const url = hit._id || hit._source?.doi || '#';
-                            let description = hit.description || hit._source?.descriptions?.[0]?.description || '';
-                            if (typeof description === 'string') description = stripHtml(description);
-                            const creator = hit.creator || (hit._source?.creators ? hit._source.creators.map(c => c.creatorName).filter(Boolean).join(', ') : '');
-                            const date = hit.publication_date || hit._source?.publicationYear || '';
-
-                            formattedContent += `${index + 1}. [${title}](${url})\n`;
-                            if (creator) formattedContent += `**Creator:** ${creator}\n`;
-                            if (date) formattedContent += `**Published:** ${date}\n`;
-                            if (description) {
-                                const truncDesc = description.length > 500 ? description.substring(0, 500) + '...' : description;
-                                formattedContent += `**Description:** ${truncDesc}\n`;
-                            }
-                            formattedContent += '\n';
-                        });
+                        const formattedContent = formatDatasetHits(hits, summary, 500);
 
                         const botMessage: Message = {sender: 'bot', content: formattedContent};
 
@@ -211,7 +198,7 @@ const ChatPage: FC = () => {
     const renderMessageContent = (content: string) => {
         const lines = content.split('\n');
         return lines.map((line, i) => {
-            const linkRegex = /\[(.*?)\]\((.*?)\)/g;
+            const linkRegex = /\[(.*?)]\((.*?)\)/g;
             const parts = [];
             let lastIndex = 0;
             let match;
@@ -247,9 +234,9 @@ const ChatPage: FC = () => {
                     key={idx}>{sp}</Fragment>)}</Fragment>;
             });
 
-            // Handle indentation for list details
-            const hasLeadingSpaces = line.startsWith('   ');
-            const pClass = `leading-relaxed min-h-6 ${hasLeadingSpaces ? 'pl-4 text-gray-700 text-sm mt-1' : ''}`;
+            // Handle styling for dataset list details without weird indentation
+            const isMetadata = line.startsWith('**Creator:**') || line.startsWith('**Published:**') || line.startsWith('**Description:**') || line.startsWith('   ');
+            const pClass = `leading-relaxed min-h-6 ${isMetadata ? 'text-gray-700 text-sm mt-1' : ''}`;
 
             return (
                 <p key={i} className={pClass}>
