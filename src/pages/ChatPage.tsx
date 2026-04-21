@@ -209,7 +209,7 @@ const ChatPage: FC = () => {
     const renderMessageContent = (content: string) => {
         const lines = content.split('\n');
         return lines.map((line, i) => {
-            const linkRegex = /\[(.*?)](.*?)\)/g;
+            const linkRegex = /\[(.*?)\]\((.*?)\)/g;
             const parts = [];
             let lastIndex = 0;
             let match;
@@ -218,16 +218,40 @@ const ChatPage: FC = () => {
                 parts.push(line.substring(lastIndex, match.index));
                 parts.push(
                     <a key={`${i}-${keyIndex++}`} href={match[2]} target="_blank" rel="noopener noreferrer"
-                       className="text-blue-500 hover:text-blue-700 underline font-medium">
+                       className="text-blue-500 hover:text-blue-700 underline font-medium break-all">
                         {match[1]}
                     </a>
                 );
                 lastIndex = match.index + match[0].length;
             }
             parts.push(line.substring(lastIndex));
+
+            // Process **bold** text within text parts
+            const formattedParts = parts.map((part, pIdx) => {
+                if (typeof part !== 'string') return part;
+                const boldRegex = /\*\*(.*?)\*\*/g;
+                const subParts = [];
+                let bLastIndex = 0;
+                let bMatch;
+                let bKeyIndex = 0;
+                while ((bMatch = boldRegex.exec(part)) !== null) {
+                    subParts.push(part.substring(bLastIndex, bMatch.index));
+                    subParts.push(<strong key={`b-${pIdx}-${bKeyIndex++}`}
+                                          className="font-semibold text-gray-900">{bMatch[1]}</strong>);
+                    bLastIndex = bMatch.index + bMatch[0].length;
+                }
+                subParts.push(part.substring(bLastIndex));
+                return <Fragment key={`p-${pIdx}`}>{subParts.map((sp, idx) => <Fragment
+                    key={idx}>{sp}</Fragment>)}</Fragment>;
+            });
+
+            // Handle indentation for list details
+            const hasLeadingSpaces = line.startsWith('   ');
+            const pClass = `leading-relaxed min-h-6 ${hasLeadingSpaces ? 'pl-4 text-gray-700 text-sm mt-1' : ''}`;
+
             return (
-                <p key={i} className="leading-relaxed min-h-6">
-                    {parts.map((part, idx) => <Fragment key={idx}>{part}</Fragment>)}
+                <p key={i} className={pClass}>
+                    {formattedParts}
                 </p>
             );
         });
