@@ -201,8 +201,6 @@ export const DataplayerPage = () => {
         setFilesError(null);
 
         try {
-            // const files = await fetchFilesLegacy(datasetHandle);
-            // setFiles(files);
             setCurrentStep('map-files');
         } catch (error) {
             console.error('Error fetching files:', error);
@@ -443,86 +441,87 @@ export const DataplayerPage = () => {
                     </div>
                 </div>
 
+                {/* XXX: plan to remove this for the devoplemnet phase, mental overhead to support UI in multi-platform. */}
+                {/* We can always do it after. */}
+
                 {/* Files List - Mobile: Cards, Desktop: Table */}
                 {/* Mobile View (Cards) */}
-                <div className="md:hidden space-y-3">
-                    {files.map((file, index) => (
-                        <div key={index} className="bg-white rounded-lg border border-gray-200 p-4">
-                            <div className="mb-3">
-                                <p className="text-xs font-medium text-gray-500 uppercase mb-1">File Name</p>
-                                <p className="text-sm text-gray-900 wrap-break-word">{file.filename}</p>
-                            </div>
-                            <div className="mb-3">
-                                <p className="text-xs font-medium text-gray-500 uppercase mb-1">Size</p>
-                                <p className="text-sm text-gray-700">{file.size}</p>
-                            </div>
-                            <div>
-                                <label htmlFor={`param-mobile-${index}`}
-                                    className="text-xs font-medium text-gray-500 uppercase block mb-1">
-                                    Parameter
-                                </label>
-                                <select
-                                    id={`param-mobile-${index}`}
-                                    value={fileParameterMappings[index] || 'none'}
-                                    onChange={(e) => handleSlotSet(index, e.target.value)}
-                                    className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                >
-                                    <option value="none">None</option>
-                                    {toolConfig ? toolConfig.slots.map(param => (
-                                        <option key={param} value={param}>
-                                            {param}
-                                        </option>
-                                    )): "Loading tool ..."}
-                                </select>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                {/* <div className="md:hidden space-y-3"> */}
+                {/*     {files.map((file, index) => ( */}
+                {/*         <div key={index} className="bg-white rounded-lg border border-gray-200 p-4"> */}
+                {/*             <div className="mb-3"> */}
+                {/*                 <p className="text-xs font-medium text-gray-500 uppercase mb-1">File Name</p> */}
+                {/*                 <p className="text-sm text-gray-900 wrap-break-word">{file.filename}</p> */}
+                {/*             </div> */}
+                {/*             <div className="mb-3"> */}
+                {/*                 <p className="text-xs font-medium text-gray-500 uppercase mb-1">Size</p> */}
+                {/*                 <p className="text-sm text-gray-700">{file.size}</p> */}
+                {/*             </div> */}
+                {/*             <div> */}
+                {/*                 <label htmlFor={`param-mobile-${index}`} */}
+                {/*                     className="text-xs font-medium text-gray-500 uppercase block mb-1"> */}
+                {/*                     Parameter */}
+                {/*                 </label> */}
+                {/*                 <select */}
+                {/*                     id={`param-mobile-${index}`} */}
+                {/*                     value={fileParameterMappings[index] || 'none'} */}
+                {/*                     onChange={(e) => handleSlotSet(index, e.target.value)} */}
+                {/*                     className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" */}
+                {/*                 > */}
+                {/*                     <option value="none">None</option> */}
+                {/*                     {toolConfig ? toolConfig.slots.map(param => ( */}
+                {/*                         <option key={param} value={param}> */}
+                {/*                             {param} */}
+                {/*                         </option> */}
+                {/*                     )): "Loading tool ..."} */}
+                {/*                 </select> */}
+                {/*             </div> */}
+                {/*         </div> */}
+                {/*     ))} */}
+                {/* </div> */}
 
-                {/* Desktop View (Table) */}
                 <div className="hidden md:block bg-white rounded-lg border border-gray-200 overflow-hidden">
                     <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    File Name
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Size
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Parameter
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {files.map((file, index) => (
-                                    <tr key={index} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 text-sm text-gray-900 wrap-break-word">
-                                            {file.filename}
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
-                                            {file.size}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <select
-                                                value={fileParameterMappings[index] || 'none'}
-                                                onChange={(e) => handleSlotSet(index, e.target.value)}
-                                                className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                            >
-                                                <option value="none">None</option>
-                                                {toolConfig ? toolConfig.slots.map(param => (
-                                                    <option key={param} value={param}>
-                                                        {param}
-                                                    </option>
-                                                )) : "Loading tool ..."}
-                                            </select>
-                                        </td>
+                        {toolConfig ? (
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Parameter
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        File Name
+                                        </th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {
+                                        toolConfig.slots.map(( param ) => (
+                                            <tr className="hover:bg-gray-50">
+                                                <td className="px-6 py-4 text-sm text-gray-900 wrap-break-word">
+                                                    {param}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <select
+                                                        onChange={(e) => handleSlotSet(Number(e.target.value), param)}
+                                                        className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                                    >
+                                                        <option key="none" value="None">--select to set parameter--</option>
+                                                        {
+                                                            files.map((file, fileIndex) => (
+                                                                <option key={fileIndex} value={fileIndex}>
+                                                                    {file.filename}
+                                                                </option>
+                                                            ))
+                                                        }
+                                                    </select>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    }
+                                </tbody>
+                            </table>
+                        ) : <div> "zero parameters" </div> }
                     </div>
                 </div>
 
