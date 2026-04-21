@@ -1,6 +1,7 @@
 import {useNavigate} from "react-router";
 import {useState} from "react";
 import {SearchInput} from "../components/SearchInput";
+import {DataplayInput} from "../components/DataplayInput";
 import {AlphaDisclaimer} from "../components/AlphaDisclaimer";
 import {Footer} from "../components/Footer";
 import {EasterEgg} from "../components/EasterEgg";
@@ -26,6 +27,13 @@ export const LandingPage = () => {
 
     const handleSearch = (query: string, model: string) => {
         navigate(`/search?q=${encodeURIComponent(query)}&model=${encodeURIComponent(model)}`);
+    };
+
+    const handlePlay = (query: string) => {
+        const params = new URLSearchParams();
+        params.set('datasetId', query);
+        params.set('title', 'customize dataset');
+        window.open(`/dataplayer?${params.toString()}`, '_blank');
     };
 
     const handleAbout = () => {
@@ -114,6 +122,13 @@ export const LandingPage = () => {
                     <div className="flex justify-center px-4">
                         <SearchInput
                             onSearch={handleSearch}
+                            className="w-full max-w-2xl"
+                        />
+                    </div>
+
+                    <div className="flex justify-center px-4">
+                        <DataplayInput
+                            onPlay={handlePlay}
                             className="w-full max-w-2xl"
                         />
                     </div>
