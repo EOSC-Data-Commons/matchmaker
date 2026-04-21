@@ -12,7 +12,7 @@ import {Plus, MessageSquare, User, Bot, Send, Loader2} from "lucide-react";
 const ChatPage: FC = () => {
     const {id: urlId} = useParams();
     const navigate = useNavigate();
-    const {user} = useAuth();
+    const {user, loading: userLoading} = useAuth();
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
     const [loading, setLoading] = useState(true);
@@ -260,6 +260,36 @@ const ChatPage: FC = () => {
 
     return (
         <div className="flex flex-col h-dvh bg-white overflow-hidden">
+            {!userLoading && !user && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div
+                        className="bg-white rounded-xl shadow-xl max-w-md w-full p-8 text-center border border-gray-100">
+                        <div
+                            className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-sm">
+                            <User className="h-8 w-8"/>
+                        </div>
+                        <h2 className="text-2xl font-semibold text-gray-900 mb-3">Authentication Required</h2>
+                        <p className="text-gray-600 mb-8 leading-relaxed">
+                            Please log in to your account to access the AI chat capabilities and view your conversation
+                            history.
+                        </p>
+                        <div className="flex flex-col gap-3">
+                            <button
+                                onClick={() => window.location.href = '/auth/login'}
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors shadow-sm cursor-pointer"
+                            >
+                                Log In to Continue
+                            </button>
+                            <button
+                                onClick={() => navigate('/')}
+                                className="w-full bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 font-medium py-3 px-4 rounded-lg transition-colors cursor-pointer"
+                            >
+                                Return to Home
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             {/* Header */}
             <header
                 className="bg-white border-b border-gray-200 shrink-0 py-3 px-6 flex items-center justify-between shadow-sm z-10">
