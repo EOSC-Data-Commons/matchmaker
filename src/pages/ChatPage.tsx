@@ -7,7 +7,7 @@ import {sendChatMessage} from "@/lib/api.ts";
 import {stripHtml} from "@/lib/utils.ts";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 import {Footer} from "@/components/Footer.tsx";
-import {Plus, MessageSquare, User, Bot, Send, Loader2} from "lucide-react";
+import {Plus, MessageSquare, User, Bot, Send, Loader2, Copy, Check} from "lucide-react";
 
 const ChatPage: FC = () => {
     const {id: urlId} = useParams();
@@ -18,6 +18,7 @@ const ChatPage: FC = () => {
     const [loading, setLoading] = useState(true);
     const [newMessage, setNewMessage] = useState("");
     const [isSending, setIsSending] = useState(false);
+    const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
     const fetchConversations = useCallback(() => {
         if (user?.sub) {
@@ -369,7 +370,7 @@ const ChatPage: FC = () => {
                                     <div key={index}
                                          className={`w-full flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                                         <div
-                                            className={`flex gap-3 max-w-[85%] ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
+                                            className={`group flex gap-3 max-w-[85%] ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
                                             {/* Avatar */}
                                             <div
                                                 className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center shadow-sm mt-1 ${msg.sender === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-blue-600 border border-gray-200'}`}>
@@ -391,6 +392,22 @@ const ChatPage: FC = () => {
                                                 ) : (
                                                     renderMessageContent(msg.content)
                                                 )}
+                                            </div>
+                                            <div
+                                                className={`flex items-end mb-2 opacity-0 group-hover:opacity-100 transition-opacity ${msg.sender === 'user' ? 'mr-1' : 'ml-1'}`}>
+                                                <button
+                                                    onClick={() => {
+                                                        navigator.clipboard.writeText(msg.content);
+                                                        setCopiedIndex(index);
+                                                        setTimeout(() => setCopiedIndex(null), 2000);
+                                                    }}
+                                                    className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-md transition-colors"
+                                                    title="Copy message"
+                                                >
+                                                    {copiedIndex === index ?
+                                                        <Check className="h-4 w-4 text-green-600"/> :
+                                                        <Copy className="h-4 w-4"/>}
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
