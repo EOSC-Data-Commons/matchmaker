@@ -165,7 +165,7 @@ This will generate a `./src/generated/coordinator.ts` file contains all types to
 
 ### data flow
 
-UI frontend `pages/FooPage.tsx` -\- `lib/coordinatorApi.ts` (implement wrapper of request call of `/api/bar...`)  
+UI frontend `pages/FooPage.tsx` -\- `lib/coordinatorApi.ts` (implement wrapper of request call of `/api/foobar...`)  
 
 <----> 
 
