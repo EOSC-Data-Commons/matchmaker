@@ -1,6 +1,7 @@
 import {useNavigate} from "react-router";
 import {useState} from "react";
 import {SearchInput} from "../components/SearchInput";
+import {DataplayInput} from "../components/DataplayInput";
 import {AlphaDisclaimer} from "../components/AlphaDisclaimer";
 import {Footer} from "../components/Footer";
 import {EasterEgg} from "../components/EasterEgg";
@@ -37,6 +38,13 @@ export const LandingPage = () => {
 
     const handleChat = () => {
         navigate('/chat');
+    };
+
+    const handlePlay = (query: string) => {
+        const params = new URLSearchParams();
+        params.set('datasetId', query);
+        params.set('title', 'customize dataset');
+        window.open(`/dataplayer?${params.toString()}`, '_blank');
     };
 
     const handleAbout = () => {
@@ -136,6 +144,13 @@ export const LandingPage = () => {
                             className="w-full max-w-2xl"
                             isLoggedIn={!!user}
                             showAiToggle={true}
+                        />
+                    </div>
+
+                    <div className="flex justify-center px-4">
+                        <DataplayInput
+                            onPlay={handlePlay}
+                            className="w-full max-w-2xl"
                         />
                     </div>
                 </div>
