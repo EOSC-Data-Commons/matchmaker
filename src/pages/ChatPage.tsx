@@ -7,6 +7,7 @@ import {sendChatMessage} from "@/lib/api.ts";
 import {stripHtml} from "@/lib/utils.ts";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 import {Footer} from "@/components/Footer.tsx";
+import {Plus, MessageSquare, User, Bot, Send, Loader2} from "lucide-react";
 
 const ChatPage: FC = () => {
     const {id: urlId} = useParams();
@@ -281,12 +282,7 @@ const ChatPage: FC = () => {
                             }}
                             className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors shadow-sm cursor-pointer"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20"
-                                 fill="currentColor">
-                                <path fillRule="evenodd"
-                                      d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
-                                      clipRule="evenodd"/>
-                            </svg>
+                            <Plus className="h-5 w-5"/>
                             New Chat
                         </button>
                     </div>
@@ -331,11 +327,7 @@ const ChatPage: FC = () => {
                                     className="flex flex-col items-center justify-center h-full min-h-64 text-center mt-20">
                                     <div
                                         className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none"
-                                             viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                                  d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
-                                        </svg>
+                                        <MessageSquare className="h-8 w-8"/>
                                     </div>
                                     <h2 className="text-xl font-semibold text-gray-700 mb-2">Welcome to EOSC Chat</h2>
                                     <p className="text-gray-500 max-w-md">Start a new conversation by typing a message
@@ -352,18 +344,9 @@ const ChatPage: FC = () => {
                                             <div
                                                 className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center shadow-sm mt-1 ${msg.sender === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-blue-600 border border-gray-200'}`}>
                                                 {msg.sender === 'user' ? (
-                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5"
-                                                         viewBox="0 0 20 20" fill="currentColor">
-                                                        <path fillRule="evenodd"
-                                                              d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                                                              clipRule="evenodd"/>
-                                                    </svg>
+                                                    <User className="h-5 w-5"/>
                                                 ) : (
-                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5"
-                                                         viewBox="0 0 20 20" fill="currentColor">
-                                                        <path
-                                                            d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/>
-                                                    </svg>
+                                                    <Bot className="h-5 w-5"/>
                                                 )}
                                             </div>
                                             <div
@@ -389,11 +372,7 @@ const ChatPage: FC = () => {
                                     <div className="flex gap-3 max-w-[85%]">
                                         <div
                                             className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center shadow-sm bg-gray-100 text-blue-600 border border-gray-200 mt-1">
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 animate-pulse"
-                                                 viewBox="0 0 20 20" fill="currentColor">
-                                                <path
-                                                    d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/>
-                                            </svg>
+                                            <Bot className="h-5 w-5 animate-pulse"/>
                                         </div>
                                         <div
                                             className="rounded-2xl px-5 py-3 shadow-sm text-[15px] bg-white border border-gray-200 text-gray-500 rounded-tl-sm flex items-center gap-3">
@@ -443,20 +422,9 @@ const ChatPage: FC = () => {
                                 }`}
                             >
                                 {isSending ? (
-                                    <svg className="animate-spin h-5 w-5 sm:mr-2" xmlns="http://www.w3.org/2000/svg"
-                                         fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
-                                                strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor"
-                                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
+                                    <Loader2 className="animate-spin h-5 w-5 sm:mr-2"/>
                                 ) : (
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 hidden sm:block sm:mr-2"
-                                         viewBox="0 0 20 20" fill="currentColor">
-                                        <path fillRule="evenodd"
-                                              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z"
-                                              clipRule="evenodd"/>
-                                    </svg>
+                                    <Send className="h-5 w-5 hidden sm:block sm:mr-2"/>
                                 )}
                                 {isSending ? 'Sending...' : 'Send'}
                             </button>
