@@ -1,25 +1,11 @@
 import {useEffect, useRef, useState} from "react";
 import {useNavigate} from "react-router";
-import {ModelSelector} from "./ModelSelector.tsx";
 import {getSearchHistory} from "../lib/history.ts";
 
 
-const SHOW_MODEL_SELECTOR = import.meta.env.VITE_SHOW_MODEL_SELECTOR === 'true';
-
-const DEFAULT_MODEL = "einfracz/qwen3-coder";
-
-const models = [
-    "openai/gpt-4.1",
-    "mistralai/mistral-large-latest",
-    "groq/moonshotai/kimi-k2-instruct",
-    "einfracz/qwen3-coder",
-    "einfracz/gpt-oss-120b",
-    "einfracz/deepseek-v3.2-thinking"
-];
 
 interface PlayInputProps {
     initialQuery?: string;
-    initialModel?: string;
     onPlay: (query: string) => void;
     loading?: boolean;
     placeholder?: string;
@@ -32,10 +18,8 @@ export const DataplayInput = ({
     loading = false,
     placeholder = "Provide your dataset to play with, e.g. github, materials cloud.",
     className = "",
-    initialModel
 }: PlayInputProps) => {
     const [query, setQuery] = useState(initialQuery);
-    const [selectedModel, setSelectedModel] = useState(initialModel || DEFAULT_MODEL);
     const [showHistory, setShowHistory] = useState(false);
     const [history] = useState<string[]>(getSearchHistory);
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -106,7 +90,7 @@ export const DataplayInput = ({
                         onKeyDown={handleKeyDown}
                         onFocus={() => setShowHistory(true)}
                         placeholder={placeholder}
-                        className={`truncate w-full h-16 px-4 text-lg text-eosc-gray font-light rounded-xl border-2 border-eosc-border bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-eosc-light-blue focus:border-eosc-light-blue ${SHOW_MODEL_SELECTOR ? 'pr-64' : 'pr-32'}`}
+                        className={`truncate w-full h-16 px-4 text-lg text-eosc-gray font-light rounded-xl border-2 border-eosc-border bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-eosc-light-blue focus:border-eosc-light-blue pr-32`}
                     />
                     {showHistory && filteredHistory.length > 0 && (
                         <div
@@ -124,15 +108,6 @@ export const DataplayInput = ({
                                     </li>
                                 ))}
                             </ul>
-                        </div>
-                    )}
-                    {SHOW_MODEL_SELECTOR && (
-                        <div className="absolute right-28 top-3 w-32">
-                            <ModelSelector
-                                models={models}
-                                selectedModel={selectedModel}
-                                onModelChange={setSelectedModel}
-                            />
                         </div>
                     )}
                     <button
