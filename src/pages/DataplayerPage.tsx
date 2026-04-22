@@ -211,6 +211,96 @@ export const DataplayerPage = () => {
         }
     };
 
+    // XXX: ----------- remove this part when tool registry has collected these tools
+    // XXX: Handle fixed tool selection
+    // TODO: the tools can be categorized as, turn this into an RFC.
+    // 1. slots based load
+    // 2. whole dataset direct load
+    // 3. selected files load
+    const mybinderTool: ToolConfig = {
+        name: "mybinder",
+        description: "Launch notebook via MyBinder",
+        slots: [],
+    };
+
+    const mybinderTool2: ToolConfig = {
+        name: "mybinder2",
+        description: "Launch notebook via MyBinder",
+        slots: [],
+    };
+
+    const fixedTools: Record<string, ToolConfig> = {
+        'id-mybinder': mybinderTool,
+        'id-mybinder2': mybinderTool2,
+    };
+
+    const [selectedFixedToolId, setSelectedFixedToolId] = useState<string | null>(null);
+    const fixedToolConfig = selectedFixedToolId
+        ? fixedTools[selectedFixedToolId]
+        : null;
+
+    function buildMyBinderUrl(datasetHandle: string): string | null {
+        try {
+            const url = new URL(datasetHandle);
+            console.warn(url);
+            console.warn(url.hostname);
+
+            if (url.hostname !== "github.com") {
+                return null; // not supported here
+            }
+
+            const parts = url.pathname.split("/").filter(Boolean);
+            const user = parts[0];
+            const repo = parts[1];
+
+            // default branch
+            let branch = "main";
+
+            // handle /tree/<branch>
+            if (parts[2] === "tree" && parts[3]) {
+                branch = parts[3];
+            }
+            console.warn(branch);
+            console.warn(user);
+            console.warn(repo);
+
+            return `https://mybinder.org/v2/gh/${user}/${repo}/${branch}`;
+        } catch {
+            return null;
+        }
+    }
+
+    const handleFixedToolSelect = async (tool_id: string) => {
+        if (!tool_id) return;
+
+        setSelectedFixedToolId(tool_id);
+
+        try {
+            setCurrentStep('submitting');
+
+            if (fixedToolConfig["name"] === "mybinder") {
+                const binderUrl = buildMyBinderUrl(datasetHandle);
+                const dispatcherResult: DispatchResult = {
+                    url: binderUrl
+                    // url: "https://example.com"
+                };
+                setTaskResult(dispatcherResult);
+                        
+                setCurrentStep("monitoring");
+                setStatusType("success");
+                setStatusMessage("Virtual Research Environment task completed!");
+            } else {
+                throw new Error(`Unsupported tool: ${fixedToolConfig.name}`);
+            }
+        } catch (error) {
+            console.error("Error submitting:", error);
+            setStatusType("error");
+            setStatusMessage(
+                error instanceof Error ? error.message : "Unknown error"
+            );
+        } 
+    };
+    // XXX: -----------
 
     // Handle input slot mapping change
     const handleSlotSet = (fileIndex: number, slotName: string) => {
@@ -331,13 +421,56 @@ export const DataplayerPage = () => {
                 <p className="text-sm sm:text-base text-gray-600">Choose the tool you want to
                     use with your dataset</p>
             </div>
-            <input
-                type="text"
-                placeholder="Search tools..."
-                value={toolSearchText}
-                onChange={(e) => setToolSearchText(e.target.value)}
-                className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+
+            <div className="space-y-6">
+                {/* Dropdown block */}
+                <div className="p-4 border rounded-lg bg-gray-50">
+                    <p className="text-sm font-semibold text-gray-800 mb-2">
+                        Choose from predefined tools (!only for demo purpose!)
+                    </p>
+                    <select
+                        value={selectedFixedToolId}
+                        onChange={(e) => setSelectedFixedToolId(e.target.value)}
+                        className="w-full p-3 border-2 border-gray-200 rounded-lg bg-white"
+                    >
+                        <option value="" disabled>
+        Select tool
+                        </option>
+
+                        {(Object.entries(fixedTools) as [string, ToolConfig][]).map(
+                            ([key, config]) => (
+                                <option key={key} value={key}>
+                                    {config.name}
+                                </option>
+                            )
+                        )}
+                    </select>
+                    <button
+                        onClick={() => handleFixedToolSelect(selectedFixedToolId)}
+                        disabled={!selectedFixedToolId}
+                        className="mt-3 w-full p-3 bg-blue-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+    Confirm
+                    </button>
+                </div>
+
+                {/* Divider */}
+                <div className="text-center text-gray-400 text-sm">OR</div>
+
+                {/* Search block */}
+                <div className="p-4 border rounded-lg">
+                    <p className="text-sm font-semibold text-gray-800 mb-2">
+                        Search for a tool
+                    </p>
+                    <input
+                        type="text"
+                        placeholder="Search tools..."
+                        value={toolSearchText}
+                        onChange={(e) => setToolSearchText(e.target.value)}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                </div>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 {Object.entries(queryToolResults).length === 0 ? (
