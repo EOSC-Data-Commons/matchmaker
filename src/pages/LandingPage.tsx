@@ -40,10 +40,19 @@ export const LandingPage = () => {
         navigate('/chat');
     };
 
-    const handlePlay = (query: string) => {
+    const handlePlay = (datasetHandle: string) => {
         const params = new URLSearchParams();
-        params.set('datasetId', query);
-        params.set('title', 'customize dataset');
+        params.set('datasetId', datasetHandle);
+        let title = "";
+        try {
+            const url = new URL(datasetHandle);
+            title = `A dataset from source: ${url}`;
+        } catch {
+            console.warn("Invalid URL:", datasetHandle);
+        }
+
+        params.set('datasetId', datasetHandle);
+        params.set('title', title);
         window.open(`/dataplayer?${params.toString()}`, '_blank');
     };
 
