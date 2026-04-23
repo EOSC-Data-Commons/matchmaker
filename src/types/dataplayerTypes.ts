@@ -1,7 +1,12 @@
 export interface ToolConfig {
   name: string;
   description: string;
-  slots: string[];
+  slots: ToolSlot[];
+}
+
+export interface ToolSlot {
+  name: string;
+  id: string;
 }
 
 export interface FileMeta {

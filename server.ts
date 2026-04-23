@@ -28,7 +28,7 @@ import {
     SearchToolsByTextRequest,
     ToolState_State,
 } from "./src/lib/server/generated/coordinator.ts";
-import { FileMeta, TypLaunchToolRequest } from "./src/types/dataplayerTypes.ts";
+import { FileMeta, ToolConfig, TypLaunchToolRequest } from "./src/types/dataplayerTypes.ts";
 
 // Constants
 const DEVELOPMENT = process.env.NODE_ENV !== "production";
@@ -202,12 +202,6 @@ app.get("/api/coordinator/tasks-result/:taskId", async (req, res) => {
         console.error(err);
     }
 });
-
-interface ToolConfig {
-  name: string;
-  description: string;
-  slots: string[];
-}
 
 app.use(express.json());
 app.post("/api/coordinator/tool/match", async (req, res) => {
