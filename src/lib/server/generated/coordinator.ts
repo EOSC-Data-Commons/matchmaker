@@ -248,13 +248,18 @@ export interface BrowseComplete {
  * this is what response to client about the vre entity it can utilize.
  * NOTE: @reggie here is what supposed to be stored in the registry.
  */
+export interface Slot {
+  id: string;
+  name: string;
+}
+
 export interface ToolMeta {
   /** id in the tool registry */
   id: string;
   version: string;
   name: string;
   description: string;
-  slots: string[];
+  slots: Slot[];
 }
 
 export interface BrowseToolsRequest {
@@ -1678,6 +1683,82 @@ export const BrowseComplete: MessageFns<BrowseComplete> = {
   },
 };
 
+function createBaseSlot(): Slot {
+  return { id: "", name: "" };
+}
+
+export const Slot: MessageFns<Slot> = {
+  encode(message: Slot, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.id !== "") {
+      writer.uint32(10).string(message.id);
+    }
+    if (message.name !== "") {
+      writer.uint32(18).string(message.name);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): Slot {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseSlot();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.id = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.name = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): Slot {
+    return {
+      id: isSet(object.id) ? globalThis.String(object.id) : "",
+      name: isSet(object.name) ? globalThis.String(object.name) : "",
+    };
+  },
+
+  toJSON(message: Slot): unknown {
+    const obj: any = {};
+    if (message.id !== "") {
+      obj.id = message.id;
+    }
+    if (message.name !== "") {
+      obj.name = message.name;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<Slot>, I>>(base?: I): Slot {
+    return Slot.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<Slot>, I>>(object: I): Slot {
+    const message = createBaseSlot();
+    message.id = object.id ?? "";
+    message.name = object.name ?? "";
+    return message;
+  },
+};
+
 function createBaseToolMeta(): ToolMeta {
   return { id: "", version: "", name: "", description: "", slots: [] };
 }
@@ -1697,7 +1778,7 @@ export const ToolMeta: MessageFns<ToolMeta> = {
       writer.uint32(34).string(message.description);
     }
     for (const v of message.slots) {
-      writer.uint32(42).string(v!);
+      Slot.encode(v!, writer.uint32(42).fork()).join();
     }
     return writer;
   },
@@ -1746,7 +1827,7 @@ export const ToolMeta: MessageFns<ToolMeta> = {
             break;
           }
 
-          message.slots.push(reader.string());
+          message.slots.push(Slot.decode(reader, reader.uint32()));
           continue;
         }
       }
@@ -1764,7 +1845,7 @@ export const ToolMeta: MessageFns<ToolMeta> = {
       version: isSet(object.version) ? globalThis.String(object.version) : "",
       name: isSet(object.name) ? globalThis.String(object.name) : "",
       description: isSet(object.description) ? globalThis.String(object.description) : "",
-      slots: globalThis.Array.isArray(object?.slots) ? object.slots.map((e: any) => globalThis.String(e)) : [],
+      slots: globalThis.Array.isArray(object?.slots) ? object.slots.map((e: any) => Slot.fromJSON(e)) : [],
     };
   },
 
@@ -1783,7 +1864,7 @@ export const ToolMeta: MessageFns<ToolMeta> = {
       obj.description = message.description;
     }
     if (message.slots?.length) {
-      obj.slots = message.slots;
+      obj.slots = message.slots.map((e) => Slot.toJSON(e));
     }
     return obj;
   },
@@ -1797,7 +1878,7 @@ export const ToolMeta: MessageFns<ToolMeta> = {
     message.version = object.version ?? "";
     message.name = object.name ?? "";
     message.description = object.description ?? "";
-    message.slots = object.slots?.map((e) => e) || [];
+    message.slots = object.slots?.map((e) => Slot.fromPartial(e)) || [];
     return message;
   },
 };
