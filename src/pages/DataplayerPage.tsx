@@ -29,29 +29,18 @@ const areAllParametersMapped = (
     const mappedParameters = new Set(Object.values(fileParameterMappings));
 
     // All analysis parameters must be mapped exactly once
-    return config.slots.every(param => mappedParameters.has(param));
+    return config.slots.every(param => mappedParameters.has(param.name));
 };
 
-export const DataplayerPage = () => {
-    const [searchParams] = useSearchParams();
-
-    const datasetTitle = searchParams.get('title');
-    const datasetHandle = searchParams.get('datasetId');
-    const navigate = useNavigate();
-
-    // Step management
-    const [currentStep, setCurrentStep] = useState<StepType>('select-analysis');
-    // tool uuid
-    const [selectedToolId, setSelectedToolId] = useState<string>(null);
-
-    // File management
-    const [files, setFiles] = useState<FileMeta[]>([]);
-    const [fileParameterMappings, setFileParameterMappings] = useState<Record<number, string>>({});
-    const [loadingFiles, setLoadingFiles] = useState(false);
-    const [filesError, setFilesError] = useState<string | null>(null);
-
+function useDataset(datasetHandle: string) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [files, setFiles] = useState<FileMeta[]>([]);
+
+    const reset_dataset = () => {
+        setFiles([]);
+        setError(null);
+    };
 
     useEffect(() => {
         const load = async () => {
@@ -71,6 +60,81 @@ export const DataplayerPage = () => {
 
         load();
     }, [datasetHandle]);
+
+    return {loading, files, error, reset_dataset}
+}
+
+function useFilesToQueryTool(files: FileMeta[]) {
+    const [queryToolResults, setQueryToolResults] = useState<Record<string, ToolConfig>>({});
+
+    useEffect(() => {
+        if (files.length < 1) {
+            return;
+        }
+        async function load() {
+            const tools = await matchToolsByFiles(files);
+            setQueryToolResults(tools);
+        }
+
+        load();
+    }, [files]);
+
+    return {queryToolResults}
+} 
+
+function useSearchTextToQueryTool(toolSearchText: string) {
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [queryToolResults, setQueryToolResults] = useState<Record<string, ToolConfig>>({});
+
+    useEffect(() => {
+        if (debouncedSearch.trim().length < 2) return;
+
+        let cancelled = false;
+
+        async function load() {
+            const tools = await searchToolsByText(debouncedSearch);
+            if (!cancelled) {
+                setQueryToolResults(tools);
+            }
+        }
+
+        load();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [debouncedSearch]);
+    
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            setDebouncedSearch(toolSearchText);
+        }, 500);
+
+        return () => clearTimeout(timeout);
+    }, [toolSearchText]);
+
+    return {debouncedSearch, queryToolResults}
+}
+
+export const DataplayerPage = () => {
+    const [searchParams] = useSearchParams();
+
+    const datasetTitle = searchParams.get('title');
+    const datasetHandle = searchParams.get('datasetId');
+    const navigate = useNavigate();
+
+    // Step management
+    const [currentStep, setCurrentStep] = useState<StepType>('select-analysis');
+    // tool uuid
+    const [selectedToolId, setSelectedToolId] = useState<string>(null);
+
+    // File management
+    const [fileParameterMappings, setFileParameterMappings] = useState<Record<number, string>>({});
+    const [loadingFiles, setLoadingFiles] = useState(false);
+    const [filesError, setFilesError] = useState<string | null>(null);
+
+    const {loading, files, error, reset_dataset} = useDataset(datasetHandle);
+
     let content: JSX.Element | null;
     if (loading) {
         content = <div className="text-gray-600">Loading...</div>;
@@ -99,7 +163,7 @@ export const DataplayerPage = () => {
                                     rel="noreferrer"
                                     className="text-blue-600 hover:underline"
                                 >
-                  Download
+                                  Download
                                 </a>
                             )}
                         </div>
@@ -119,42 +183,15 @@ export const DataplayerPage = () => {
 
     const [toolConfig, setToolConfig] = useState<ToolConfig | null>(null);
 
-    // user selected files for matching
-    const [selectedFiles, setselectedFiles] = useState<FileMeta[]>([]);
-    
-    useEffect(() => {
-        const load = async () => {
-            console.log("Start loading");
-            try {
-                setLoading(true);
-                const files = await fetchFilesMetaByDatasetHandle(datasetHandle);
+    const [toolSearchText, setToolSearchText] =  useState("");
 
-                // TODO: @Ritwik, I not yet provide the checkboxes for user to select files (even not sure that is intuitive)
-                // So the seleceted files are initialized with dataset, but I leave this as the port for future file selection support.
-                setselectedFiles(files);
-            } catch (err) {
-                console.error(err);
-                setError("Failed to fetch files");
-            } finally {
-                setLoading(false);
-                console.log("Finished loading");
-            }
-        };
+    const { queryToolResults: fileResults } = useFilesToQueryTool(files);
+    const { debouncedSearch, queryToolResults: searchResults } = useSearchTextToQueryTool(toolSearchText);
 
-        load();
-    }, [datasetHandle]);
-
-    useEffect(() => {
-        if (selectedFiles.length < 1) {
-            return;
-        }
-        async function load() {
-            const tools = await matchToolsByFiles(selectedFiles);
-            setQueryToolResults(tools);
-        }
-
-        load();
-    }, [selectedFiles]);
+    const queryToolResults =
+    debouncedSearch.trim().length >= 2
+        ? searchResults
+        : fileResults;
 
     useEffect(() => {
         async function load() {
@@ -166,31 +203,6 @@ export const DataplayerPage = () => {
             load();
         }
     }, [selectedToolId]);
-
-    const [queryToolResults, setQueryToolResults] = useState<Record<string, ToolConfig>>({});
-    const [toolSearchText, setToolSearchText] =  useState("");
-    const [debouncedSearch, setDebouncedSearch] = useState("");
-
-    useEffect(() => {
-        const timeout = setTimeout(() => {
-            setDebouncedSearch(toolSearchText);
-        }, 500);
-
-        return () => clearTimeout(timeout);
-    }, [toolSearchText]);
-
-    useEffect(() => {
-        if (debouncedSearch.trim().length < 2) {
-            setQueryToolResults({});
-            return;
-        }
-        async function load() {
-            const tools = await searchToolsByText(toolSearchText);
-            setQueryToolResults(tools);
-        }
-
-        load();
-    }, [debouncedSearch, toolSearchText]);
 
     // Handle tool selection
     const handleToolSelect = async (tool_id: string) => {
@@ -557,61 +569,22 @@ export const DataplayerPage = () => {
                     <p className="text-xs sm:text-sm font-medium text-gray-700 mb-2">Required Parameters:</p>
                     <div className="flex flex-wrap gap-1.5 sm:gap-2">
                         {toolConfig ? toolConfig.slots.map(param => {
-                            const isMapped = Object.values(fileParameterMappings).includes(param);
+                            const isMapped = Object.values(fileParameterMappings).includes(param.name);
                             return (
                                 <span
-                                    key={param}
+                                    key={param.name}
                                     className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${
                                         isMapped
                                             ? 'bg-green-100 text-green-800'
                                             : 'bg-yellow-100 text-yellow-800'
                                     }`}
                                 >
-                                    {param} {isMapped ? '✓' : '⚠'}
+                                    {param.name} {isMapped ? '✓' : '⚠'}
                                 </span>
                             );
                         }) : "Loading tool config"}
                     </div>
                 </div>
-
-                {/* XXX: plan to remove this for the devoplemnet phase, mental overhead to support UI in multi-platform. */}
-                {/* We can always do it after. */}
-
-                {/* Files List - Mobile: Cards, Desktop: Table */}
-                {/* Mobile View (Cards) */}
-                {/* <div className="md:hidden space-y-3"> */}
-                {/*     {files.map((file, index) => ( */}
-                {/*         <div key={index} className="bg-white rounded-lg border border-gray-200 p-4"> */}
-                {/*             <div className="mb-3"> */}
-                {/*                 <p className="text-xs font-medium text-gray-500 uppercase mb-1">File Name</p> */}
-                {/*                 <p className="text-sm text-gray-900 wrap-break-word">{file.filename}</p> */}
-                {/*             </div> */}
-                {/*             <div className="mb-3"> */}
-                {/*                 <p className="text-xs font-medium text-gray-500 uppercase mb-1">Size</p> */}
-                {/*                 <p className="text-sm text-gray-700">{file.size}</p> */}
-                {/*             </div> */}
-                {/*             <div> */}
-                {/*                 <label htmlFor={`param-mobile-${index}`} */}
-                {/*                     className="text-xs font-medium text-gray-500 uppercase block mb-1"> */}
-                {/*                     Parameter */}
-                {/*                 </label> */}
-                {/*                 <select */}
-                {/*                     id={`param-mobile-${index}`} */}
-                {/*                     value={fileParameterMappings[index] || 'none'} */}
-                {/*                     onChange={(e) => handleSlotSet(index, e.target.value)} */}
-                {/*                     className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" */}
-                {/*                 > */}
-                {/*                     <option value="none">None</option> */}
-                {/*                     {toolConfig ? toolConfig.slots.map(param => ( */}
-                {/*                         <option key={param} value={param}> */}
-                {/*                             {param} */}
-                {/*                         </option> */}
-                {/*                     )): "Loading tool ..."} */}
-                {/*                 </select> */}
-                {/*             </div> */}
-                {/*         </div> */}
-                {/*     ))} */}
-                {/* </div> */}
 
                 <div className="hidden md:block bg-white rounded-lg border border-gray-200 overflow-hidden">
                     <div className="overflow-x-auto">
@@ -632,11 +605,11 @@ export const DataplayerPage = () => {
                                         toolConfig.slots.map(( param ) => (
                                             <tr className="hover:bg-gray-50">
                                                 <td className="px-6 py-4 text-sm text-gray-900 wrap-break-word">
-                                                    {param}
+                                                    {param.name}
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <select
-                                                        onChange={(e) => handleSlotSet(Number(e.target.value), param)}
+                                                        onChange={(e) => handleSlotSet(Number(e.target.value), param.name)}
                                                         className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                                                     >
                                                         <option key="none" value="None">--select to set parameter--</option>
@@ -665,7 +638,7 @@ export const DataplayerPage = () => {
                         onClick={() => {
                             setCurrentStep('select-analysis');
                             setSelectedToolId(null);
-                            setFiles([]);
+                            reset_dataset();
                             setFileParameterMappings({});
                         }}
                         className="text-sm sm:text-base text-blue-600 hover:text-blue-700 font-medium text-center sm:text-left"
@@ -759,7 +732,7 @@ export const DataplayerPage = () => {
                                     onClick={() => {
                                         setCurrentStep('select-analysis');
                                         setSelectedToolId(null);
-                                        setFiles([]);
+                                        reset_dataset();
                                         setFileParameterMappings({});
                                         setTaskId(null);
                                         setTaskResult(null);
