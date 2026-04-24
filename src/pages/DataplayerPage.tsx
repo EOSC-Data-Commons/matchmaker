@@ -124,7 +124,7 @@ const areAllParametersMapped = (
 };
 
 function useDataset(datasetHandle: string) {
-    const [loading, setLoading] = useState(true);
+    const [isFilesLoading, setIsFilesLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [files, setFiles] = useState<FileMeta[]>([]);
 
@@ -137,14 +137,14 @@ function useDataset(datasetHandle: string) {
         const load = async () => {
             console.log("Start loading");
             try {
-                setLoading(true);
+                setIsFilesLoading(true);
                 const files = await fetchFilesMetaByDatasetHandle(datasetHandle);
                 setFiles(files);
             } catch (err) {
                 console.error(err);
                 setError("Failed to fetch files");
             } finally {
-                setLoading(false);
+                setIsFilesLoading(false);
                 console.log("Finished loading");
             }
         };
@@ -152,7 +152,7 @@ function useDataset(datasetHandle: string) {
         load();
     }, [datasetHandle]);
 
-    return {loading, files, error, resetDataset}
+    return {isFilesLoading, files, error, resetDataset}
 }
 
 function useFilesToQueryTool(files: FileMeta[]) {
@@ -207,7 +207,7 @@ function useSearchTextToQueryTool(toolSearchText: string) {
     return {debouncedSearch, queryToolResults}
 }
 
-function useSelectedToolId(selectedToolId: string) {
+function useSelectedToolId(selectedToolId: string): {toolConfig: ToolConfig | null} {
     const [toolConfig, setToolConfig] = useState<ToolConfig | null>(null);
 
     useEffect(() => {
@@ -224,6 +224,25 @@ function useSelectedToolId(selectedToolId: string) {
     return {toolConfig}
 }
 
+function ToolSearchInput(
+    {value, onChange}: {value: string; onChange: (v: string) => void;}
+) {
+    return (
+        <div className="p-4 border rounded-lg">
+            <p className="text-sm font-semibold text-gray-800 mb-2">
+                Search for a tool
+            </p>
+            <input
+                type="text"
+                placeholder="Search tools..."
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+        </div>
+    );
+}
+
 export const DataplayerPage = () => {
     const [searchParams] = useSearchParams();
 
@@ -238,13 +257,12 @@ export const DataplayerPage = () => {
 
     // File management
     const [fileParameterMappings, setFileParameterMappings] = useState<Record<number, string>>({});
-    const [loadingFiles, setLoadingFiles] = useState(false);
     const [filesError, setFilesError] = useState<string | null>(null);
 
-    const {loading, files, error, resetDataset} = useDataset(datasetHandle);
+    const {isFilesLoading, files, error, resetDataset} = useDataset(datasetHandle);
 
     let content: JSX.Element | null;
-    if (loading) {
+    if (isFilesLoading) {
         content = <div className="text-gray-600">Loading...</div>;
     } else if (error) {
         content = <div className="text-red-500">{error}</div>;
@@ -297,25 +315,6 @@ export const DataplayerPage = () => {
         ? searchResults
         : fileResults;
 
-
-    // Handle tool selection
-    const handleToolSelect = async (tool_id: string) => {
-        if (!tool_id) return;
-
-        setSelectedToolId(tool_id);
-        setLoadingFiles(true);
-        setFilesError(null);
-
-        try {
-            setCurrentStep('map-files');
-        } catch (error) {
-            console.error('Error fetching files:', error);
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            setFilesError(`Failed to load files: ${errorMessage}`);
-        } finally {
-            setLoadingFiles(false);
-        }
-    };
 
     // // XXX: ----------- remove this part when tool registry has collected these tools
     // // XXX: Handle fixed tool selection
@@ -485,113 +484,131 @@ export const DataplayerPage = () => {
     };
 
     // Render VRE selection step
-    const renderToolSelection = () => (
-        <div className="max-w-4xl mx-auto px-4 sm:px-6">
-            <div className="mb-6">
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Select a tool</h2>
-                <p className="text-sm sm:text-base text-gray-600">Choose the tool you want to
-                    use with your dataset</p>
-            </div>
+    const renderToolSelection = () => {
 
-            <div className="space-y-6">
-                {/* Dropdown block */}
-                {/*             <div className="p-4 border rounded-lg bg-gray-50"> */}
-                {/*                 <p className="text-sm font-semibold text-gray-800 mb-2"> */}
-                {/*                     Choose from predefined tools (!only for demo purpose!) */}
-                {/*                 </p> */}
-                {/*                 <select */}
-                {/*                     value={selectedFixedToolId} */}
-                {/*                     onChange={(e) => setSelectedFixedToolId(e.target.value)} */}
-                {/*                     className="w-full p-3 border-2 border-gray-200 rounded-lg bg-white" */}
-                {/*                 > */}
-                {/*                     <option value="" disabled> */}
-                {/*     Select tool */}
-                {/*                     </option> */}
-                {/**/}
-                {/*                     {(Object.entries(fixedTools) as [string, ToolConfig][]).map( */}
-                {/*                         ([key, config]) => ( */}
-                {/*                             <option key={key} value={key}> */}
-                {/*                                 {config.name} */}
-                {/*                             </option> */}
-                {/*                         ) */}
-                {/*                     )} */}
-                {/*                 </select> */}
-                {/*                 <button */}
-                {/*                     onClick={() => handleFixedToolSelect(selectedFixedToolId)} */}
-                {/*                     disabled={!selectedFixedToolId} */}
-                {/*                     className="mt-3 w-full p-3 bg-blue-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed" */}
-                {/*                 > */}
-                {/* Confirm */}
-                {/*                 </button> */}
-                {/*             </div> */}
+        // Handle tool selection
+        const handleToolSelect = async (tool_id: string) => {
+            if (!tool_id) return;
 
-                {/* Divider */}
-                {/* <div className="text-center text-gray-400 text-sm">OR</div> */}
+            setSelectedToolId(tool_id);
+            setFilesError(null);
 
-                {/* Search block */}
-                <div className="p-4 border rounded-lg">
-                    <p className="text-sm font-semibold text-gray-800 mb-2">
-                        Search for a tool
-                    </p>
-                    <input
-                        type="text"
-                        placeholder="Search tools..."
+            try {
+                setCurrentStep('map-files');
+            } catch (error) {
+                console.error('Error fetching files:', error);
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                setFilesError(`Failed to load files: ${errorMessage}`);
+            } 
+        };
+
+        // `ToolResultSelect` is the component that list all found tools. 
+        // User select a tool (`handleToolSelect`) from list and goes to the tool using dialog.
+        function ToolResultSelect(
+            {isFilesLoading, results, handleToolSelect}: 
+            {isFilesLoading: boolean; results: Record<string, ToolConfig>; handleToolSelect: (key: string) => Promise<void>;}
+        ) {
+            return (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    {Object.entries(results).length === 0 ? (
+                        <div className="col-span-full text-center py-8 text-gray-500">
+                                No tools found.
+                        </div>
+                    ) :
+                        (Object.entries(results) as [string, ToolConfig][]).map(([key, config]) => (
+                            <button
+                                key={key}
+                                onClick={() => handleToolSelect(key)}
+                                disabled={isFilesLoading}
+                                className="p-4 sm:p-6 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1 sm:mb-2">{config.name}</h3>
+                                <p className="text-xs sm:text-sm text-gray-600">{config.description}</p>
+                            </button>
+                        ))}
+                </div>
+            )
+        }
+
+        return(
+            <div className="max-w-4xl mx-auto px-4 sm:px-6">
+                <div className="mb-6">
+                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Select a tool</h2>
+                    <p className="text-sm sm:text-base text-gray-600">Choose the tool you want to
+                        use with your dataset</p>
+                </div>
+
+                <div className="space-y-6">
+                    {/* Dropdown block */}
+                    {/*             <div className="p-4 border rounded-lg bg-gray-50"> */}
+                    {/*                 <p className="text-sm font-semibold text-gray-800 mb-2"> */}
+                    {/*                     Choose from predefined tools (!only for demo purpose!) */}
+                    {/*                 </p> */}
+                    {/*                 <select */}
+                    {/*                     value={selectedFixedToolId} */}
+                    {/*                     onChange={(e) => setSelectedFixedToolId(e.target.value)} */}
+                    {/*                     className="w-full p-3 border-2 border-gray-200 rounded-lg bg-white" */}
+                    {/*                 > */}
+                    {/*                     <option value="" disabled> */}
+                    {/*     Select tool */}
+                    {/*                     </option> */}
+                    {/**/}
+                    {/*                     {(Object.entries(fixedTools) as [string, ToolConfig][]).map( */}
+                    {/*                         ([key, config]) => ( */}
+                    {/*                             <option key={key} value={key}> */}
+                    {/*                                 {config.name} */}
+                    {/*                             </option> */}
+                    {/*                         ) */}
+                    {/*                     )} */}
+                    {/*                 </select> */}
+                    {/*                 <button */}
+                    {/*                     onClick={() => handleFixedToolSelect(selectedFixedToolId)} */}
+                    {/*                     disabled={!selectedFixedToolId} */}
+                    {/*                     className="mt-3 w-full p-3 bg-blue-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed" */}
+                    {/*                 > */}
+                    {/* Confirm */}
+                    {/*                 </button> */}
+                    {/*             </div> */}
+
+                    {/* Divider */}
+                    {/* <div className="text-center text-gray-400 text-sm">OR</div> */}
+
+                    {/* Search block */}
+                    <ToolSearchInput
                         value={toolSearchText}
-                        onChange={(e) => setToolSearchText(e.target.value)}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        onChange={setToolSearchText}
                     />
                 </div>
-            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                {Object.entries(queryToolResults).length === 0 ? (
-                    <div className="col-span-full text-center py-8 text-gray-500">
-                        No tools found.
+                <ToolResultSelect 
+                    isFilesLoading={isFilesLoading} 
+                    results={queryToolResults} 
+                    handleToolSelect={handleToolSelect}
+                />
+
+                {isFilesLoading && (
+                    <div
+                        className="mt-4 sm:mt-6 p-3 sm:p-4 bg-blue-50 rounded-lg border border-blue-200 flex items-center gap-2 sm:gap-3">
+                        <LoaderIcon className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 animate-spin shrink-0"/>
+                        <p className="text-sm sm:text-base text-blue-900">Loading files from FileMetrix...</p>
                     </div>
-                ) :
-                    (Object.entries(queryToolResults) as [string, ToolConfig][]).map(([key, config]) => (
+                )}
+
+                {filesError && (
+                    <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-red-50 rounded-lg border border-red-200">
+                        <p className="text-sm sm:text-base text-red-900 wrap-break-word">{filesError}</p>
                         <button
-                            key={key}
-                            onClick={() => handleToolSelect(key)}
-                            disabled={loadingFiles}
-                            className="p-4 sm:p-6 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={() => selectedToolId && handleToolSelect(selectedToolId)}
+                            className="mt-2 sm:mt-3 text-xs sm:text-sm text-red-700 underline"
                         >
-                            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1 sm:mb-2">{config.name}</h3>
-                            <p className="text-xs sm:text-sm text-gray-600">{config.description}</p>
+                            Try again
                         </button>
-                    ))}
+                    </div>
+                )}
+
             </div>
-
-            {loadingFiles && (
-                <div
-                    className="mt-4 sm:mt-6 p-3 sm:p-4 bg-blue-50 rounded-lg border border-blue-200 flex items-center gap-2 sm:gap-3">
-                    <LoaderIcon className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 animate-spin shrink-0"/>
-                    <p className="text-sm sm:text-base text-blue-900">Loading files from FileMetrix...</p>
-                </div>
-            )}
-
-            {filesError && (
-                <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-red-50 rounded-lg border border-red-200">
-                    <p className="text-sm sm:text-base text-red-900 wrap-break-word">{filesError}</p>
-                    <button
-                        onClick={() => selectedToolId && handleToolSelect(selectedToolId)}
-                        className="mt-2 sm:mt-3 text-xs sm:text-sm text-red-700 underline"
-                    >
-                        Try again
-                    </button>
-                </div>
-            )}
-
-            <div className="mt-4 sm:mt-6">
-                <button
-                    onClick={() => navigate('/search?q=' + (searchParams.get('q') || ''))}
-                    className="text-sm sm:text-base text-blue-600 hover:text-blue-700 font-medium"
-                >
-                    ← Back to Search Results
-                </button>
-            </div>
-        </div>
-    );
+        )
+    };
 
     // Render file mapping step
     const { toolConfig } = useSelectedToolId(selectedToolId);
@@ -780,13 +797,6 @@ export const DataplayerPage = () => {
                         )}
 
                         <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3 mt-4 sm:mt-6">
-                            <button
-                                onClick={() => navigate('/search?q=' + (searchParams.get('q') || ''))}
-                                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 transition-colors cursor-pointer"
-                            >
-                                Back to Search Results
-                            </button>
-
                             {statusType === 'error' && (
                                 <button
                                     onClick={() => {
@@ -836,6 +846,14 @@ export const DataplayerPage = () => {
                         <p className="text-sm sm:text-base text-gray-900 wrap-break-word">{datasetTitle}</p>
                     </div>
                 )}
+                <div className="mt-4 sm:mt-6">
+                    <button
+                        onClick={() => navigate('/search?q=' + (searchParams.get('q') || ''))}
+                        className="text-sm sm:text-base text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                        ← Back to Search Results
+                    </button>
+                </div>
             </div>
 
             <div className="flex-1 container mx-auto p-4">
