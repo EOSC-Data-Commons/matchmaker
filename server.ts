@@ -325,7 +325,7 @@ app.post("/api/coordinator/start-task-old", async (req, res) => {
     const { selectedVRE, fileParameterMappings, files, datasetTitle } = req.body;
 
     try {
-    // 1️⃣ Prepare metadata
+        // 1️⃣ Prepare metadata
         const metadata = prepareDispatcherMetadata(
             selectedVRE,
             fileParameterMappings,
