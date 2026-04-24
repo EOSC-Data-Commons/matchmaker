@@ -28,7 +28,7 @@ import {
     SearchToolsByTextRequest,
     ToolState_State,
 } from "./src/lib/server/generated/coordinator.ts";
-import { FileMeta, ToolConfig, TypLaunchToolRequest } from "./src/types/dataplayerTypes.ts";
+import { FileMeta, TaskState, TaskStatus, ToolConfig, TypLaunchToolRequest } from "./src/types/dataplayerTypes.ts";
 
 // Constants
 const DEVELOPMENT = process.env.NODE_ENV !== "production";
@@ -141,7 +141,7 @@ app.get("/api/coordinator/task-status/:taskId", async (req, res) => {
         if (currentState && currentState != lastState) {
             lastState = currentState;
 
-            let stateStr = null;
+            let stateStr = "UNKNOWN";
             // XXX: ??? why currentState don't match?
             // if (currentState === ToolState_State.PREPARING) {
             //     stateStr = "PREPARING";
@@ -152,14 +152,14 @@ app.get("/api/coordinator/task-status/:taskId", async (req, res) => {
             if (currentState === ToolState_State.DROPPED) {
                 stateStr = "DROPPED";
             }
-            if (currentState === ToolState_State.UNRECOGNIZED) {
-                stateStr = "UNRECOGNIZED";
-            }
+            // TODO: stateStr as TaskState
+            const payload: TaskStatus = {
+                state: stateStr as TaskState,
+                message: toolState?.log?? "",
+            };
+
             res.write(`event: state\ndata: ${
-                JSON.stringify({
-                    state: stateStr,
-                    message: toolState?.log,
-                })
+                JSON.stringify(payload)
             }\n\n`);
         }
     });
