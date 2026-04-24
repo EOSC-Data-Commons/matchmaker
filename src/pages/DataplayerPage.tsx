@@ -116,6 +116,23 @@ function useSearchTextToQueryTool(toolSearchText: string) {
     return {debouncedSearch, queryToolResults}
 }
 
+function useSelectedToolId(selectedToolId: string) {
+    const [toolConfig, setToolConfig] = useState<ToolConfig | null>(null);
+
+    useEffect(() => {
+        async function load() {
+            const config = await getToolById(selectedToolId);
+            setToolConfig(config);
+        }
+
+        if (selectedToolId != null) {
+            load();
+        }
+    }, [selectedToolId]);
+
+    return {toolConfig}
+}
+
 export const DataplayerPage = () => {
     const [searchParams] = useSearchParams();
 
@@ -181,8 +198,6 @@ export const DataplayerPage = () => {
     const [taskId, setTaskId] = useState<string | null>(null);
     const [taskResult, setTaskResult] = useState<DispatchResult | null>(null);
 
-    const [toolConfig, setToolConfig] = useState<ToolConfig | null>(null);
-
     const [toolSearchText, setToolSearchText] =  useState("");
 
     const { queryToolResults: fileResults } = useFilesToQueryTool(files);
@@ -193,16 +208,6 @@ export const DataplayerPage = () => {
         ? searchResults
         : fileResults;
 
-    useEffect(() => {
-        async function load() {
-            const config = await getToolById(selectedToolId);
-            setToolConfig(config);
-        }
-
-        if (selectedToolId != null) {
-            load();
-        }
-    }, [selectedToolId]);
 
     // Handle tool selection
     const handleToolSelect = async (tool_id: string) => {
@@ -535,6 +540,7 @@ export const DataplayerPage = () => {
     );
 
     // Render file mapping step
+    const { toolConfig } = useSelectedToolId(selectedToolId);
     const renderFileMapping = () => {
         if (!selectedToolId) return null;
 
