@@ -34,3 +34,17 @@ export type TypLaunchToolRequest = {
   toolId: string;
   slotToFileMapping: Record<string, FileMeta>;
 };
+
+export type TaskState = 
+    | "PENDING"
+    | "PREPARING"
+    | "RUNNING"
+    | "READY"
+    | "DROPPED"
+    | "UNKNOWN"
+    | "ERROR";
+
+export interface TaskStatus {
+    state: TaskState;
+    message: string;
+};

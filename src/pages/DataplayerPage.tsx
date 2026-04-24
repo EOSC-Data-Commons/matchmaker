@@ -1,13 +1,11 @@
-import {JSX, useEffect, useState} from 'react';
+import {JSX, useEffect, useRef, useState} from 'react';
 import {useSearchParams, useNavigate} from 'react-router';
 import {LoaderIcon, CheckCircleIcon, XCircleIcon, AlertCircleIcon} from 'lucide-react';
 import {Footer} from '../components/Footer';
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 import eoscLogo from '@/assets/logo-eosc-data-commons.svg';
-import { DispatchResult, FileMeta, ToolConfig } from '@/types/dataplayerTypes';
+import { DispatchResult, FileMeta, TaskStatus, ToolConfig } from '@/types/dataplayerTypes';
 import { fetchFilesMetaByDatasetHandle, getDispatchResultById, getToolById, matchToolsByFiles, searchToolsByText, startLaunchTask, taskStatusAsEventSource } from '@/lib/coordinatorApi';
-
-export type TaskStatus = 'PENDING' | 'SUCCESS' | 'FAILURE' | 'RETRY' | 'STARTED';
 
 export interface TaskStatusResponse {
     status: TaskStatus;
@@ -16,6 +14,99 @@ export interface TaskStatusResponse {
 }
 
 export type StepType = 'select-analysis' | 'map-files' | 'submitting' | 'monitoring';
+
+function updateSlotMappings(
+    prev: Record<number, string>,
+    fileIndex: number,
+    slotName: string
+): Record<number, string> {
+    const newMappings = { ...prev };
+
+    // Remove this slot from any other file
+    Object.keys(newMappings).forEach(key => {
+        if (newMappings[parseInt(key)] === slotName) {
+            delete newMappings[parseInt(key)];
+        }
+    });
+
+    // Set new mapping (or remove if 'none')
+    if (slotName === 'none') {
+        delete newMappings[fileIndex];
+    } else {
+        newMappings[fileIndex] = slotName;
+    }
+
+    return newMappings;
+}
+
+function buildSlotToFileMapping(
+    mapping: Record<number, string>, 
+    files: FileMeta[]
+): Record<string, FileMeta> {
+    const result: Record<string, FileMeta> = {};
+
+    for (const [idxStr, slot] of Object.entries(mapping)) {
+        const idx = Number(idxStr);
+        result[slot] = files[idx];
+    }
+    return result;
+}
+
+function useTaskLauncher() {
+    const [taskId, setTaskId] = useState<string | null>(null);
+    const [taskResult, setTaskResult] = useState<DispatchResult | null>(null);
+    const esRef = useRef<EventSource | null>(null);
+
+    const resetTask = () => {
+        setTaskId(null);
+        setTaskResult(null);
+    };
+    
+    useEffect(() => {
+        return () => {
+            esRef.current?.close(); // cleanup on unmount
+        };
+    }, []);
+
+    const launch = async (
+        toolId: string,
+        mapping: Record<string, FileMeta>,
+        callbacks: {
+            onState: (data: TaskStatus) => void;
+            onSuccess: () => void;
+            onError: (err: unknown) => void;
+        }
+    ) => {
+        try {
+            // close previous connection if exists
+            esRef.current?.close();
+
+            const id = await startLaunchTask(toolId, mapping);
+            setTaskId(id);
+
+            const es = taskStatusAsEventSource(id);
+            esRef.current = es;
+
+            es.addEventListener("state", async (event) => {
+                const data: TaskStatus = JSON.parse(event.data);
+                callbacks.onState(data);
+
+                if (data.state === "READY") {
+                    es.close();
+                    esRef.current = null;
+
+                    const result = await getDispatchResultById(id);
+                    setTaskResult(result);
+                    callbacks.onSuccess();
+                }
+            });
+
+        } catch (err) {
+            callbacks.onError(err);
+        }
+    };
+    return { taskId, taskResult, launch, resetTask }; 
+}
 
 /**
  * Check if all required analysis parameters are mapped
@@ -37,7 +128,7 @@ function useDataset(datasetHandle: string) {
     const [error, setError] = useState<string | null>(null);
     const [files, setFiles] = useState<FileMeta[]>([]);
 
-    const reset_dataset = () => {
+    const resetDataset = () => {
         setFiles([]);
         setError(null);
     };
@@ -61,7 +152,7 @@ function useDataset(datasetHandle: string) {
         load();
     }, [datasetHandle]);
 
-    return {loading, files, error, reset_dataset}
+    return {loading, files, error, resetDataset}
 }
 
 function useFilesToQueryTool(files: FileMeta[]) {
@@ -150,7 +241,7 @@ export const DataplayerPage = () => {
     const [loadingFiles, setLoadingFiles] = useState(false);
     const [filesError, setFilesError] = useState<string | null>(null);
 
-    const {loading, files, error, reset_dataset} = useDataset(datasetHandle);
+    const {loading, files, error, resetDataset} = useDataset(datasetHandle);
 
     let content: JSX.Element | null;
     if (loading) {
@@ -195,8 +286,6 @@ export const DataplayerPage = () => {
     const [statusMessage, setStatusMessage] = useState('');
     // TODO: this state type should one to one mapped to tool state in grpc definition.
     const [statusType, setStatusType] = useState<'info' | 'success' | 'error' | 'warning'>('info');
-    const [taskId, setTaskId] = useState<string | null>(null);
-    const [taskResult, setTaskResult] = useState<DispatchResult | null>(null);
 
     const [toolSearchText, setToolSearchText] =  useState("");
 
@@ -228,120 +317,104 @@ export const DataplayerPage = () => {
         }
     };
 
-    // XXX: ----------- remove this part when tool registry has collected these tools
-    // XXX: Handle fixed tool selection
-    // TODO: the tools can be categorized as, turn this into an RFC.
-    // 1. slots based load
-    // 2. whole dataset direct load
-    // 3. selected files load
-    const mybinderTool: ToolConfig = {
-        name: "mybinder",
-        description: "Launch notebook via MyBinder",
-        slots: [],
-    };
-
-    const mybinderTool2: ToolConfig = {
-        name: "mybinder2",
-        description: "Launch notebook via MyBinder",
-        slots: [],
-    };
-
-    const fixedTools: Record<string, ToolConfig> = {
-        'id-mybinder': mybinderTool,
-        'id-mybinder2': mybinderTool2,
-    };
-
-    const [selectedFixedToolId, setSelectedFixedToolId] = useState<string | null>(null);
-    const fixedToolConfig = selectedFixedToolId
-        ? fixedTools[selectedFixedToolId]
-        : null;
-
-    function buildMyBinderUrl(datasetHandle: string): string | null {
-        try {
-            const url = new URL(datasetHandle);
-            console.warn(url);
-            console.warn(url.hostname);
-
-            if (url.hostname !== "github.com") {
-                return null; // not supported here
-            }
-
-            const parts = url.pathname.split("/").filter(Boolean);
-            const user = parts[0];
-            const repo = parts[1];
-
-            // default branch
-            let branch = "main";
-
-            // handle /tree/<branch>
-            if (parts[2] === "tree" && parts[3]) {
-                branch = parts[3];
-            }
-            console.warn(branch);
-            console.warn(user);
-            console.warn(repo);
-
-            return `https://mybinder.org/v2/gh/${user}/${repo}/${branch}`;
-        } catch {
-            return null;
-        }
-    }
-
-    const handleFixedToolSelect = async (tool_id: string) => {
-        if (!tool_id) return;
-
-        setSelectedFixedToolId(tool_id);
-
-        try {
-            setCurrentStep('submitting');
-
-            if (fixedToolConfig["name"] === "mybinder") {
-                const binderUrl = buildMyBinderUrl(datasetHandle);
-                const dispatcherResult: DispatchResult = {
-                    url: binderUrl
-                    // url: "https://example.com"
-                };
-                setTaskResult(dispatcherResult);
-                        
-                setCurrentStep("monitoring");
-                setStatusType("success");
-                setStatusMessage("Virtual Research Environment task completed!");
-            } else {
-                throw new Error(`Unsupported tool: ${fixedToolConfig.name}`);
-            }
-        } catch (error) {
-            console.error("Error submitting:", error);
-            setStatusType("error");
-            setStatusMessage(
-                error instanceof Error ? error.message : "Unknown error"
-            );
-        } 
-    };
-    // XXX: -----------
+    // // XXX: ----------- remove this part when tool registry has collected these tools
+    // // XXX: Handle fixed tool selection
+    // // TODO: the tools can be categorized as, turn this into an RFC.
+    // // 1. slots based load
+    // // 2. whole dataset direct load
+    // // 3. selected files load
+    // const mybinderTool: ToolConfig = {
+    //     name: "mybinder",
+    //     description: "Launch notebook via MyBinder",
+    //     slots: [],
+    // };
+    //
+    // const mybinderTool2: ToolConfig = {
+    //     name: "mybinder2",
+    //     description: "Launch notebook via MyBinder",
+    //     slots: [],
+    // };
+    //
+    // const fixedTools: Record<string, ToolConfig> = {
+    //     'id-mybinder': mybinderTool,
+    //     'id-mybinder2': mybinderTool2,
+    // };
+    //
+    // const [selectedFixedToolId, setSelectedFixedToolId] = useState<string | null>(null);
+    // const fixedToolConfig = selectedFixedToolId
+    //     ? fixedTools[selectedFixedToolId]
+    //     : null;
+    //
+    // function buildMyBinderUrl(datasetHandle: string): string | null {
+    //     try {
+    //         const url = new URL(datasetHandle);
+    //         console.warn(url);
+    //         console.warn(url.hostname);
+    //
+    //         if (url.hostname !== "github.com") {
+    //             return null; // not supported here
+    //         }
+    //
+    //         const parts = url.pathname.split("/").filter(Boolean);
+    //         const user = parts[0];
+    //         const repo = parts[1];
+    //
+    //         // default branch
+    //         let branch = "main";
+    //
+    //         // handle /tree/<branch>
+    //         if (parts[2] === "tree" && parts[3]) {
+    //             branch = parts[3];
+    //         }
+    //         console.warn(branch);
+    //         console.warn(user);
+    //         console.warn(repo);
+    //
+    //         return `https://mybinder.org/v2/gh/${user}/${repo}/${branch}`;
+    //     } catch {
+    //         return null;
+    //     }
+    // }
+    //
+    // const handleFixedToolSelect = async (tool_id: string) => {
+    //     if (!tool_id) return;
+    //
+    //     setSelectedFixedToolId(tool_id);
+    //
+    //     try {
+    //         setCurrentStep('submitting');
+    //
+    //         if (fixedToolConfig["name"] === "mybinder") {
+    //             const binderUrl = buildMyBinderUrl(datasetHandle);
+    //             const dispatcherResult: DispatchResult = {
+    //                 url: binderUrl
+    //             };
+    //             setTaskResult(dispatcherResult);
+    //                     
+    //             setCurrentStep("monitoring");
+    //             setStatusType("success");
+    //             setStatusMessage("Virtual Research Environment task completed!");
+    //         } else {
+    //             throw new Error(`Unsupported tool: ${fixedToolConfig.name}`);
+    //         }
+    //     } catch (error) {
+    //         console.error("Error submitting:", error);
+    //         setStatusType("error");
+    //         setStatusMessage(
+    //             error instanceof Error ? error.message : "Unknown error"
+    //         );
+    //     } 
+    // };
+    // // XXX: -----------
 
     // Handle input slot mapping change
     const handleSlotSet = (fileIndex: number, slotName: string) => {
-        setFileParameterMappings(prev => {
-            const newMappings = {...prev};
-
-            // Remove this slot from any other file
-            Object.keys(newMappings).forEach(key => {
-                if (newMappings[parseInt(key)] === slotName) {
-                    delete newMappings[parseInt(key)];
-                }
-            });
-
-            // Set new mapping (or remove if 'none')
-            if (slotName === 'none') {
-                delete newMappings[fileIndex];
-            } else {
-                newMappings[fileIndex] = slotName;
-            }
-
-            return newMappings;
-        });
+        setFileParameterMappings(prev =>  
+            updateSlotMappings(prev, fileIndex, slotName)
+        );
     };
 
+    const { taskId, taskResult, launch, resetTask } = useTaskLauncher();
     const handleSubmit = async () => {
         if (!selectedToolId) return;
 
@@ -351,49 +424,30 @@ export const DataplayerPage = () => {
             setStatusType("info");
 
             console.log("selected tool id:" + selectedToolId);
-            const slotToFileMapping = ((mapping, fs) => {
-                const result: Record<string, FileMeta> = {};
+            const slotToFileMapping = buildSlotToFileMapping(fileParameterMappings, files);
 
-                for (const [idxStr, slot] of Object.entries(mapping)) {
-                    const idx = Number(idxStr);
-                    result[slot] = fs[idx];
-                }
-                return result;
-            })(fileParameterMappings, files);
+            await launch(selectedToolId, slotToFileMapping, {
+                onState: (data) => {
+                    setStatusMessage(data.message);
+                    setStatusType(
+                        data.state === "READY"
+                            ? "success"
+                            : "info"
+                    );
+                    console.warn(data.state);
+                },
 
-            const taskId = await startLaunchTask(selectedToolId, slotToFileMapping);
-            setTaskId(taskId);
+                onSuccess: () => {
+                    setCurrentStep("monitoring");
+                    setStatusMessage("Virtual Research Environment task completed!");
+                }, 
 
-            setStatusMessage(`Task ${taskId} submitted! Monitoring progress...`);
-            setStatusType("info");
-
-            // SSE for task progress update
-            const es = taskStatusAsEventSource(taskId);
-            es.addEventListener("state", async (event) => {
-                const data = JSON.parse(event.data);
-                setStatusMessage(data.message);
-                setStatusType(
-                    data.state === "READY"
-                        ? "success"
-                        : "info"
-                );
-                console.warn(data.state);
-                if (data.state === "READY") {
-                    es.close();
-                    
-                    try {
-                        const dispatcherResult = await getDispatchResultById(taskId);
-                        setTaskResult(dispatcherResult);
-                        
-                        setCurrentStep("monitoring");
-                        setStatusMessage("Virtual Research Environment task completed!");
-                    } catch (err) {
-                        console.error(err);
-                        setStatusMessage("Failed to fetch task result");
-                        setCurrentStep("map-files");
-                        setStatusType("error");
-                    }
-                }
+                onError: (err) => {
+                    console.error(err);
+                    setStatusMessage("Failed to fetch task result");
+                    setCurrentStep("map-files");
+                    setStatusType("error");
+                },
             });
         } catch (err) {
             console.error(err);
@@ -441,38 +495,38 @@ export const DataplayerPage = () => {
 
             <div className="space-y-6">
                 {/* Dropdown block */}
-                <div className="p-4 border rounded-lg bg-gray-50">
-                    <p className="text-sm font-semibold text-gray-800 mb-2">
-                        Choose from predefined tools (!only for demo purpose!)
-                    </p>
-                    <select
-                        value={selectedFixedToolId}
-                        onChange={(e) => setSelectedFixedToolId(e.target.value)}
-                        className="w-full p-3 border-2 border-gray-200 rounded-lg bg-white"
-                    >
-                        <option value="" disabled>
-        Select tool
-                        </option>
-
-                        {(Object.entries(fixedTools) as [string, ToolConfig][]).map(
-                            ([key, config]) => (
-                                <option key={key} value={key}>
-                                    {config.name}
-                                </option>
-                            )
-                        )}
-                    </select>
-                    <button
-                        onClick={() => handleFixedToolSelect(selectedFixedToolId)}
-                        disabled={!selectedFixedToolId}
-                        className="mt-3 w-full p-3 bg-blue-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-    Confirm
-                    </button>
-                </div>
+                {/*             <div className="p-4 border rounded-lg bg-gray-50"> */}
+                {/*                 <p className="text-sm font-semibold text-gray-800 mb-2"> */}
+                {/*                     Choose from predefined tools (!only for demo purpose!) */}
+                {/*                 </p> */}
+                {/*                 <select */}
+                {/*                     value={selectedFixedToolId} */}
+                {/*                     onChange={(e) => setSelectedFixedToolId(e.target.value)} */}
+                {/*                     className="w-full p-3 border-2 border-gray-200 rounded-lg bg-white" */}
+                {/*                 > */}
+                {/*                     <option value="" disabled> */}
+                {/*     Select tool */}
+                {/*                     </option> */}
+                {/**/}
+                {/*                     {(Object.entries(fixedTools) as [string, ToolConfig][]).map( */}
+                {/*                         ([key, config]) => ( */}
+                {/*                             <option key={key} value={key}> */}
+                {/*                                 {config.name} */}
+                {/*                             </option> */}
+                {/*                         ) */}
+                {/*                     )} */}
+                {/*                 </select> */}
+                {/*                 <button */}
+                {/*                     onClick={() => handleFixedToolSelect(selectedFixedToolId)} */}
+                {/*                     disabled={!selectedFixedToolId} */}
+                {/*                     className="mt-3 w-full p-3 bg-blue-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed" */}
+                {/*                 > */}
+                {/* Confirm */}
+                {/*                 </button> */}
+                {/*             </div> */}
 
                 {/* Divider */}
-                <div className="text-center text-gray-400 text-sm">OR</div>
+                {/* <div className="text-center text-gray-400 text-sm">OR</div> */}
 
                 {/* Search block */}
                 <div className="p-4 border rounded-lg">
@@ -644,7 +698,7 @@ export const DataplayerPage = () => {
                         onClick={() => {
                             setCurrentStep('select-analysis');
                             setSelectedToolId(null);
-                            reset_dataset();
+                            resetDataset();
                             setFileParameterMappings({});
                         }}
                         className="text-sm sm:text-base text-blue-600 hover:text-blue-700 font-medium text-center sm:text-left"
@@ -738,10 +792,9 @@ export const DataplayerPage = () => {
                                     onClick={() => {
                                         setCurrentStep('select-analysis');
                                         setSelectedToolId(null);
-                                        reset_dataset();
+                                        resetDataset();
                                         setFileParameterMappings({});
-                                        setTaskId(null);
-                                        setTaskResult(null);
+                                        resetTask();
                                     }}
                                     className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md bg-gray-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-gray-700 transition-colors cursor-pointer"
                                 >
