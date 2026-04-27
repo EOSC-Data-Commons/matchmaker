@@ -1,0 +1,3 @@
+[submodule "req-packager"]
+	path = req-packager
+	url = https://github.com/EOSC-Data-Commons/req-packager.git
