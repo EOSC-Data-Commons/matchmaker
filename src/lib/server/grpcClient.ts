@@ -18,21 +18,29 @@
 import * as grpc from "@grpc/grpc-js";
 import jwt from "jsonwebtoken";
 
-
 // These are all generated from your .proto by ts-proto
 import {
     BrowseDatasetByUrlRequest,
-    BrowseDatasetRequest,
     BrowseDatasetResponse,
     DataplayerServiceClient,
     DatasetServiceClient,
     FileEntry,
-    FindToolsRequest,
     LaunchToolRequest,
-    ToolMeta,
     ToolServiceClient,
 } from "./generated/coordinator.ts";
-import { FileMeta } from "../types.ts";
+
+// re-export so it can be access from server.rs
+export {
+    GetArtifactRequest,
+    GetToolRequest,
+    MatchToolsByDataRequest,
+    MonitorStateRequest,
+    MonitorStateResponse,
+    SearchToolsByTextRequest,
+    ToolState_State,
+} from "./generated/coordinator.ts";
+
+import { FileMeta } from "@/types/dataplayerTypes.ts";
 
 const GRPC_TARGET = "[::1]:50051";
 
@@ -129,65 +137,6 @@ function createInsecureChannel(): grpc.ChannelCredentials {
     return grpc.credentials.createInsecure();
 }
 
-// fetchDatasetFiles — server-streaming RPC
-// mirrors Rust `fetch_dataset_files`
-// this one goes to DB to get file metadata
-export async function fetchDatasetFilesFromDatadaseByUUID(
-    uuid: string,
-): Promise<FileMeta[]> {
-    const token = createToken();
-    const metadata = makeAuthMetadata(token);
-
-    const client = getDatasetClient();
-
-    const request: BrowseDatasetRequest = {
-        uuid,
-        urlDatarepo: "https://example.com/datasets",
-        idDataset: "1",
-    };
-
-    return new Promise((resolve, reject) => {
-        const stream = client.browseDataset(request, metadata);
-        const files: FileMeta[] = [];
-
-        stream.on("data", (resp: BrowseDatasetResponse) => {
-            if (resp.fileEntry) {
-                files.push(fileEntryToFileMeta(resp.fileEntry));
-                return;
-            }
-
-            if (resp.datasetInfo) {
-                return;
-            }
-
-            if (resp.progress) {
-                return;
-            }
-
-            if (resp.complete) {
-                // stream.cancel();
-                return;
-            }
-
-            if (resp.error) {
-                console.error("browse error:", resp.error);
-                return;
-            }
-        });
-
-        stream.on("end", () => {
-            // XXX: should I close the client??
-            client.close();
-            resolve(files);
-        });
-
-        stream.on("error", (err: grpc.ServiceError) => {
-            client.close();
-            reject(err);
-        });
-    });
-}
-
 // TODO: this is yet a blocking call that collect all files.
 // It need to be lazily spit out files and pop in the browser page.
 // this one goes to datahugger to get file metadata, it will merge into filemetrix requset
@@ -240,35 +189,6 @@ export async function fetchDatasetFilesFromDatahuggerByUrl(
 
         call.on("error", (err: grpc.ServiceError) => {
             reject(err);
-        });
-    });
-}
-
-// ---------------------------------------------------------------------------
-// findTools — unary RPC
-// mirrors Rust `find_tools`
-// ---------------------------------------------------------------------------
-
-export async function findTools(files: FileMeta[]): Promise<ToolMeta[]> {
-    const token = createToken();
-    const metadata = makeAuthMetadata(token);
-
-    // TODO: in-efficient to create HTTP/2 channel every call, make it a singleton.
-    const client = new ToolServiceClient(GRPC_TARGET, createInsecureChannel());
-
-    const request: FindToolsRequest = {
-        files: files.map(fileMetaToFileEntry),
-    };
-
-    return new Promise((resolve, reject) => {
-        client.findTools(request, metadata, (err, response) => {
-            // TODO: if go with singleton client, client should not close in the call.
-            client.close();
-            if (err) {
-                reject(err);
-                return;
-            }
-            resolve(response!.tools);
         });
     });
 }

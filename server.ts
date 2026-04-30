@@ -11,15 +11,6 @@ import {
     getDataplayerClient,
     getToolSrcClient,
     launchTool,
-} from "./src/lib/server/grpcClient.ts";
-
-import {
-    checkTaskStatus,
-    prepareDispatcherMetadata,
-    submitMetadataToDispatcher,
-} from "./src/lib/deprecatedDispatcherApi.ts";
-
-import {
     GetArtifactRequest,
     GetToolRequest,
     MatchToolsByDataRequest,
@@ -27,7 +18,8 @@ import {
     MonitorStateResponse,
     SearchToolsByTextRequest,
     ToolState_State,
-} from "./src/lib/server/generated/coordinator.ts";
+} from "./src/lib/server/grpcClient.ts";
+
 import { FileMeta, TaskState, TaskStatus, ToolConfig, TypLaunchToolRequest } from "./src/types/dataplayerTypes.ts";
 
 // Constants
@@ -315,79 +307,6 @@ app.get("/api/coordinator/tool/get/:toolId", async (req, res) => {
     } catch (err) {
         console.error(err);
     }
-});
-
-// POST endpoint to prepare + submit metadata
-app.use(express.json());
-app.post("/api/coordinator/start-task-old", async (req, res) => {
-    console.debug("headers:", req.headers);
-    console.debug("body:", req.body);
-    const { selectedVRE, fileParameterMappings, files, datasetTitle } = req.body;
-
-    try {
-        // 1️⃣ Prepare metadata
-        const metadata = prepareDispatcherMetadata(
-            selectedVRE,
-            fileParameterMappings,
-            files,
-            datasetTitle,
-        );
-
-        // 2️⃣ Submit metadata
-        const submissionResult = await submitMetadataToDispatcher(metadata);
-
-        if (!submissionResult.task_id) {
-            return res.status(500).json({ error: "No task_id returned" });
-        }
-
-        // 3️⃣ Return task ID for SSE tracking
-        res.json({ taskId: submissionResult.task_id });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({
-            error: err instanceof Error ? err.message : String(err),
-        });
-    }
-});
-
-app.get("/api/coordinator/task-status-old/:taskId", async (req, res) => {
-    const { taskId } = req.params;
-
-    // SSE headers
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-
-    const interval = setInterval(async () => {
-        try {
-            const statusResult = await checkTaskStatus(taskId);
-
-            // Stream progress
-            res.write(`event: progress\ndata: ${
-                JSON.stringify({
-                    status: statusResult.status,
-                })
-            }\n\n`);
-
-            // Done
-            if (
-                statusResult.status === "SUCCESS" || statusResult.status === "FAILURE"
-            ) {
-                res.write(`event: result\ndata: ${JSON.stringify(statusResult)}\n\n`);
-                clearInterval(interval);
-                res.end();
-            }
-        } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
-
-            res.write(`event: error\ndata: ${JSON.stringify({ message })}\n\n`);
-            clearInterval(interval);
-            res.end();
-        }
-    }, 1000);
-
-    // Clean up if client disconnects
-    req.on("close", () => clearInterval(interval));
 });
 
 app.get("/api/coordinator/files", async (req, res) => {
