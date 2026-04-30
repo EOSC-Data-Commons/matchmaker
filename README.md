@@ -167,13 +167,19 @@ This will generate a `./src/generated/coordinator.ts` file contains all types to
 
 UI frontend `pages/FooPage.tsx` -\- `lib/coordinatorApi.ts` (implement wrapper of request call of `/api/foobar...`)  
 
+Majorly maintained by @ritwikshanker.
+
 <----> 
 
 UI server `server.ts` -\- `lib/server/grpcClient.ts` (grpc client run on the UI server talk to grpc server deployed by req-packager).
 
+Majorly maintained by @unkcpz
+
 <--HTTP/2--> 
 
 coordinator server run as a binary (as grpc server) which hide the backend services from UI.
+
+Majorly maintained by @unkcpz as [request packager](https://github.com/EOSC-Data-Commons/req-packager) (a.k.a coordinator under matchmaker context)
 
 ## How to Search
 
