@@ -58,10 +58,12 @@ export async function searchToolsByText(text: string): Promise<Record<string, To
 
 export async function startLaunchTask(
     toolId: string, 
+    dataset: string,
     slotToFileMapping: Record<string, FileMeta>
 ): Promise<TaskId> {
     const payload: TypLaunchToolRequest = {
         toolId,
+        dataset,
         slotToFileMapping,
     };
     const res = await fetch("/api/coordinator/start-task", {

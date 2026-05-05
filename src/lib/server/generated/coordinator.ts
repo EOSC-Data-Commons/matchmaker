@@ -305,8 +305,9 @@ export interface ToolState {
 
 export enum ToolState_State {
   PREPARING = 0,
-  READY = 8,
-  DROPPED = 9,
+  READY = 7,
+  DROPPED = 8,
+  EXCEPTION = 9,
   UNRECOGNIZED = -1,
 }
 
@@ -315,12 +316,15 @@ export function toolState_StateFromJSON(object: any): ToolState_State {
     case 0:
     case "PREPARING":
       return ToolState_State.PREPARING;
-    case 8:
+    case 7:
     case "READY":
       return ToolState_State.READY;
-    case 9:
+    case 8:
     case "DROPPED":
       return ToolState_State.DROPPED;
+    case 9:
+    case "EXCEPTION":
+      return ToolState_State.EXCEPTION;
     case -1:
     case "UNRECOGNIZED":
     default:
@@ -336,6 +340,8 @@ export function toolState_StateToJSON(object: ToolState_State): string {
       return "READY";
     case ToolState_State.DROPPED:
       return "DROPPED";
+    case ToolState_State.EXCEPTION:
+      return "EXCEPTION";
     case ToolState_State.UNRECOGNIZED:
     default:
       return "UNRECOGNIZED";
@@ -347,9 +353,12 @@ export function toolState_StateToJSON(object: ToolState_State): string {
  * But in fact, some tool need config files that is independent of data files passed in.
  * We may also want to extend this as a tool can be a combination of multiple tool such as resource provider tool.
  * This interface high likely will be full re-definded.
+ *
+ * dataset is the url of dataset handler, this should be resolvable by datahugger.
  */
 export interface LaunchToolRequest {
   toolId: string;
+  dataset: string;
   slotsMapping: { [key: string]: FileEntry };
 }
 
@@ -420,6 +429,9 @@ export interface EoscInlineTool {
   callbackUrl: string;
 }
 
+export interface FailedTool {
+}
+
 /** ?? how?? */
 export interface DesktopTool {
 }
@@ -427,6 +439,7 @@ export interface DesktopTool {
 export interface GetArtifactResponse {
   eoscInline?: EoscInlineTool | undefined;
   hosted?: HostedTool | undefined;
+  failed?: FailedTool | undefined;
 }
 
 function createBaseFileEntry(): FileEntry {
@@ -2396,7 +2409,7 @@ export const ToolState: MessageFns<ToolState> = {
 };
 
 function createBaseLaunchToolRequest(): LaunchToolRequest {
-  return { toolId: "", slotsMapping: {} };
+  return { toolId: "", dataset: "", slotsMapping: {} };
 }
 
 export const LaunchToolRequest: MessageFns<LaunchToolRequest> = {
@@ -2404,8 +2417,11 @@ export const LaunchToolRequest: MessageFns<LaunchToolRequest> = {
     if (message.toolId !== "") {
       writer.uint32(10).string(message.toolId);
     }
+    if (message.dataset !== "") {
+      writer.uint32(18).string(message.dataset);
+    }
     globalThis.Object.entries(message.slotsMapping).forEach(([key, value]: [string, FileEntry]) => {
-      LaunchToolRequest_SlotsMappingEntry.encode({ key: key as any, value }, writer.uint32(18).fork()).join();
+      LaunchToolRequest_SlotsMappingEntry.encode({ key: key as any, value }, writer.uint32(26).fork()).join();
     });
     return writer;
   },
@@ -2430,9 +2446,17 @@ export const LaunchToolRequest: MessageFns<LaunchToolRequest> = {
             break;
           }
 
-          const entry2 = LaunchToolRequest_SlotsMappingEntry.decode(reader, reader.uint32());
-          if (entry2.value !== undefined) {
-            message.slotsMapping[entry2.key] = entry2.value;
+          message.dataset = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          const entry3 = LaunchToolRequest_SlotsMappingEntry.decode(reader, reader.uint32());
+          if (entry3.value !== undefined) {
+            message.slotsMapping[entry3.key] = entry3.value;
           }
           continue;
         }
@@ -2452,6 +2476,7 @@ export const LaunchToolRequest: MessageFns<LaunchToolRequest> = {
         : isSet(object.tool_id)
         ? globalThis.String(object.tool_id)
         : "",
+      dataset: isSet(object.dataset) ? globalThis.String(object.dataset) : "",
       slotsMapping: isObject(object.slotsMapping)
         ? (globalThis.Object.entries(object.slotsMapping) as [string, any][]).reduce(
           (acc: { [key: string]: FileEntry }, [key, value]: [string, any]) => {
@@ -2477,6 +2502,9 @@ export const LaunchToolRequest: MessageFns<LaunchToolRequest> = {
     if (message.toolId !== "") {
       obj.toolId = message.toolId;
     }
+    if (message.dataset !== "") {
+      obj.dataset = message.dataset;
+    }
     if (message.slotsMapping) {
       const entries = globalThis.Object.entries(message.slotsMapping) as [string, FileEntry][];
       if (entries.length > 0) {
@@ -2495,6 +2523,7 @@ export const LaunchToolRequest: MessageFns<LaunchToolRequest> = {
   fromPartial<I extends Exact<DeepPartial<LaunchToolRequest>, I>>(object: I): LaunchToolRequest {
     const message = createBaseLaunchToolRequest();
     message.toolId = object.toolId ?? "";
+    message.dataset = object.dataset ?? "";
     message.slotsMapping = (globalThis.Object.entries(object.slotsMapping ?? {}) as [string, FileEntry][]).reduce(
       (acc: { [key: string]: FileEntry }, [key, value]: [string, FileEntry]) => {
         if (value !== undefined) {
@@ -3542,6 +3571,49 @@ export const EoscInlineTool: MessageFns<EoscInlineTool> = {
   },
 };
 
+function createBaseFailedTool(): FailedTool {
+  return {};
+}
+
+export const FailedTool: MessageFns<FailedTool> = {
+  encode(_: FailedTool, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): FailedTool {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseFailedTool();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): FailedTool {
+    return {};
+  },
+
+  toJSON(_: FailedTool): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<FailedTool>, I>>(base?: I): FailedTool {
+    return FailedTool.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<FailedTool>, I>>(_: I): FailedTool {
+    const message = createBaseFailedTool();
+    return message;
+  },
+};
+
 function createBaseDesktopTool(): DesktopTool {
   return {};
 }
@@ -3586,7 +3658,7 @@ export const DesktopTool: MessageFns<DesktopTool> = {
 };
 
 function createBaseGetArtifactResponse(): GetArtifactResponse {
-  return { eoscInline: undefined, hosted: undefined };
+  return { eoscInline: undefined, hosted: undefined, failed: undefined };
 }
 
 export const GetArtifactResponse: MessageFns<GetArtifactResponse> = {
@@ -3596,6 +3668,9 @@ export const GetArtifactResponse: MessageFns<GetArtifactResponse> = {
     }
     if (message.hosted !== undefined) {
       HostedTool.encode(message.hosted, writer.uint32(18).fork()).join();
+    }
+    if (message.failed !== undefined) {
+      FailedTool.encode(message.failed, writer.uint32(26).fork()).join();
     }
     return writer;
   },
@@ -3623,6 +3698,14 @@ export const GetArtifactResponse: MessageFns<GetArtifactResponse> = {
           message.hosted = HostedTool.decode(reader, reader.uint32());
           continue;
         }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.failed = FailedTool.decode(reader, reader.uint32());
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -3640,6 +3723,7 @@ export const GetArtifactResponse: MessageFns<GetArtifactResponse> = {
         ? EoscInlineTool.fromJSON(object.eosc_inline)
         : undefined,
       hosted: isSet(object.hosted) ? HostedTool.fromJSON(object.hosted) : undefined,
+      failed: isSet(object.failed) ? FailedTool.fromJSON(object.failed) : undefined,
     };
   },
 
@@ -3650,6 +3734,9 @@ export const GetArtifactResponse: MessageFns<GetArtifactResponse> = {
     }
     if (message.hosted !== undefined) {
       obj.hosted = HostedTool.toJSON(message.hosted);
+    }
+    if (message.failed !== undefined) {
+      obj.failed = FailedTool.toJSON(message.failed);
     }
     return obj;
   },
@@ -3664,6 +3751,9 @@ export const GetArtifactResponse: MessageFns<GetArtifactResponse> = {
       : undefined;
     message.hosted = (object.hosted !== undefined && object.hosted !== null)
       ? HostedTool.fromPartial(object.hosted)
+      : undefined;
+    message.failed = (object.failed !== undefined && object.failed !== null)
+      ? FailedTool.fromPartial(object.failed)
       : undefined;
     return message;
   },

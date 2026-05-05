@@ -1,10 +1,10 @@
 import {useEffect, useRef, useState} from 'react';
 import {useSearchParams, useNavigate} from 'react-router';
-import {LoaderIcon, CheckCircleIcon, XCircleIcon, AlertCircleIcon} from 'lucide-react';
+import {LoaderIcon, CheckCircleIcon, XCircleIcon} from 'lucide-react';
 import {Footer} from '../components/Footer';
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 import eoscLogo from '@/assets/logo-eosc-data-commons.svg';
-import { DispatchResult, FileMeta, TaskStatus, ToolConfig } from '@/types/dataplayerTypes';
+import { DispatchResult, FileMeta, TaskState, TaskStatus, ToolConfig } from '@/types/dataplayerTypes';
 import { fetchFilesMetaByDatasetHandle, getDispatchResultById, getToolById, matchToolsByFiles, searchToolsByText, startLaunchTask, taskStatusAsEventSource } from '@/lib/coordinatorApi';
 
 export interface TaskStatusResponse {
@@ -70,6 +70,7 @@ function useTaskLauncher() {
 
     const launch = async (
         toolId: string,
+        dataset: string,
         mapping: Record<string, FileMeta>,
         callbacks: {
             onState: (data: TaskStatus) => void;
@@ -81,7 +82,7 @@ function useTaskLauncher() {
             // close previous connection if exists
             esRef.current?.close();
 
-            const id = await startLaunchTask(toolId, mapping);
+            const id = await startLaunchTask(toolId, dataset, mapping);
             setTaskId(id);
 
             const es = taskStatusAsEventSource(id);
@@ -294,7 +295,7 @@ export const DataplayerPage = () => {
 
     // Submission tracking
     const [statusMessage, setStatusMessage] = useState('');
-    const [statusType, setStatusType] = useState<'info' | 'success' | 'error' | 'warning'>('info');
+    const [statusType, setStatusType] = useState<TaskState>('PENDING');
 
     const [toolSearchText, setToolSearchText] =  useState("");
 
@@ -322,20 +323,16 @@ export const DataplayerPage = () => {
         try {
             setCurrentStep("submitting");
             setStatusMessage("Preparing Virtual Research Environment metadata...");
-            setStatusType("info");
+            setStatusType("PENDING");
 
             console.log("selected tool id:" + selectedToolId);
             const slotToFileMapping = buildSlotToFileMapping(fileParameterMappings, files);
 
-            await launch(selectedToolId, slotToFileMapping, {
+            await launch(selectedToolId, datasetHandle, slotToFileMapping, {
                 onState: (data) => {
                     setStatusMessage(data.message);
-                    setStatusType(
-                        data.state === "READY"
-                            ? "success"
-                            : "info"
-                    );
-                    console.warn(data.state);
+                    setStatusType(data.state);
+                    // console.warn(data.state);
                 },
 
                 onSuccess: () => {
@@ -347,13 +344,13 @@ export const DataplayerPage = () => {
                     console.error(err);
                     setStatusMessage("Failed to fetch task result");
                     setCurrentStep("map-files");
-                    setStatusType("error");
+                    setStatusType("EXCEPTION");
                 },
             });
         } catch (err) {
             console.error(err);
             setStatusMessage(err instanceof Error ? err.message : "Unknown error");
-            setStatusType("error");
+            setStatusType("EXCEPTION");
             setCurrentStep("map-files");
         }
     };
@@ -361,12 +358,10 @@ export const DataplayerPage = () => {
 
     const getStatusIcon = () => {
         switch (statusType) {
-        case 'success':
+        case "READY":
             return <CheckCircleIcon className="h-8 w-8 text-green-600"/>;
-        case 'error':
+        case "EXCEPTION":
             return <XCircleIcon className="h-8 w-8 text-red-600"/>;
-        case 'warning':
-            return <AlertCircleIcon className="h-8 w-8 text-yellow-600"/>;
         default:
             return <LoaderIcon className="h-8 w-8 text-blue-600 animate-spin"/>;
         }
@@ -374,12 +369,10 @@ export const DataplayerPage = () => {
 
     const getStatusColorClass = () => {
         switch (statusType) {
-        case 'success':
+        case "READY":
             return 'text-green-700 bg-green-50 border-green-200';
-        case 'error':
+        case "EXCEPTION":
             return 'text-red-700 bg-red-50 border-red-200';
-        case 'warning':
-            return 'text-yellow-700 bg-yellow-50 border-yellow-200';
         default:
             return 'text-blue-700 bg-blue-50 border-blue-200';
         }
@@ -673,7 +666,7 @@ export const DataplayerPage = () => {
                         )}
 
                         <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3 mt-4 sm:mt-6">
-                            {statusType === 'error' && (
+                            {statusType === "EXCEPTION" && (
                                 <button
                                     onClick={() => {
                                         setCurrentStep('select-analysis');
