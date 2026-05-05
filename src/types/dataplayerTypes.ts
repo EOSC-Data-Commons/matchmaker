@@ -4,8 +4,16 @@ export interface ToolConfig {
   slots: ToolSlot[];
 }
 
+export type InputParameterTyp = 
+    | "Number"
+    | "Text"
+    | "File"
+    | "Flag"
+    | "Unknown"
+
 export interface ToolSlot {
   name: string;
+  typ: InputParameterTyp;
   id: string;
 }
 

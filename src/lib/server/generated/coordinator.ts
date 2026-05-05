@@ -250,6 +250,7 @@ export interface BrowseComplete {
  */
 export interface Slot {
   id: string;
+  typ: string;
   name: string;
 }
 
@@ -1697,7 +1698,7 @@ export const BrowseComplete: MessageFns<BrowseComplete> = {
 };
 
 function createBaseSlot(): Slot {
-  return { id: "", name: "" };
+  return { id: "", typ: "", name: "" };
 }
 
 export const Slot: MessageFns<Slot> = {
@@ -1705,8 +1706,11 @@ export const Slot: MessageFns<Slot> = {
     if (message.id !== "") {
       writer.uint32(10).string(message.id);
     }
+    if (message.typ !== "") {
+      writer.uint32(18).string(message.typ);
+    }
     if (message.name !== "") {
-      writer.uint32(18).string(message.name);
+      writer.uint32(26).string(message.name);
     }
     return writer;
   },
@@ -1731,6 +1735,14 @@ export const Slot: MessageFns<Slot> = {
             break;
           }
 
+          message.typ = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
           message.name = reader.string();
           continue;
         }
@@ -1746,6 +1758,7 @@ export const Slot: MessageFns<Slot> = {
   fromJSON(object: any): Slot {
     return {
       id: isSet(object.id) ? globalThis.String(object.id) : "",
+      typ: isSet(object.typ) ? globalThis.String(object.typ) : "",
       name: isSet(object.name) ? globalThis.String(object.name) : "",
     };
   },
@@ -1754,6 +1767,9 @@ export const Slot: MessageFns<Slot> = {
     const obj: any = {};
     if (message.id !== "") {
       obj.id = message.id;
+    }
+    if (message.typ !== "") {
+      obj.typ = message.typ;
     }
     if (message.name !== "") {
       obj.name = message.name;
@@ -1767,6 +1783,7 @@ export const Slot: MessageFns<Slot> = {
   fromPartial<I extends Exact<DeepPartial<Slot>, I>>(object: I): Slot {
     const message = createBaseSlot();
     message.id = object.id ?? "";
+    message.typ = object.typ ?? "";
     message.name = object.name ?? "";
     return message;
   },
