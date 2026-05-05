@@ -18,6 +18,7 @@ import {
     MonitorStateResponse,
     SearchToolsByTextRequest,
     ToolState_State,
+    GrpcSlotToSlot,
 } from "./src/lib/server/grpcClient.ts";
 
 import { FileMeta, TaskState, TaskStatus, ToolConfig, TypLaunchToolRequest } from "./src/types/dataplayerTypes.ts";
@@ -235,7 +236,7 @@ app.post("/api/coordinator/tool/match", async (req, res) => {
                 const config: ToolConfig = {
                     name: tool.name,
                     description: tool.description,
-                    slots: tool.slots,
+                    slots: tool.slots.map(GrpcSlotToSlot),
                 };
 
                 foundTools[tool.id] = config;
@@ -267,7 +268,7 @@ app.get("/api/coordinator/tool/search", async (req, res) => {
                 const config: ToolConfig = {
                     name: tool.name,
                     description: tool.description,
-                    slots: tool.slots,
+                    slots: tool.slots.map(GrpcSlotToSlot),
                 };
 
                 foundTools[tool.id] = config;
@@ -304,8 +305,9 @@ app.get("/api/coordinator/tool/get/:toolId", async (req, res) => {
             const config: ToolConfig = {
                 name: tool.name,
                 description: tool.description,
-                slots: tool.slots,
+                slots: tool.slots.map(GrpcSlotToSlot),
             };
+            console.warn(config);
 
             res.json(config);
         });
