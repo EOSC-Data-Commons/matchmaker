@@ -91,6 +91,7 @@ app.post("/api/coordinator/start-task", async (req, res) => {
     // XXX: @reggie can I assume the unique id of tool in the tool registry is a valid UUID?
     const {
         toolId,
+        dataset,
         slotToFileMapping,
     } = req.body as TypLaunchToolRequest;
 
@@ -100,6 +101,7 @@ app.post("/api/coordinator/start-task", async (req, res) => {
         console.warn(slotToFileMapping);
         const taskId = await launchTool(
             toolId,
+            dataset,
             slotToFileMapping,
         );
 
@@ -155,6 +157,9 @@ app.get("/api/coordinator/task-status/:taskId", async (req, res) => {
             }
             if (currentState === ToolState_State.DROPPED) {
                 stateStr = "DROPPED";
+            }
+            if (currentState === ToolState_State.EXCEPTION) {
+                stateStr = "EXCEPTION";
             }
             // TODO: stateStr as TaskState
             const payload: TaskStatus = {

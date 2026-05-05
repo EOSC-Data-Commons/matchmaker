@@ -195,7 +195,7 @@ export async function fetchDatasetFilesFromDatahuggerByUrl(
 
 // data player service
 // TODO: string as id is not a good type, use TaskId and ToolId to distinguish them can be more clear.
-export async function launchTool(toolId: string, slotsMapping: Record<string, FileMeta>): Promise<string> {
+export async function launchTool(toolId: string, dataset: string, slotsMapping: Record<string, FileMeta>): Promise<string> {
     const token = createToken(); 
     const metadata = makeAuthMetadata(token);
 
@@ -210,6 +210,7 @@ export async function launchTool(toolId: string, slotsMapping: Record<string, Fi
 
     const request: LaunchToolRequest = {
         toolId,
+        dataset,
         slotsMapping: msgSlotsMapping,
     }
 
