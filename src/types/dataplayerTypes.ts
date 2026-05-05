@@ -32,9 +32,11 @@ export interface DispatchResult {
 
 export type TypLaunchToolRequest = {
   toolId: string;
+  dataset: string;
   slotToFileMapping: Record<string, FileMeta>;
 };
 
+// XXX: this need to sync with ToolState of protobuf
 export type TaskState = 
     | "PENDING"
     | "PREPARING"
@@ -42,7 +44,7 @@ export type TaskState =
     | "READY"
     | "DROPPED"
     | "UNKNOWN"
-    | "ERROR";
+    | "EXCEPTION"
 
 export interface TaskStatus {
     state: TaskState;
