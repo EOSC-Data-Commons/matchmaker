@@ -26,6 +26,7 @@ import {
     DatasetServiceClient,
     FileEntry,
     LaunchToolRequest,
+    Slot,
     ToolServiceClient,
 } from "./generated/coordinator.ts";
 
@@ -40,7 +41,7 @@ export {
     ToolState_State,
 } from "./generated/coordinator.ts";
 
-import { FileMeta } from "@/types/dataplayerTypes.ts";
+import { FileMeta, InputParameterTyp, ToolSlot } from "@/types/dataplayerTypes.ts";
 
 const GRPC_TARGET = "[::1]:50051";
 
@@ -70,6 +71,35 @@ function formatBytes(bytes: number): string {
     const i = Math.min(Math.floor(Math.log10(bytes) / 3), units.length - 1);
     const value = bytes / Math.pow(1000, i);
     return `${Number.isInteger(value) ? value : value.toFixed(1)} ${units[i]}`;
+}
+
+// function slotToGrpcSlot(slot: ToolSlot): Slot {
+//     return {
+//         id: slot.id,
+//         typ: slot.typ,
+//         name: slot.name,
+//     };
+// }
+
+export function GrpcSlotToSlot(slot: Slot): ToolSlot {
+    let typ: InputParameterTyp = "Unknown";
+    if (slot.typ === "number") {
+        typ = "Number";
+    }
+    if (slot.typ === "file") {
+        typ = "File";
+    }
+    if (slot.typ === "flag") {
+        typ = "Flag";
+    }
+    if (slot.typ === "string") {
+        typ = "Text";
+    }
+    return {
+        id: slot.id,
+        typ: typ,
+        name: slot.name,
+    };
 }
 
 /** mirrors Rust `impl From<grpc::FileEntry> for FileMeta` */

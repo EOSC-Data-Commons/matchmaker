@@ -114,11 +114,11 @@ function useTaskLauncher() {
  */
 const areAllParametersMapped = (
     config: ToolConfig,
-    fileParameterMappings: Record<number, string>
+    parametersMapping: Record<number, string>
 ): boolean => {
     if (!config) return false;
 
-    const mappedParameters = new Set(Object.values(fileParameterMappings));
+    const mappedParameters = new Set(Object.values(parametersMapping));
 
     // All analysis parameters must be mapped exactly once
     return config.slots.every(param => mappedParameters.has(param.name));
@@ -287,7 +287,7 @@ export const DataplayerPage = () => {
     const [selectedToolId, setSelectedToolId] = useState<string>(null);
 
     // File management
-    const [fileParameterMappings, setFileParameterMappings] = useState<Record<number, string>>({});
+    const [parametersMapping, setParametersMapping] = useState<Record<number, string>>({});
     const [filesError, setFilesError] = useState<string | null>(null);
 
     const {isFilesLoading, files, error, resetDataset} = useDataset(datasetHandle);
@@ -311,7 +311,7 @@ export const DataplayerPage = () => {
 
     // Handle input slot mapping change
     const handleSlotSet = (fileIndex: number, slotName: string) => {
-        setFileParameterMappings(prev =>  
+        setParametersMapping(prev =>  
             updateSlotMappings(prev, fileIndex, slotName)
         );
     };
@@ -326,7 +326,7 @@ export const DataplayerPage = () => {
             setStatusType("PENDING");
 
             console.log("selected tool id:" + selectedToolId);
-            const slotToFileMapping = buildSlotToFileMapping(fileParameterMappings, files);
+            const slotToFileMapping = buildSlotToFileMapping(parametersMapping, files);
 
             await launch(selectedToolId, datasetHandle, slotToFileMapping, {
                 onState: (data) => {
@@ -488,7 +488,7 @@ export const DataplayerPage = () => {
     const renderFileMapping = () => {
         if (!selectedToolId) return null;
 
-        const allParametersMapped = areAllParametersMapped(toolConfig, fileParameterMappings);
+        const allParametersMapped = areAllParametersMapped(toolConfig, parametersMapping);
 
         return (
             <div className="max-w-5xl mx-auto px-4 sm:px-6">
@@ -519,7 +519,7 @@ export const DataplayerPage = () => {
                     <p className="text-xs sm:text-sm font-medium text-gray-700 mb-2">Required Parameters:</p>
                     <div className="flex flex-wrap gap-1.5 sm:gap-2">
                         {toolConfig ? toolConfig.slots.map(param => {
-                            const isMapped = Object.values(fileParameterMappings).includes(param.name);
+                            const isMapped = Object.values(parametersMapping).includes(param.name);
                             return (
                                 <span
                                     key={param.name}
@@ -529,7 +529,7 @@ export const DataplayerPage = () => {
                                             : 'bg-yellow-100 text-yellow-800'
                                     }`}
                                 >
-                                    {param.name} {isMapped ? '✓' : '⚠'}
+                                    {param.name} ({param.typ}) {isMapped ? '✓' : '⚠'}
                                 </span>
                             );
                         }) : "Loading tool config"}
@@ -545,7 +545,10 @@ export const DataplayerPage = () => {
                                     Parameter
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    File Name
+                                    Data Type 
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Value
                                     </th>
                                 </tr>
                             </thead>
@@ -555,20 +558,45 @@ export const DataplayerPage = () => {
                                         <td className="px-6 py-4 text-sm text-gray-900 wrap-break-word">
                                             {param.name}
                                         </td>
+                                        <td className="px-6 py-4 text-sm text-gray-900 wrap-break-word">
+                                            {param.typ}
+                                        </td>
                                         <td className="px-6 py-4">
-                                            <select
-                                                onChange={(e) => handleSlotSet(Number(e.target.value), param.name)}
-                                                className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                            >
-                                                <option key="none" value="None">--select to set parameter--</option>
-                                                {
-                                                    files.map((file, fileIndex) => (
+                                            {param.typ === "File" && (
+                                                <select
+                                                    onChange={(e) => handleSlotSet(Number(e.target.value), param.name)}
+                                                    className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                                >
+                                                    <option key="none" value="None">--select to set parameter--</option>
+                                                    {files.map((file, fileIndex) => (
                                                         <option key={fileIndex} value={fileIndex}>
                                                             {file.filename}
                                                         </option>
-                                                    ))
-                                                }
-                                            </select>
+                                                    ))}
+                                                </select>
+                                            )}
+
+                                            {(param.typ === "Number" || param.typ === "Text") && (
+                                                <input
+                                                    type={param.typ === "Number" ? "number" : "text"}
+                                                    // TODO:
+                                                    // onChange={(e) => handleSlotSet(e.target.value, param.name)}
+                                                    className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                                />
+                                            )}
+
+                                            {param.typ === "Flag" && (
+                                                <input
+                                                    type="checkbox"
+                                                    // TODO:
+                                                    // onChange={(e) => handleSlotSet(e.target.checked, param.name)}
+                                                    className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                                                />
+                                            )}
+
+                                            {param.typ === "Unknown" && (
+                                                <span className="text-gray-400 text-sm">Unsupported type</span>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}
@@ -585,7 +613,7 @@ export const DataplayerPage = () => {
                             setCurrentStep('select-analysis');
                             setSelectedToolId(null);
                             resetDataset();
-                            setFileParameterMappings({});
+                            setParametersMapping({});
                         }}
                         className="text-sm sm:text-base text-blue-600 hover:text-blue-700 font-medium text-center sm:text-left"
                     >
@@ -672,7 +700,7 @@ export const DataplayerPage = () => {
                                         setCurrentStep('select-analysis');
                                         setSelectedToolId(null);
                                         resetDataset();
-                                        setFileParameterMappings({});
+                                        setParametersMapping({});
                                         resetTask();
                                     }}
                                     className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md bg-gray-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-gray-700 transition-colors cursor-pointer"
