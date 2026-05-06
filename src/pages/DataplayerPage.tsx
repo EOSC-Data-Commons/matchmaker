@@ -4,7 +4,7 @@ import {LoaderIcon, CheckCircleIcon, XCircleIcon} from 'lucide-react';
 import {Footer} from '../components/Footer';
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 import eoscLogo from '@/assets/logo-eosc-data-commons.svg';
-import { DispatchResult, FileMeta, TaskState, TaskStatus, ToolConfig } from '@/types/dataplayerTypes';
+import { DispatchResult, FileMeta, TaskState, TaskStatus, ToolConfig, TypedValue } from '@/types/dataplayerTypes';
 import { fetchFilesMetaByDatasetHandle, getDispatchResultById, getToolById, matchToolsByFiles, searchToolsByText, startLaunchTask, taskStatusAsEventSource } from '@/lib/coordinatorApi';
 
 export interface TaskStatusResponse {
@@ -15,37 +15,13 @@ export interface TaskStatusResponse {
 
 export type StepType = 'select-analysis' | 'map-files' | 'submitting' | 'monitoring';
 
-function updateSlotMappings(
-    prev: Record<number, string>,
-    fileIndex: number,
-    slotName: string
-): Record<number, string> {
-    const newMappings = { ...prev };
-
-    // Remove this slot from any other file
-    Object.keys(newMappings).forEach(key => {
-        if (newMappings[parseInt(key)] === slotName) {
-            delete newMappings[parseInt(key)];
-        }
-    });
-
-    // Set new mapping (or remove if 'none')
-    if (slotName === 'none') {
-        delete newMappings[fileIndex];
-    } else {
-        newMappings[fileIndex] = slotName;
-    }
-
-    return newMappings;
-}
-
 function buildSlotToFileMapping(
-    mapping: Record<number, string>, 
+    mapping: Record<string, number>, 
     files: FileMeta[]
 ): Record<string, FileMeta> {
     const result: Record<string, FileMeta> = {};
 
-    for (const [idxStr, slot] of Object.entries(mapping)) {
+    for (const [slot, idxStr] of Object.entries(mapping)) {
         const idx = Number(idxStr);
         result[slot] = files[idx];
     }
@@ -71,7 +47,8 @@ function useTaskLauncher() {
     const launch = async (
         toolId: string,
         dataset: string,
-        mapping: Record<string, FileMeta>,
+        value_mapping: Record<string, TypedValue>,
+        file_mapping: Record<string, FileMeta>,
         callbacks: {
             onState: (data: TaskStatus) => void;
             onSuccess: () => void;
@@ -82,7 +59,9 @@ function useTaskLauncher() {
             // close previous connection if exists
             esRef.current?.close();
 
-            const id = await startLaunchTask(toolId, dataset, mapping);
+            console.warn("page", value_mapping);
+            console.warn("page", file_mapping);
+            const id = await startLaunchTask(toolId, dataset, value_mapping, file_mapping);
             setTaskId(id);
 
             const es = taskStatusAsEventSource(id);
@@ -114,14 +93,16 @@ function useTaskLauncher() {
  */
 const areAllParametersMapped = (
     config: ToolConfig,
-    parametersMapping: Record<number, string>
+    fileParametersMapping: Record<string, number>,
+    valueParametersMapping: Record<string, TypedValue>,
 ): boolean => {
     if (!config) return false;
 
-    const mappedParameters = new Set(Object.values(parametersMapping));
+    const fileMapped = new Set(Object.keys(fileParametersMapping));
+    const valueMapped = new Set(Object.keys(valueParametersMapping));
 
     // All analysis parameters must be mapped exactly once
-    return config.slots.every(param => mappedParameters.has(param.name));
+    return config.slots.every(param => fileMapped.has(param.name) || valueMapped.has(param.name));
 };
 
 function useDataset(datasetHandle: string) {
@@ -287,7 +268,8 @@ export const DataplayerPage = () => {
     const [selectedToolId, setSelectedToolId] = useState<string>(null);
 
     // File management
-    const [parametersMapping, setParametersMapping] = useState<Record<number, string>>({});
+    const [fileParametersMapping, setFileParametersMapping] = useState<Record<string, number>>({});
+    const [valueParametersMapping, setValueParametersMapping] = useState<Record<string, TypedValue>>({});
     const [filesError, setFilesError] = useState<string | null>(null);
 
     const {isFilesLoading, files, error, resetDataset} = useDataset(datasetHandle);
@@ -310,10 +292,39 @@ export const DataplayerPage = () => {
         : toolMatchResults;
 
     // Handle input slot mapping change
-    const handleSlotSet = (fileIndex: number, slotName: string) => {
-        setParametersMapping(prev =>  
-            updateSlotMappings(prev, fileIndex, slotName)
-        );
+    const handleFileSlotSet = (slotName: string, fileIndex: number) => {
+        setFileParametersMapping(prev => {
+            const newMapping = { ...prev };
+
+            for (const key in newMapping) {
+                if (newMapping[key] === fileIndex) {
+                    delete newMapping[key];
+                }
+            }
+
+            if (slotName === "none") {
+                return newMapping;
+            }
+
+            newMapping[slotName] = fileIndex;
+
+            return newMapping;
+        });
+    };
+
+    const handleValueSlotSet = (slotName: string, value: TypedValue) => {
+        setValueParametersMapping(prev => {
+            const newMapping = { ...prev };
+
+            // this ensure the "required parameters" block refresh
+            if (value === "" || value === null) {
+                delete newMapping[slotName];
+                return newMapping;
+            }
+
+            newMapping[slotName] = value;
+            return newMapping;
+        });
     };
 
     const { taskId, taskResult, launch, resetTask } = useTaskLauncher();
@@ -326,9 +337,13 @@ export const DataplayerPage = () => {
             setStatusType("PENDING");
 
             console.log("selected tool id:" + selectedToolId);
-            const slotToFileMapping = buildSlotToFileMapping(parametersMapping, files);
+            const slotToFileMapping = buildSlotToFileMapping(fileParametersMapping, files);
+            const slotToValueMapping = valueParametersMapping;
 
-            await launch(selectedToolId, datasetHandle, slotToFileMapping, {
+            // console.warn(slotToValueMapping);
+            // console.warn(slotToFileMapping);
+
+            await launch(selectedToolId, datasetHandle, slotToValueMapping, slotToFileMapping, {
                 onState: (data) => {
                     setStatusMessage(data.message);
                     setStatusType(data.state);
@@ -488,7 +503,7 @@ export const DataplayerPage = () => {
     const renderFileMapping = () => {
         if (!selectedToolId) return null;
 
-        const allParametersMapped = areAllParametersMapped(toolConfig, parametersMapping);
+        const allParametersMapped = areAllParametersMapped(toolConfig, fileParametersMapping, valueParametersMapping);
 
         return (
             <div className="max-w-5xl mx-auto px-4 sm:px-6">
@@ -519,7 +534,7 @@ export const DataplayerPage = () => {
                     <p className="text-xs sm:text-sm font-medium text-gray-700 mb-2">Required Parameters:</p>
                     <div className="flex flex-wrap gap-1.5 sm:gap-2">
                         {toolConfig ? toolConfig.slots.map(param => {
-                            const isMapped = Object.values(parametersMapping).includes(param.name);
+                            const isMapped = Object.keys(fileParametersMapping).includes(param.name) || Object.keys(valueParametersMapping).includes(param.name);
                             return (
                                 <span
                                     key={param.name}
@@ -564,7 +579,7 @@ export const DataplayerPage = () => {
                                         <td className="px-6 py-4">
                                             {param.typ === "File" && (
                                                 <select
-                                                    onChange={(e) => handleSlotSet(Number(e.target.value), param.name)}
+                                                    onChange={(e) => handleFileSlotSet(param.name, Number(e.target.value))}
                                                     className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                                                 >
                                                     <option key="none" value="None">--select to set parameter--</option>
@@ -576,11 +591,19 @@ export const DataplayerPage = () => {
                                                 </select>
                                             )}
 
-                                            {(param.typ === "Number" || param.typ === "Text") && (
+                                            {(param.typ === "Number") && (
                                                 <input
-                                                    type={param.typ === "Number" ? "number" : "text"}
+                                                    type={"number"}
                                                     // TODO:
                                                     // onChange={(e) => handleSlotSet(e.target.value, param.name)}
+                                                    className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                                />
+                                            )}
+
+                                            {(param.typ === "Text") && (
+                                                <input
+                                                    type={"text"}
+                                                    onChange={(e) => handleValueSlotSet(param.name, e.target.value)}
                                                     className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                                                 />
                                             )}
@@ -613,11 +636,13 @@ export const DataplayerPage = () => {
                             setCurrentStep('select-analysis');
                             setSelectedToolId(null);
                             resetDataset();
-                            setParametersMapping({});
+                            setFileParametersMapping({});
+                            setValueParametersMapping({});
+                            resetTask();
                         }}
                         className="text-sm sm:text-base text-blue-600 hover:text-blue-700 font-medium text-center sm:text-left"
                     >
-                        ← Change Virtual Research Environment
+                        ← Reselect tool
                     </button>
 
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
@@ -700,7 +725,8 @@ export const DataplayerPage = () => {
                                         setCurrentStep('select-analysis');
                                         setSelectedToolId(null);
                                         resetDataset();
-                                        setParametersMapping({});
+                                        setFileParametersMapping({});
+                                        setValueParametersMapping({});
                                         resetTask();
                                     }}
                                     className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md bg-gray-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-gray-700 transition-colors cursor-pointer"

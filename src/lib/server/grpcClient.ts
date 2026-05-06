@@ -24,10 +24,12 @@ import {
     BrowseDatasetResponse,
     DataplayerServiceClient,
     DatasetServiceClient,
+    // TODO: as GrpcEntry and rename FileMeta to FileEntry for consistency.
     FileEntry,
     LaunchToolRequest,
     Slot,
     ToolServiceClient,
+    TypedValue as GrpcTypedValue,
 } from "./generated/coordinator.ts";
 
 // re-export so it can be access from server.rs
@@ -41,7 +43,7 @@ export {
     ToolState_State,
 } from "./generated/coordinator.ts";
 
-import { FileMeta, InputParameterTyp, ToolSlot } from "@/types/dataplayerTypes.ts";
+import { FileMeta, InputParameterTyp, ToolSlot, TypedValue } from "@/types/dataplayerTypes.ts";
 
 const GRPC_TARGET = "[::1]:50051";
 
@@ -128,6 +130,28 @@ export function fileMetaToFileEntry(meta: FileMeta): FileEntry {
         checksum: undefined,
         modifiedAt: undefined,
     };
+}
+
+export function valueToGrpcValue(value: TypedValue): GrpcTypedValue {
+    if (typeof value === "string") {
+        return {
+            stringValue: value,
+        };
+    }
+
+    if (typeof value === "number") {
+        return {
+            numberValue: value,
+        };
+    }
+
+    if (typeof value === "boolean") {
+        return {
+            boolValue: value,
+        };
+    }
+
+    throw new Error(`Unsupported TypedValue: ${value}, with type: ${typeof value}`);
 }
 
 // client as a singleton for long-live HTTP/2 
@@ -225,7 +249,12 @@ export async function fetchDatasetFilesFromDatahuggerByUrl(
 
 // data player service
 // TODO: string as id is not a good type, use TaskId and ToolId to distinguish them can be more clear.
-export async function launchTool(toolId: string, dataset: string, slotsMapping: Record<string, FileMeta>): Promise<string> {
+export async function launchTool(
+    toolId: string, 
+    dataset: string, 
+    slotToValueMapping: Record<string, TypedValue>,
+    slotToFileMapping: Record<string, FileMeta>
+): Promise<string> {
     const token = createToken(); 
     const metadata = makeAuthMetadata(token);
 
@@ -233,15 +262,21 @@ export async function launchTool(toolId: string, dataset: string, slotsMapping: 
     // Should use SSL for msg over wire.
     const client = new DataplayerServiceClient(GRPC_TARGET, createInsecureChannel());
 
-    const msgSlotsMapping = {} as {string: FileEntry};
-    for (const k in slotsMapping) {
-        msgSlotsMapping[k] = fileMetaToFileEntry(slotsMapping[k]); 
+    const msgFileSlotsMapping = {} as {string: FileEntry};
+    for (const k in slotToFileMapping) {
+        msgFileSlotsMapping[k] = fileMetaToFileEntry(slotToFileMapping[k]); 
+    }
+
+    const msgValueSlotsMapping = {} as {string: GrpcTypedValue};
+    for (const k in slotToValueMapping) {
+        msgValueSlotsMapping[k] = valueToGrpcValue(slotToValueMapping[k]); 
     }
 
     const request: LaunchToolRequest = {
         toolId,
         dataset,
-        slotsMapping: msgSlotsMapping,
+        valueSlotsMapping: msgValueSlotsMapping,
+        fileSlotsMapping: msgFileSlotsMapping,
     }
 
     return new Promise((resolve, reject) => {

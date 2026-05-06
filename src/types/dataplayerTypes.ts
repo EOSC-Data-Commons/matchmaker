@@ -4,12 +4,17 @@ export interface ToolConfig {
   slots: ToolSlot[];
 }
 
+export type TypedValue = 
+    | boolean
+    | string
+    | number;
+
 export type InputParameterTyp = 
     | "Number"
     | "Text"
     | "File"
     | "Flag"
-    | "Unknown"
+    | "Unknown";
 
 export interface ToolSlot {
   name: string;
@@ -41,6 +46,7 @@ export interface DispatchResult {
 export type TypLaunchToolRequest = {
   toolId: string;
   dataset: string;
+  slotToValueMapping: Record<string, TypedValue>,
   slotToFileMapping: Record<string, FileMeta>;
 };
 

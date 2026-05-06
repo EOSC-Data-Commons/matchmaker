@@ -349,6 +349,15 @@ export function toolState_StateToJSON(object: ToolState_State): string {
   }
 }
 
+export interface TypedValue {
+  stringValue?:
+    | string
+    | undefined;
+  /** TODO: distinguish int and double */
+  numberValue?: number | undefined;
+  boolValue?: boolean | undefined;
+}
+
 /**
  * XXX: this is already an abstract with assumption that the tool need and only need files as input to start.
  * But in fact, some tool need config files that is independent of data files passed in.
@@ -360,10 +369,16 @@ export function toolState_StateToJSON(object: ToolState_State): string {
 export interface LaunchToolRequest {
   toolId: string;
   dataset: string;
-  slotsMapping: { [key: string]: FileEntry };
+  valueSlotsMapping: { [key: string]: TypedValue };
+  fileSlotsMapping: { [key: string]: FileEntry };
 }
 
-export interface LaunchToolRequest_SlotsMappingEntry {
+export interface LaunchToolRequest_ValueSlotsMappingEntry {
+  key: string;
+  value?: TypedValue | undefined;
+}
+
+export interface LaunchToolRequest_FileSlotsMappingEntry {
   key: string;
   value?: FileEntry | undefined;
 }
@@ -2425,8 +2440,112 @@ export const ToolState: MessageFns<ToolState> = {
   },
 };
 
+function createBaseTypedValue(): TypedValue {
+  return { stringValue: undefined, numberValue: undefined, boolValue: undefined };
+}
+
+export const TypedValue: MessageFns<TypedValue> = {
+  encode(message: TypedValue, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.stringValue !== undefined) {
+      writer.uint32(10).string(message.stringValue);
+    }
+    if (message.numberValue !== undefined) {
+      writer.uint32(17).double(message.numberValue);
+    }
+    if (message.boolValue !== undefined) {
+      writer.uint32(24).bool(message.boolValue);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): TypedValue {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseTypedValue();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.stringValue = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 17) {
+            break;
+          }
+
+          message.numberValue = reader.double();
+          continue;
+        }
+        case 3: {
+          if (tag !== 24) {
+            break;
+          }
+
+          message.boolValue = reader.bool();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): TypedValue {
+    return {
+      stringValue: isSet(object.stringValue)
+        ? globalThis.String(object.stringValue)
+        : isSet(object.string_value)
+        ? globalThis.String(object.string_value)
+        : undefined,
+      numberValue: isSet(object.numberValue)
+        ? globalThis.Number(object.numberValue)
+        : isSet(object.number_value)
+        ? globalThis.Number(object.number_value)
+        : undefined,
+      boolValue: isSet(object.boolValue)
+        ? globalThis.Boolean(object.boolValue)
+        : isSet(object.bool_value)
+        ? globalThis.Boolean(object.bool_value)
+        : undefined,
+    };
+  },
+
+  toJSON(message: TypedValue): unknown {
+    const obj: any = {};
+    if (message.stringValue !== undefined) {
+      obj.stringValue = message.stringValue;
+    }
+    if (message.numberValue !== undefined) {
+      obj.numberValue = message.numberValue;
+    }
+    if (message.boolValue !== undefined) {
+      obj.boolValue = message.boolValue;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<TypedValue>, I>>(base?: I): TypedValue {
+    return TypedValue.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<TypedValue>, I>>(object: I): TypedValue {
+    const message = createBaseTypedValue();
+    message.stringValue = object.stringValue ?? undefined;
+    message.numberValue = object.numberValue ?? undefined;
+    message.boolValue = object.boolValue ?? undefined;
+    return message;
+  },
+};
+
 function createBaseLaunchToolRequest(): LaunchToolRequest {
-  return { toolId: "", dataset: "", slotsMapping: {} };
+  return { toolId: "", dataset: "", valueSlotsMapping: {}, fileSlotsMapping: {} };
 }
 
 export const LaunchToolRequest: MessageFns<LaunchToolRequest> = {
@@ -2437,8 +2556,11 @@ export const LaunchToolRequest: MessageFns<LaunchToolRequest> = {
     if (message.dataset !== "") {
       writer.uint32(18).string(message.dataset);
     }
-    globalThis.Object.entries(message.slotsMapping).forEach(([key, value]: [string, FileEntry]) => {
-      LaunchToolRequest_SlotsMappingEntry.encode({ key: key as any, value }, writer.uint32(26).fork()).join();
+    globalThis.Object.entries(message.valueSlotsMapping).forEach(([key, value]: [string, TypedValue]) => {
+      LaunchToolRequest_ValueSlotsMappingEntry.encode({ key: key as any, value }, writer.uint32(26).fork()).join();
+    });
+    globalThis.Object.entries(message.fileSlotsMapping).forEach(([key, value]: [string, FileEntry]) => {
+      LaunchToolRequest_FileSlotsMappingEntry.encode({ key: key as any, value }, writer.uint32(34).fork()).join();
     });
     return writer;
   },
@@ -2471,9 +2593,20 @@ export const LaunchToolRequest: MessageFns<LaunchToolRequest> = {
             break;
           }
 
-          const entry3 = LaunchToolRequest_SlotsMappingEntry.decode(reader, reader.uint32());
+          const entry3 = LaunchToolRequest_ValueSlotsMappingEntry.decode(reader, reader.uint32());
           if (entry3.value !== undefined) {
-            message.slotsMapping[entry3.key] = entry3.value;
+            message.valueSlotsMapping[entry3.key] = entry3.value;
+          }
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          const entry4 = LaunchToolRequest_FileSlotsMappingEntry.decode(reader, reader.uint32());
+          if (entry4.value !== undefined) {
+            message.fileSlotsMapping[entry4.key] = entry4.value;
           }
           continue;
         }
@@ -2494,16 +2627,33 @@ export const LaunchToolRequest: MessageFns<LaunchToolRequest> = {
         ? globalThis.String(object.tool_id)
         : "",
       dataset: isSet(object.dataset) ? globalThis.String(object.dataset) : "",
-      slotsMapping: isObject(object.slotsMapping)
-        ? (globalThis.Object.entries(object.slotsMapping) as [string, any][]).reduce(
+      valueSlotsMapping: isObject(object.valueSlotsMapping)
+        ? (globalThis.Object.entries(object.valueSlotsMapping) as [string, any][]).reduce(
+          (acc: { [key: string]: TypedValue }, [key, value]: [string, any]) => {
+            acc[key] = TypedValue.fromJSON(value);
+            return acc;
+          },
+          {},
+        )
+        : isObject(object.value_slots_mapping)
+        ? (globalThis.Object.entries(object.value_slots_mapping) as [string, any][]).reduce(
+          (acc: { [key: string]: TypedValue }, [key, value]: [string, any]) => {
+            acc[key] = TypedValue.fromJSON(value);
+            return acc;
+          },
+          {},
+        )
+        : {},
+      fileSlotsMapping: isObject(object.fileSlotsMapping)
+        ? (globalThis.Object.entries(object.fileSlotsMapping) as [string, any][]).reduce(
           (acc: { [key: string]: FileEntry }, [key, value]: [string, any]) => {
             acc[key] = FileEntry.fromJSON(value);
             return acc;
           },
           {},
         )
-        : isObject(object.slots_mapping)
-        ? (globalThis.Object.entries(object.slots_mapping) as [string, any][]).reduce(
+        : isObject(object.file_slots_mapping)
+        ? (globalThis.Object.entries(object.file_slots_mapping) as [string, any][]).reduce(
           (acc: { [key: string]: FileEntry }, [key, value]: [string, any]) => {
             acc[key] = FileEntry.fromJSON(value);
             return acc;
@@ -2522,12 +2672,21 @@ export const LaunchToolRequest: MessageFns<LaunchToolRequest> = {
     if (message.dataset !== "") {
       obj.dataset = message.dataset;
     }
-    if (message.slotsMapping) {
-      const entries = globalThis.Object.entries(message.slotsMapping) as [string, FileEntry][];
+    if (message.valueSlotsMapping) {
+      const entries = globalThis.Object.entries(message.valueSlotsMapping) as [string, TypedValue][];
       if (entries.length > 0) {
-        obj.slotsMapping = {};
+        obj.valueSlotsMapping = {};
         entries.forEach(([k, v]) => {
-          obj.slotsMapping[k] = FileEntry.toJSON(v);
+          obj.valueSlotsMapping[k] = TypedValue.toJSON(v);
+        });
+      }
+    }
+    if (message.fileSlotsMapping) {
+      const entries = globalThis.Object.entries(message.fileSlotsMapping) as [string, FileEntry][];
+      if (entries.length > 0) {
+        obj.fileSlotsMapping = {};
+        entries.forEach(([k, v]) => {
+          obj.fileSlotsMapping[k] = FileEntry.toJSON(v);
         });
       }
     }
@@ -2541,25 +2700,112 @@ export const LaunchToolRequest: MessageFns<LaunchToolRequest> = {
     const message = createBaseLaunchToolRequest();
     message.toolId = object.toolId ?? "";
     message.dataset = object.dataset ?? "";
-    message.slotsMapping = (globalThis.Object.entries(object.slotsMapping ?? {}) as [string, FileEntry][]).reduce(
-      (acc: { [key: string]: FileEntry }, [key, value]: [string, FileEntry]) => {
+    message.valueSlotsMapping = (globalThis.Object.entries(object.valueSlotsMapping ?? {}) as [string, TypedValue][])
+      .reduce((acc: { [key: string]: TypedValue }, [key, value]: [string, TypedValue]) => {
+        if (value !== undefined) {
+          acc[key] = TypedValue.fromPartial(value);
+        }
+        return acc;
+      }, {});
+    message.fileSlotsMapping = (globalThis.Object.entries(object.fileSlotsMapping ?? {}) as [string, FileEntry][])
+      .reduce((acc: { [key: string]: FileEntry }, [key, value]: [string, FileEntry]) => {
         if (value !== undefined) {
           acc[key] = FileEntry.fromPartial(value);
         }
         return acc;
-      },
-      {},
-    );
+      }, {});
     return message;
   },
 };
 
-function createBaseLaunchToolRequest_SlotsMappingEntry(): LaunchToolRequest_SlotsMappingEntry {
+function createBaseLaunchToolRequest_ValueSlotsMappingEntry(): LaunchToolRequest_ValueSlotsMappingEntry {
   return { key: "", value: undefined };
 }
 
-export const LaunchToolRequest_SlotsMappingEntry: MessageFns<LaunchToolRequest_SlotsMappingEntry> = {
-  encode(message: LaunchToolRequest_SlotsMappingEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+export const LaunchToolRequest_ValueSlotsMappingEntry: MessageFns<LaunchToolRequest_ValueSlotsMappingEntry> = {
+  encode(message: LaunchToolRequest_ValueSlotsMappingEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.key !== "") {
+      writer.uint32(10).string(message.key);
+    }
+    if (message.value !== undefined) {
+      TypedValue.encode(message.value, writer.uint32(18).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): LaunchToolRequest_ValueSlotsMappingEntry {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseLaunchToolRequest_ValueSlotsMappingEntry();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.key = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.value = TypedValue.decode(reader, reader.uint32());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): LaunchToolRequest_ValueSlotsMappingEntry {
+    return {
+      key: isSet(object.key) ? globalThis.String(object.key) : "",
+      value: isSet(object.value) ? TypedValue.fromJSON(object.value) : undefined,
+    };
+  },
+
+  toJSON(message: LaunchToolRequest_ValueSlotsMappingEntry): unknown {
+    const obj: any = {};
+    if (message.key !== "") {
+      obj.key = message.key;
+    }
+    if (message.value !== undefined) {
+      obj.value = TypedValue.toJSON(message.value);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<LaunchToolRequest_ValueSlotsMappingEntry>, I>>(
+    base?: I,
+  ): LaunchToolRequest_ValueSlotsMappingEntry {
+    return LaunchToolRequest_ValueSlotsMappingEntry.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<LaunchToolRequest_ValueSlotsMappingEntry>, I>>(
+    object: I,
+  ): LaunchToolRequest_ValueSlotsMappingEntry {
+    const message = createBaseLaunchToolRequest_ValueSlotsMappingEntry();
+    message.key = object.key ?? "";
+    message.value = (object.value !== undefined && object.value !== null)
+      ? TypedValue.fromPartial(object.value)
+      : undefined;
+    return message;
+  },
+};
+
+function createBaseLaunchToolRequest_FileSlotsMappingEntry(): LaunchToolRequest_FileSlotsMappingEntry {
+  return { key: "", value: undefined };
+}
+
+export const LaunchToolRequest_FileSlotsMappingEntry: MessageFns<LaunchToolRequest_FileSlotsMappingEntry> = {
+  encode(message: LaunchToolRequest_FileSlotsMappingEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.key !== "") {
       writer.uint32(10).string(message.key);
     }
@@ -2569,10 +2815,10 @@ export const LaunchToolRequest_SlotsMappingEntry: MessageFns<LaunchToolRequest_S
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): LaunchToolRequest_SlotsMappingEntry {
+  decode(input: BinaryReader | Uint8Array, length?: number): LaunchToolRequest_FileSlotsMappingEntry {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseLaunchToolRequest_SlotsMappingEntry();
+    const message = createBaseLaunchToolRequest_FileSlotsMappingEntry();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -2601,14 +2847,14 @@ export const LaunchToolRequest_SlotsMappingEntry: MessageFns<LaunchToolRequest_S
     return message;
   },
 
-  fromJSON(object: any): LaunchToolRequest_SlotsMappingEntry {
+  fromJSON(object: any): LaunchToolRequest_FileSlotsMappingEntry {
     return {
       key: isSet(object.key) ? globalThis.String(object.key) : "",
       value: isSet(object.value) ? FileEntry.fromJSON(object.value) : undefined,
     };
   },
 
-  toJSON(message: LaunchToolRequest_SlotsMappingEntry): unknown {
+  toJSON(message: LaunchToolRequest_FileSlotsMappingEntry): unknown {
     const obj: any = {};
     if (message.key !== "") {
       obj.key = message.key;
@@ -2619,15 +2865,15 @@ export const LaunchToolRequest_SlotsMappingEntry: MessageFns<LaunchToolRequest_S
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<LaunchToolRequest_SlotsMappingEntry>, I>>(
+  create<I extends Exact<DeepPartial<LaunchToolRequest_FileSlotsMappingEntry>, I>>(
     base?: I,
-  ): LaunchToolRequest_SlotsMappingEntry {
-    return LaunchToolRequest_SlotsMappingEntry.fromPartial(base ?? ({} as any));
+  ): LaunchToolRequest_FileSlotsMappingEntry {
+    return LaunchToolRequest_FileSlotsMappingEntry.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<LaunchToolRequest_SlotsMappingEntry>, I>>(
+  fromPartial<I extends Exact<DeepPartial<LaunchToolRequest_FileSlotsMappingEntry>, I>>(
     object: I,
-  ): LaunchToolRequest_SlotsMappingEntry {
-    const message = createBaseLaunchToolRequest_SlotsMappingEntry();
+  ): LaunchToolRequest_FileSlotsMappingEntry {
+    const message = createBaseLaunchToolRequest_FileSlotsMappingEntry();
     message.key = object.key ?? "";
     message.value = (object.value !== undefined && object.value !== null)
       ? FileEntry.fromPartial(object.value)
