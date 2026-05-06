@@ -147,17 +147,16 @@ export const LandingPage = () => {
                     </div>
 
                     {/* Search Input */}
-                    <div className="flex justify-center px-4">
+                    <div className="flex flex-col items-center px-4 space-y-4">
                         <SearchInput
                             onSearch={handleSearch}
                             className="w-full max-w-2xl"
                             isLoggedIn={!!user}
                             showAiToggle={true}
                         />
-                    </div>
 
-                    <div className="flex justify-center px-4">
                         <DataplayInput
+                            label="Play (tdb)"
                             onPlay={handlePlay}
                             className="w-full max-w-2xl"
                         />
