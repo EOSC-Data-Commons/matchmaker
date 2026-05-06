@@ -6,6 +6,7 @@ import {getSearchHistory} from "../lib/history.ts";
 
 interface PlayInputProps {
     initialQuery?: string;
+    label: string;
     onPlay: (query: string) => void;
     loading?: boolean;
     placeholder?: string;
@@ -14,6 +15,7 @@ interface PlayInputProps {
 
 export const DataplayInput = ({
     initialQuery = '',
+    label,
     onPlay,
     loading = false,
     placeholder = "Provide your dataset to play with, e.g. github, materials cloud.",
@@ -25,7 +27,6 @@ export const DataplayInput = ({
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
     const searchContainerRef = useRef<HTMLDivElement>(null);
     useNavigate();
-
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -115,7 +116,7 @@ export const DataplayInput = ({
                         disabled={loading}
                         className="absolute right-2 top-2 w-24 h-12 bg-green-500 text-white text-lg font-light rounded-lg hover:bg-green-600 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 cursor-pointer disabled:cursor-not-allowed"
                     >
-                        Play (tbd)
+                        {label}
                     </button>
                 </div>
             </form>

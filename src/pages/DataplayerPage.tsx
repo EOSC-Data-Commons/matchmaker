@@ -6,6 +6,7 @@ import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 import eoscLogo from '@/assets/logo-eosc-data-commons.svg';
 import { DispatchResult, FileMeta, TaskState, TaskStatus, ToolConfig, TypedValue } from '@/types/dataplayerTypes';
 import { fetchFilesMetaByDatasetHandle, getDispatchResultById, getToolById, matchToolsByFiles, searchToolsByText, startLaunchTask, taskStatusAsEventSource } from '@/lib/coordinatorApi';
+import { DataplayInput } from '@/components/DataplayInput';
 
 export interface TaskStatusResponse {
     status: TaskStatus;
@@ -273,6 +274,8 @@ export const DataplayerPage = () => {
     const [filesError, setFilesError] = useState<string | null>(null);
 
     const {isFilesLoading, files, error, resetDataset} = useDataset(datasetHandle);
+    const [isAdding, setIsAdding] = useState(false);
+    const [fileGroups, setFileGroups] = useState<FileMeta[][]>([]);
 
 
     // Submission tracking
@@ -310,6 +313,20 @@ export const DataplayerPage = () => {
 
             return newMapping;
         });
+    };
+
+    const handleAddGroup = async (datasetHandle: string) => {
+        try {
+            setIsAdding(true);
+
+            const newFiles = await fetchFilesMetaByDatasetHandle(datasetHandle);
+
+            setFileGroups((prev) => [...prev, newFiles]);
+        } catch (err) {
+            console.error("Failed to fetch files", err);
+        } finally {
+            setIsAdding(false);
+        }
     };
 
     const handleValueSlotSet = (slotName: string, value: TypedValue) => {
@@ -410,7 +427,7 @@ export const DataplayerPage = () => {
     };
 
     // Files list on the left panel
-    const renderFilesList = () => {
+    const renderFilesList = (files: FileMeta[]) => {
         if (isFilesLoading) {
             return <div
                 className="mt-4 sm:mt-6 p-3 sm:p-4 bg-blue-50 rounded-lg border border-blue-200 flex items-center gap-2 sm:gap-3">
@@ -785,7 +802,31 @@ export const DataplayerPage = () => {
                     <div className="flex-1 min-w-0 space-y-4">
                         <div className="bg-white rounded border p-4">
                             <h2 className="text-lg font-semibold mb-2">Files</h2>
-                            {renderFilesList()}
+                            {renderFilesList(files)}
+                        </div>
+
+                        <div className="space-y-4">
+                            <DataplayInput
+                                label={isAdding ? "Loading..." : "Add Group"}
+                                onPlay={handleAddGroup}
+                                className="w-full max-w-2xl"
+                                loading={isAdding}
+                            />
+
+                            {isAdding && (
+                                <div className="flex justify-center">
+                                    <div className="w-6 h-6 border-2 border-gray-300 border-t-black rounded-full animate-spin" />
+                                </div>
+                            )}
+
+                            {fileGroups.map((group, idx) => (
+                                <div key={idx} className="bg-white rounded border p-4">
+                                    <h2 className="text-lg font-semibold mb-2">
+                                        Extra files: Group {idx + 1}
+                                    </h2>
+                                    {renderFilesList(group)}
+                                </div>
+                            ))}
                         </div>
                     </div>
 
