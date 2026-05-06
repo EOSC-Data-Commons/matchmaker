@@ -93,16 +93,19 @@ app.post("/api/coordinator/start-task", async (req, res) => {
     const {
         toolId,
         dataset,
+        slotToValueMapping,
         slotToFileMapping,
     } = req.body as TypLaunchToolRequest;
 
     try {
         // launch tool
         console.warn(toolId);
-        console.warn(slotToFileMapping);
+        console.warn("server", slotToValueMapping);
+        console.warn("server", slotToFileMapping);
         const taskId = await launchTool(
             toolId,
             dataset,
+            slotToValueMapping,
             slotToFileMapping,
         );
 
