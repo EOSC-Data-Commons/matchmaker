@@ -88,7 +88,7 @@ export function GrpcSlotToSlot(slot: Slot): ToolSlot {
     if (slot.typ === "number") {
         typ = "Number";
     }
-    if (slot.typ === "file") {
+    if (slot.typ === "file" || slot.typ === "data_input") {
         typ = "File";
     }
     if (slot.typ === "flag") {
