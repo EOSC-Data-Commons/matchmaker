@@ -35,9 +35,10 @@ export interface SSEEvent {
     content?: string;
     role?: string;
     error?: string; // For RUN_ERROR events
-    timestamp?: string | null;
+    timestamp?: string | number | null;
     raw_event?: unknown;
     delta?: string;
+    thread_id?: string;
 }
 
 export interface SSEEventHandler {
@@ -185,10 +186,11 @@ export const handleStream = async (
 export const sendChatMessage = async (
     messages: Message[],
     model: string = 'einfracz/qwen3-coder',
+    threadId: string | undefined,
     onEvent: (event: SSEEvent) => void,
     onError: (error: Error) => void
 ) => {
-    const requestBody = {
+    const requestBody: Record<string, unknown> = {
         items: messages.map(msg => ({
             type: 'message',
             role: msg.sender === 'user' ? 'user' : 'assistant',
@@ -196,6 +198,10 @@ export const sendChatMessage = async (
         })),
         model: model
     };
+
+    if (threadId) {
+        requestBody.thread_id = threadId;
+    }
 
     try {
         const response = await fetch('/api/search/chat', {

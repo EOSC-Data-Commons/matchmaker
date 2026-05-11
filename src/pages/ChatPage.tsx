@@ -1,4 +1,4 @@
-import {FC, useState, useEffect, useCallback, Fragment} from "react";
+import {FC, useState, useEffect, useCallback, Fragment, useRef} from "react";
 import {useNavigate, useParams} from "react-router";
 import {useAuth} from "@/hooks/useAuth.ts";
 import {Conversation, Message} from "@/types/chat.ts";
@@ -42,6 +42,8 @@ const ChatPage: FC = () => {
     const [newMessage, setNewMessage] = useState("");
     const [isSending, setIsSending] = useState(false);
     const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+    const activeIdRef = useRef<string | undefined>(undefined);
+    activeIdRef.current = selectedConversation?.id;
 
     const fetchConversations = useCallback(() => {
         if (user?.sub) {
@@ -116,7 +118,9 @@ const ChatPage: FC = () => {
 
     useEffect(() => {
         if (urlId) {
-            handleSelectConversation(urlId);
+            if (activeIdRef.current !== urlId) {
+                handleSelectConversation(urlId);
+            }
         } else {
             setSelectedConversation(null);
         }
@@ -149,8 +153,14 @@ const ChatPage: FC = () => {
             await sendChatMessage(
                 updatedMessages,
                 'einfracz/qwen3-coder',
+                currentConversation.id.startsWith('new-') ? undefined : currentConversation.id,
                 (event) => {
-                    if (event.type === 'TOOL_CALL_RESULT' && event.tool_call_id === 'rerank_results' && event.content) {
+                    if (event.type === 'RUN_STARTED' && event.thread_id && currentConversation.id.startsWith('new-')) {
+                        const newThreadId = event.thread_id;
+                        navigate(`/chat/${newThreadId}`, {replace: true});
+                        setSelectedConversation(prev => prev ? {...prev, id: newThreadId} : null);
+                        // Also update currentConversation in scope so subsequent handlers during this stream don't misbehave if they need it, though they use prev.
+                    } else if (event.type === 'TOOL_CALL_RESULT' && event.tool_call_id === 'rerank_results' && event.content) {
                         receivedRerank = true;
                         const result = JSON.parse(event.content);
                         const {summary, hits} = result;
