@@ -1,3 +1,5 @@
+import {BackendDataset} from "@/types/commons.ts";
+
 export interface Conversation {
     id: string;
     title: string;
@@ -7,5 +9,5 @@ export interface Conversation {
 export interface Message {
     sender: 'user' | 'bot';
     content: string;
-    hits?: any[];
+    hits?: BackendDataset[];
 }

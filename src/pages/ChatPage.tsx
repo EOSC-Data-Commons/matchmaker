@@ -5,8 +5,9 @@ import {Conversation, Message} from "@/types/chat.ts";
 import {BackendDataset} from "@/types/commons.ts";
 import {sendChatMessage} from "@/lib/api.ts";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
-import {Plus, MessageSquare, User, Bot, Send, Loader2, Copy, Check} from "lucide-react";
+import {Plus, MessageSquare, User, Bot, Loader2, Copy, Check, Send} from "lucide-react";
 import {SearchResultItem} from "@/components/SearchResultItem.tsx";
+import {SearchInput} from "@/components/SearchInput.tsx";
 
 const ChatPage: FC = () => {
     const {id: urlId} = useParams();
@@ -15,7 +16,6 @@ const ChatPage: FC = () => {
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
     const [loading, setLoading] = useState(true);
-    const [newMessage, setNewMessage] = useState("");
     const [isSending, setIsSending] = useState(false);
     const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
     const activeIdRef = useRef<string | undefined>(undefined);
@@ -110,10 +110,10 @@ const ChatPage: FC = () => {
         }
     }, [urlId, handleSelectConversation]);
 
-    const handleSendMessage = async () => {
-        if (!newMessage.trim()) return;
+    const handleSendMessage = async (messageText: string, model: string) => {
+        if (!messageText.trim()) return;
 
-        const userMessage: Message = {sender: 'user', content: newMessage};
+        const userMessage: Message = {sender: 'user', content: messageText};
 
         const currentConversation = selectedConversation || {
             id: 'new-' + Date.now(),
@@ -127,17 +127,19 @@ const ChatPage: FC = () => {
             ...currentConversation,
             messages: updatedMessages,
         });
-        setNewMessage("");
         setIsSending(true);
+
+        const isNewChat = currentConversation.id.startsWith('new-');
+        const messagesToSend = isNewChat ? updatedMessages : [userMessage];
 
         try {
             let currentTextContent = "";
             let receivedRerank = false;
 
             await sendChatMessage(
-                updatedMessages,
-                'einfracz/qwen3-coder',
-                currentConversation.id.startsWith('new-') ? undefined : currentConversation.id,
+                messagesToSend,
+                model,
+                isNewChat ? undefined : currentConversation.id,
                 (event) => {
                     if (event.type === 'RUN_STARTED' && event.thread_id && currentConversation.id.startsWith('new-')) {
                         const newThreadId = event.thread_id;
@@ -434,41 +436,27 @@ const ChatPage: FC = () => {
 
                     {/* Input Area */}
                     <div className="p-4 bg-white border-t border-gray-200">
-                        <div className="max-w-4xl mx-auto relative flex items-end gap-3">
-                        <textarea
-                            rows={1}
-                            placeholder="Ask anything or search for datasets..."
-                            className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none max-h-32 overflow-y-auto bg-gray-50 text-gray-800 shadow-sm"
-                            value={newMessage}
-                            disabled={isSending}
-                            onChange={(e) => {
-                                setNewMessage(e.target.value);
-                                e.target.style.height = 'auto';
-                                e.target.style.height = Math.min(e.target.scrollHeight, 128) + 'px';
-                            }}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey && !isSending) {
-                                    e.preventDefault();
-                                    handleSendMessage();
+                        <div className="max-w-4xl mx-auto">
+                            <SearchInput
+                                onSearch={handleSendMessage}
+                                loading={isSending}
+                                placeholder="Ask anything or search for datasets..."
+                                clearOnSearch={true}
+                                buttonText={
+                                    isSending ? (
+                                        <>
+                                            <Loader2 className="animate-spin h-5 w-5"/>
+                                            <span className="text-sm font-medium">Sending...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Send className="h-5 w-5"/>
+                                            <span className="text-sm font-medium">Send</span>
+                                        </>
+                                    )
                                 }
-                            }}
-                        />
-                            <button
-                                onClick={handleSendMessage}
-                                disabled={!newMessage.trim() || isSending}
-                                className={`px-5 py-3 rounded-xl font-medium transition-colors shadow-sm flex items-center justify-center h-12.5 ${
-                                    newMessage.trim() && !isSending
-                                        ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'
-                                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                }`}
-                            >
-                                {isSending ? (
-                                    <Loader2 className="animate-spin h-5 w-5 sm:mr-2"/>
-                                ) : (
-                                    <Send className="h-5 w-5 hidden sm:block sm:mr-2"/>
-                                )}
-                                {isSending ? 'Sending...' : 'Send'}
-                            </button>
+                                disableHistory={true}
+                            />
                         </div>
                         <div className="max-w-4xl mx-auto text-center mt-3 text-xs text-gray-400">
                             AI-generated content may be incomplete or occasionally incorrect. Please verify critical

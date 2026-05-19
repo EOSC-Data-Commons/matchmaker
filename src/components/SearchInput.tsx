@@ -1,4 +1,4 @@
-import {useEffect, useRef, useState} from "react";
+import React, {useEffect, useRef, useState} from "react";
 import {useNavigate} from "react-router";
 import {ModelSelector} from "./ModelSelector.tsx";
 import {getSearchHistory} from "../lib/history.ts";
@@ -24,6 +24,9 @@ interface SearchInputProps {
     loading?: boolean;
     placeholder?: string;
     className?: string;
+    clearOnSearch?: boolean;
+    buttonText?: React.ReactNode;
+    disableHistory?: boolean;
 }
 
 export const SearchInput = ({
@@ -32,7 +35,10 @@ export const SearchInput = ({
                                 loading = false,
                                 placeholder = "Search for data... e.g., 'climate data for the last decade'",
                                 className = "",
-                                initialModel
+                                initialModel,
+                                clearOnSearch = false,
+                                buttonText = "Search",
+                                disableHistory = false
                             }: SearchInputProps) => {
     const [query, setQuery] = useState(initialQuery);
     const [selectedModel, setSelectedModel] = useState(initialModel || DEFAULT_MODEL);
@@ -61,10 +67,13 @@ export const SearchInput = ({
         if (query.trim()) {
             onSearch(query.trim(), selectedModel);
             setShowHistory(false);
+            if (clearOnSearch) {
+                setQuery('');
+            }
         }
     };
     const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (showHistory && filteredHistory.length > 0) {
+        if (!disableHistory && showHistory && filteredHistory.length > 0) {
             if (e.key === 'ArrowDown') {
                 e.preventDefault();
                 setHighlightedIndex(prevIndex =>
@@ -91,9 +100,12 @@ export const SearchInput = ({
         onSearch(item, selectedModel);
         setShowHistory(false);
         setHighlightedIndex(-1);
+        if (clearOnSearch) {
+            setQuery('');
+        }
     };
 
-    const filteredHistory = history.filter(item => item.toLowerCase().includes(query.toLowerCase()));
+    const filteredHistory = disableHistory ? [] : history.filter(item => item.toLowerCase().includes(query.toLowerCase()));
 
     return (
         <div className={`relative ${className}`} ref={searchContainerRef}>
@@ -108,7 +120,7 @@ export const SearchInput = ({
                         placeholder={placeholder}
                         className={`truncate w-full h-16 px-4 text-lg text-eosc-gray font-light rounded-xl border-2 border-eosc-border bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-eosc-light-blue focus:border-eosc-light-blue ${SHOW_MODEL_SELECTOR ? 'pr-64' : 'pr-32'}`}
                     />
-                    {showHistory && filteredHistory.length > 0 && (
+                    {!disableHistory && showHistory && filteredHistory.length > 0 && (
                         <div
                             className="absolute z-10 w-full mt-1 bg-white border border-eosc-border rounded-lg shadow-lg">
                             <ul>
@@ -127,7 +139,7 @@ export const SearchInput = ({
                         </div>
                     )}
                     {SHOW_MODEL_SELECTOR && (
-                        <div className="absolute right-28 top-3 w-32">
+                        <div className="absolute right-32 top-3 w-32">
                             <ModelSelector
                                 models={models}
                                 selectedModel={selectedModel}
@@ -138,9 +150,9 @@ export const SearchInput = ({
                     <button
                         type="submit"
                         disabled={loading}
-                        className="absolute right-2 top-2 w-24 h-12 bg-blue-500 text-white text-lg font-light rounded-lg hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 cursor-pointer disabled:cursor-not-allowed"
+                        className="absolute right-2 top-2 px-4 min-w-[6rem] h-12 bg-blue-600 text-white text-lg font-light rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                        Search
+                        {buttonText}
                     </button>
                 </div>
             </form>
