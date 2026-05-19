@@ -5,7 +5,7 @@ import {Conversation, Message} from "@/types/chat.ts";
 import {BackendDataset} from "@/types/commons.ts";
 import {sendChatMessage} from "@/lib/api.ts";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
-import {Plus, MessageSquare, User, Bot, Loader2, Copy, Check, Send} from "lucide-react";
+import {Plus, MessageSquare, User, Bot, Loader2, Send} from "lucide-react";
 import {SearchResultItem} from "@/components/SearchResultItem.tsx";
 import {SearchInput} from "@/components/SearchInput.tsx";
 
@@ -17,7 +17,6 @@ const ChatPage: FC = () => {
     const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
     const [loading, setLoading] = useState(true);
     const [isSending, setIsSending] = useState(false);
-    const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
     const activeIdRef = useRef<string | undefined>(undefined);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     activeIdRef.current = selectedConversation?.id;
@@ -336,7 +335,7 @@ const ChatPage: FC = () => {
 
                     {/* Messages */}
                     <div className="flex-1 p-6 overflow-y-auto bg-gray-50">
-                        <div className="max-w-4xl mx-auto space-y-6">
+                        <div className="max-w-6xl mx-auto space-y-6">
                             {!selectedConversation || selectedConversation.messages.length === 0 ? (
                                 <div
                                     className="flex flex-col items-center justify-center h-full min-h-64 text-center mt-20">
@@ -388,22 +387,6 @@ const ChatPage: FC = () => {
                                                     </div>
                                                 )}
                                             </div>
-                                            <div
-                                                className={`flex items-end mb-2 opacity-0 group-hover:opacity-100 transition-opacity ${msg.sender === 'user' ? 'mr-1' : 'ml-1'}`}>
-                                                <button
-                                                    onClick={() => {
-                                                        navigator.clipboard.writeText(msg.content);
-                                                        setCopiedIndex(index);
-                                                        setTimeout(() => setCopiedIndex(null), 2000);
-                                                    }}
-                                                    className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-md transition-colors"
-                                                    title="Copy message"
-                                                >
-                                                    {copiedIndex === index ?
-                                                        <Check className="h-4 w-4 text-green-600"/> :
-                                                        <Copy className="h-4 w-4"/>}
-                                                </button>
-                                            </div>
                                         </div>
                                     </div>
                                 ))
@@ -436,7 +419,7 @@ const ChatPage: FC = () => {
 
                     {/* Input Area */}
                     <div className="p-4 bg-white border-t border-gray-200">
-                        <div className="max-w-4xl mx-auto">
+                        <div className="max-w-6xl mx-auto">
                             <SearchInput
                                 onSearch={handleSendMessage}
                                 loading={isSending}
@@ -458,7 +441,7 @@ const ChatPage: FC = () => {
                                 disableHistory={true}
                             />
                         </div>
-                        <div className="max-w-4xl mx-auto text-center mt-3 text-xs text-gray-400">
+                        <div className="max-w-6xl mx-auto text-center mt-3 text-xs text-gray-400">
                             AI-generated content may be incomplete or occasionally incorrect. Please verify critical
                             data.
                         </div>
