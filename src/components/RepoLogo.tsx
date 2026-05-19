@@ -7,8 +7,13 @@ interface RepoLogoProps {
 const repoLogos: { [key: string]: { logo: string | null, name: string } } = {
     DANS: {logo: 'https://dans.knaw.nl/wp-content/uploads/2021/10/Logo-DANS.svg', name: 'DANS'},
     SWISS: {logo: 'https://www.swissubase.ch/swissubase.webp', name: 'SWISSUbase'},
-    DABAR: {logo: 'https://wiki.srce.hr/download/attachments/232726039/Usluga__Dabar_horizontalno.jpg', name: 'DABAR'},
+    DABAR: {logo: 'https://dabar.srce.hr/img/dabar.svg', name: 'DABAR'},
     ONE: {logo: 'https://raw.githubusercontent.com/onedata/onedata/develop/resources/logo.png', name: 'Onedata'},
+    HAL: {logo: 'https://about.hal.science/images/favicon.png', name: 'HAL Open Science'},
+    PANOSC: {
+        logo: 'https://www.panosc.eu/wp-content/uploads/2024/09/PaNOSClogo_print_RGB-2024-1024x480.png',
+        name: 'PaNOSC'
+    },
 };
 
 export const RepoLogo: React.FC<RepoLogoProps> = ({repo}) => {
