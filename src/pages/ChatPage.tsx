@@ -141,17 +141,14 @@ const ChatPage: FC = () => {
         });
         setIsSending(true);
 
-        const isNewChat = currentConversation.id.startsWith('new-');
-        const messagesToSend = isNewChat ? updatedMessages : [userMessage];
-
         try {
             let currentTextContent = "";
             let receivedRerank = false;
 
             await sendChatMessage(
-                messagesToSend,
+                updatedMessages,
                 model,
-                isNewChat ? undefined : currentConversation.id,
+                currentConversation.id.startsWith('new-') ? undefined : currentConversation.id,
                 (event) => {
                     if (event.type === 'RUN_STARTED' && event.thread_id && currentConversation.id.startsWith('new-')) {
                         const newThreadId = event.thread_id;
