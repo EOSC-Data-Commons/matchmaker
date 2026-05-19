@@ -72,6 +72,14 @@ const ChatPage: FC = () => {
                                 ? String(contentObj.text)
                                 : typeof item.content === 'string' ? item.content : '';
                             parsedMessages.push({sender: 'user', content: text});
+                        } else if (item.type === 'message' && item.role === 'assistant') {
+                            const contentObj = Array.isArray(item.content) && item.content[0] as Record<string, unknown>;
+                            const text = Array.isArray(item.content) && contentObj?.text
+                                ? String(contentObj.text)
+                                : typeof item.content === 'string' ? item.content : '';
+                            if (text.trim() && text.trim() !== 'No results found') {
+                                parsedMessages.push({sender: 'bot', content: text});
+                            }
                         } else if (item.type === 'tool_result' && (item.call_id === 'rerank_results' || (item.metadata as Record<string, unknown>)?.name === 'rerank_results')) {
                             try {
                                 const contentObj = typeof item.content === 'string' ? JSON.parse(item.content) : item.content;
@@ -165,7 +173,7 @@ const ChatPage: FC = () => {
                     } else if (event.type === 'TEXT_MESSAGE_CHUNK' && event.delta) {
                         currentTextContent += event.delta;
                     } else if (event.type === 'TEXT_MESSAGE_END') {
-                        if (currentTextContent.trim() && !receivedRerank) {
+                        if (currentTextContent.trim() && !receivedRerank && currentTextContent.trim() !== 'No results found') {
                             const botMessage: Message = {sender: 'bot', content: currentTextContent};
                             setSelectedConversation(prev => {
                                 if (!prev) return null;
