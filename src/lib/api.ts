@@ -20,9 +20,10 @@ export class ServerError extends Error {
 }
 
 export interface SearchRequest {
-    messages: Array<{
-        role: 'user';
-        content: string;
+    items: Array<{
+        type: string;
+        role: 'user' | 'assistant';
+        content: Array<{ text: string }>;
     }>;
     model: string;
 }
@@ -55,7 +56,11 @@ export const searchWithBackend = async (
     timeoutMs: number = 60000 // Default 1 minute timeout
 ): Promise<BackendSearchResponse> => {
     const requestBody: SearchRequest = {
-        messages: [{role: 'user', content: query}],
+        items: [{
+            type: 'message',
+            role: 'user',
+            content: [{text: query}]
+        }],
         model: model
     };
 
