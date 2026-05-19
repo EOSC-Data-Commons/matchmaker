@@ -7,5 +7,5 @@ export interface Conversation {
 export interface Message {
     sender: 'user' | 'bot';
     content: string;
+    hits?: any[];
 }
-

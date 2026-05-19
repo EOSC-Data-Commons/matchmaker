@@ -4,33 +4,9 @@ import {useAuth} from "@/hooks/useAuth.ts";
 import {Conversation, Message} from "@/types/chat.ts";
 import {BackendDataset} from "@/types/commons.ts";
 import {sendChatMessage} from "@/lib/api.ts";
-import {stripHtml} from "@/lib/utils.ts";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
-import {Footer} from "@/components/Footer.tsx";
 import {Plus, MessageSquare, User, Bot, Send, Loader2, Copy, Check} from "lucide-react";
-
-const formatDatasetHits = (hits: unknown[], summary: string, maxDescLength: number = 500) => {
-    let formattedContent = summary + "\n\n";
-    hits.forEach((rawHit: unknown, index: number) => {
-        const hit = rawHit as BackendDataset;
-        const title = hit.title || hit._source?.titles?.[0]?.title || 'Unknown Dataset';
-        const url = hit._id || hit._source?.doi || '#';
-        let description = hit.description || hit._source?.descriptions?.[0]?.description || '';
-        if (typeof description === 'string') description = stripHtml(description);
-        const creator = hit.creator || (hit._source?.creators ? hit._source.creators.map(c => c.creatorName).filter(Boolean).join(', ') : '');
-        const date = hit.publication_date || hit._source?.publicationYear || '';
-
-        formattedContent += `${index + 1}. [${title}](${url})\n`;
-        if (creator) formattedContent += `**Creator:** ${creator}\n`;
-        if (date) formattedContent += `**Published:** ${date}\n`;
-        if (description) {
-            const truncDesc = description.length > maxDescLength ? description.substring(0, maxDescLength) + '...' : description;
-            formattedContent += `**Description:** ${truncDesc}\n`;
-        }
-        formattedContent += '\n';
-    });
-    return formattedContent;
-};
+import {SearchResultItem} from "@/components/SearchResultItem.tsx";
 
 const ChatPage: FC = () => {
     const {id: urlId} = useParams();
@@ -97,8 +73,7 @@ const ChatPage: FC = () => {
                                 const contentObj = typeof item.content === 'string' ? JSON.parse(item.content) : item.content;
                                 if (contentObj && contentObj.summary && contentObj.hits) {
                                     const {summary, hits} = contentObj;
-                                    const formattedContent = formatDatasetHits(hits, summary, 250);
-                                    parsedMessages.push({sender: 'bot', content: formattedContent});
+                                    parsedMessages.push({sender: 'bot', content: summary || "", hits: hits});
                                 }
                             } catch (e) {
                                 console.error("Failed to parse tool result content", e);
@@ -174,9 +149,7 @@ const ChatPage: FC = () => {
                         const result = JSON.parse(event.content);
                         const {summary, hits} = result;
 
-                        const formattedContent = formatDatasetHits(hits, summary, 500);
-
-                        const botMessage: Message = {sender: 'bot', content: formattedContent};
+                        const botMessage: Message = {sender: 'bot', content: summary || "", hits: hits};
 
                         setSelectedConversation(prev => {
                             if (!prev) return null;
@@ -399,7 +372,18 @@ const ChatPage: FC = () => {
                                                 {msg.sender === 'user' ? (
                                                     <p className="leading-relaxed">{msg.content}</p>
                                                 ) : (
-                                                    renderMessageContent(msg.content)
+                                                    <div className="flex flex-col space-y-4">
+                                                        {msg.content && <div>{renderMessageContent(msg.content)}</div>}
+                                                        {msg.hits && msg.hits.length > 0 && (
+                                                            <div className="flex flex-col space-y-4 mt-2">
+                                                                {msg.hits.map((hit: unknown, hitIdx: number) => (
+                                                                    <SearchResultItem key={hitIdx}
+                                                                                      hit={hit as BackendDataset}
+                                                                                      isAiRanked={true}/>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 )}
                                             </div>
                                             <div
@@ -495,9 +479,9 @@ const ChatPage: FC = () => {
             </div>
 
             {/* Footer */}
-            <div className="shrink-0 bg-white shadow-[0_-1px_3px_rgba(0,0,0,0.1)] z-10 w-full relative">
-                <Footer className="mt-0! py-4! scale-[0.85] origin-bottom overflow-hidden" translucent={false}/>
-            </div>
+            {/*<div className="shrink-0 bg-white shadow-[0_-1px_3px_rgba(0,0,0,0.1)] z-10 w-full relative">*/}
+            {/*    <Footer className="mt-0! py-4! scale-[0.85] origin-bottom overflow-hidden" translucent={false}/>*/}
+            {/*</div>*/}
         </div>
     );
 };
