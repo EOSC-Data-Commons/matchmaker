@@ -5,7 +5,7 @@ import {Conversation, Message} from "@/types/chat.ts";
 import {BackendDataset} from "@/types/commons.ts";
 import {sendChatMessage} from "@/lib/api.ts";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
-import {Plus, MessageSquare, User, Bot, Loader2, Send} from "lucide-react";
+import {Plus, MessageSquare, User, Bot, Loader2, Send, ChevronDown} from "lucide-react";
 import {SearchResultItem} from "@/components/SearchResultItem.tsx";
 import {SearchInput} from "@/components/SearchInput.tsx";
 
@@ -17,17 +17,22 @@ const ChatPage: FC = () => {
     const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
     const [loading, setLoading] = useState(true);
     const [isSending, setIsSending] = useState(false);
+    const [showScrollButton, setShowScrollButton] = useState(false);
     const activeIdRef = useRef<string | undefined>(undefined);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
     activeIdRef.current = selectedConversation?.id;
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({behavior: "smooth"});
     };
 
-    useEffect(() => {
-        scrollToBottom();
-    }, [selectedConversation?.messages, isSending]);
+    const handleScroll = () => {
+        if (!messagesContainerRef.current) return;
+        const {scrollTop, scrollHeight, clientHeight} = messagesContainerRef.current;
+        const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+        setShowScrollButton(!isNearBottom);
+    };
 
     const fetchConversations = useCallback(() => {
         if (user?.sub) {
@@ -325,7 +330,7 @@ const ChatPage: FC = () => {
                 </div>
 
                 {/* Main Chat Area */}
-                <div className="flex-1 flex flex-col bg-white min-w-0">
+                <div className="flex-1 flex flex-col bg-white min-w-0 relative">
                     {/* Header */}
                     {selectedConversation && (
                         <div className="px-6 py-4 border-b border-gray-100 bg-white shrink-0">
@@ -334,7 +339,11 @@ const ChatPage: FC = () => {
                     )}
 
                     {/* Messages */}
-                    <div className="flex-1 p-6 overflow-y-auto bg-gray-50">
+                    <div
+                        ref={messagesContainerRef}
+                        onScroll={handleScroll}
+                        className="flex-1 p-6 overflow-y-auto bg-gray-50"
+                    >
                         <div className="max-w-6xl mx-auto space-y-6">
                             {!selectedConversation || selectedConversation.messages.length === 0 ? (
                                 <div
@@ -416,6 +425,18 @@ const ChatPage: FC = () => {
                             <div ref={messagesEndRef}/>
                         </div>
                     </div>
+
+                    {showScrollButton && (
+                        <div className="absolute bottom-32 left-1/2 -translate-x-1/2 z-20">
+                            <button
+                                onClick={scrollToBottom}
+                                className="p-2 bg-white border border-gray-200 shadow-md rounded-full text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors focus:outline-none flex items-center justify-center cursor-pointer"
+                                title="Scroll to bottom"
+                            >
+                                <ChevronDown className="h-6 w-6"/>
+                            </button>
+                        </div>
+                    )}
 
                     {/* Input Area */}
                     <div className="p-4 bg-white border-t border-gray-200">
