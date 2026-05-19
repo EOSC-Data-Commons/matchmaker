@@ -26,8 +26,13 @@ export const LandingPage = () => {
         }
     };
 
-    const handleSearch = (query: string, model: string) => {
-        navigate(`/search?q=${encodeURIComponent(query)}&model=${encodeURIComponent(model)}`);
+    const handleSearch = (query: string, model: string, aiMode?: boolean) => {
+        if (aiMode) {
+            // Using state to potentially start chat if the backend/chat page leverages it, as per instructions.
+            navigate('/chat', {state: {initialQuery: query, initialModel: model}});
+        } else {
+            navigate(`/search?q=${encodeURIComponent(query)}&model=${encodeURIComponent(model)}`);
+        }
     };
 
     const handleChat = () => {
@@ -129,6 +134,8 @@ export const LandingPage = () => {
                         <SearchInput
                             onSearch={handleSearch}
                             className="w-full max-w-2xl"
+                            isLoggedIn={!!user}
+                            showAiToggle={true}
                         />
                     </div>
                 </div>
