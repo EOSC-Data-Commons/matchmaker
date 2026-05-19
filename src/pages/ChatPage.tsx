@@ -43,7 +43,16 @@ const ChatPage: FC = () => {
     const [isSending, setIsSending] = useState(false);
     const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
     const activeIdRef = useRef<string | undefined>(undefined);
+    const messagesEndRef = useRef<HTMLDivElement>(null);
     activeIdRef.current = selectedConversation?.id;
+
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({behavior: "smooth"});
+    };
+
+    useEffect(() => {
+        scrollToBottom();
+    }, [selectedConversation?.messages, isSending]);
 
     const fetchConversations = useCallback(() => {
         if (user?.sub) {
@@ -184,6 +193,8 @@ const ChatPage: FC = () => {
                                 return {...prev, messages: [...prev.messages, botMessage]};
                             });
                         }
+                        currentTextContent = "";
+                        receivedRerank = false;
                         setIsSending(false);
                     } else if (event.type === 'RUN_FINISHED') {
                         setIsSending(false);
@@ -433,6 +444,7 @@ const ChatPage: FC = () => {
                                     </div>
                                 </div>
                             )}
+                            <div ref={messagesEndRef}/>
                         </div>
                     </div>
 
