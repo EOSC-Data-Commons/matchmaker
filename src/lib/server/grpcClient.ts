@@ -15,6 +15,7 @@
  *   npm install -D ts-proto grpc-tools @types/jsonwebtoken typescript
  */
 
+import * as fs from "fs";
 import * as grpc from "@grpc/grpc-js";
 import jwt from "jsonwebtoken";
 
@@ -24,7 +25,6 @@ import {
     BrowseDatasetResponse,
     DataplayerServiceClient,
     DatasetServiceClient,
-    // TODO: as GrpcEntry and rename FileMeta to FileEntry for consistency.
     FileEntry,
     LaunchToolRequest,
     Slot,
@@ -45,7 +45,26 @@ export {
 
 import { FileMeta, InputParameterTyp, ToolSlot, TypedValue } from "@/types/dataplayerTypes.ts";
 
-const GRPC_TARGET = "[::1]:50051";
+// const GRPC_TARGET = "129-132-86-131.net4.ethz.ch:443";
+const GRPC_TARGET = "grpc.eosc-coordinator.ethz.ch:443";
+// const GRPC_TARGET = "129.132.86.131:443";
+
+// tls, used when coordinator is not with matchmaker in same private network.
+// creds,
+const creds = grpc.credentials.createSsl();
+
+// NOTE: creds with CA, mTLS
+// const CA_PAM = "/home/jyu/EOSC/dev-environment/ca.pem";
+// const caCert = fs.readFileSync(CA_PAM);
+// const creds_with_ca = grpc.credentials.createSsl(caCert);
+
+// NOTE: if matchmaker and coordinator stay in same private network, use InsecureChannel.
+// createInsecureChannel()
+// function createInsecureChannel(): grpc.ChannelCredentials {
+//     return grpc.credentials.createInsecure();
+// }
+
+const channel = creds;
 
 // JWT-token mocking
 // This supposed to provide from matchmaker login
@@ -162,7 +181,7 @@ export function getDatasetClient() {
     if (!db_client) {
         db_client = new DatasetServiceClient(
             GRPC_TARGET,
-            createInsecureChannel()
+            channel,
         );
     }
     return db_client;
@@ -185,10 +204,6 @@ function makeAuthMetadata(token: string): grpc.Metadata {
     const metadata = new grpc.Metadata();
     metadata.set("authorization", `Bearer ${token}`);
     return metadata;
-}
-
-function createInsecureChannel(): grpc.ChannelCredentials {
-    return grpc.credentials.createInsecure();
 }
 
 // TODO: this is yet a blocking call that collect all files.
@@ -260,7 +275,10 @@ export async function launchTool(
 
     // XXX: if I deploy the grpc server with client in the same NAT, I can use insecure channel, but if goes to ethz deployment, should not.
     // Should use SSL for msg over wire.
-    const client = new DataplayerServiceClient(GRPC_TARGET, createInsecureChannel());
+    const client = new DataplayerServiceClient(
+        GRPC_TARGET, 
+        channel,
+    );
 
     const msgFileSlotsMapping = {} as {string: FileEntry};
     for (const k in slotToFileMapping) {
@@ -282,7 +300,7 @@ export async function launchTool(
     return new Promise((resolve, reject) => {
         client.launchTool(request, metadata, (error, response) => {
             if (error) {
-                // TODO: log needed?
+                // TODO: more detail log needed
                 reject(error);
                 return;
             }
@@ -297,7 +315,7 @@ export function getDataplayerClient() {
     if (!player_client) {
         player_client = new DataplayerServiceClient(
             GRPC_TARGET,
-            createInsecureChannel()
+            channel,
         );
     }
     return player_client;
@@ -308,7 +326,7 @@ export function getToolSrcClient() {
     if (!toolsrc_client) {
         toolsrc_client = new ToolServiceClient(
             GRPC_TARGET,
-            createInsecureChannel()
+            channel,
         );
     }
     return toolsrc_client;
