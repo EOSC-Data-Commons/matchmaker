@@ -93,7 +93,7 @@ export const searchWithBackend = async (
         if (!response.ok) throw new Error(`Error sending the request: ${response.status}`);
         // if (!response.headers.get('content-type')?.includes('text/event-stream')) return response.json();
 
-        let currentSearchCallId: string | undefined = undefined;
+        const toolCallMap = new Map<string, string>();
 
         // Handle SSE stream based on tool_call_id
         return handleStream(response, (event) => {
@@ -106,36 +106,23 @@ export const searchWithBackend = async (
                 if (handlers?.onError) handlers.onError(error);
                 throw error; // Terminate stream processing
             }
-            // TODO - Uncomment this logic when BE is fixed
-            // if (event.type === 'TOOL_CALL_RESULT' && event.content) {
-            //     const searchResp = JSON.parse(event.content) as BackendSearchResponse;
-            //     if (event.tool_call_id === 'rerank_results') {
-            //         if (handlers.onRerankedData) handlers.onRerankedData(searchResp);
-            //     } else if (event.tool_call_id === 'search_data') {
-            //         if (handlers.onSearchData) handlers.onSearchData(searchResp);
-            //     }
-            //     return searchResp;
-            // }
 
-            // TODO This is temp Fix
-            if (event.type === 'TOOL_CALL_START' && event.tool_call_name === 'search_data') {
-                currentSearchCallId = event.tool_call_id;
+            if (event.type === 'TOOL_CALL_START' && event.tool_call_id && event.tool_call_name) {
+                toolCallMap.set(event.tool_call_id, event.tool_call_name);
             }
 
             if (event.type === 'TOOL_CALL_RESULT' && event.content) {
-                const searchResp = JSON.parse(event.content) as BackendSearchResponse & { total_found?: number };
+                const searchResp = JSON.parse(event.content) as BackendSearchResponse;
 
-                const isRerank = event.tool_call_id === 'rerank_results' || 'summary' in searchResp;
-                const isSearch = event.tool_call_id === 'search_data' || event.tool_call_id === currentSearchCallId || 'total_found' in searchResp;
+                const toolName = event.tool_call_id ? (toolCallMap.get(event.tool_call_id) || event.tool_call_id) : undefined;
 
-                if (isRerank) {
+                if (toolName === 'rerank_results') {
                     if (handlers.onRerankedData) handlers.onRerankedData(searchResp);
-                } else if (isSearch) {
+                } else if (toolName === 'search_data') {
                     if (handlers.onSearchData) handlers.onSearchData(searchResp);
                 }
                 return searchResp;
             }
-            // TODO - Till here is temp Fix
 
             // Legacy error handling (backward compatibility)
             if (event.type === 'error' && handlers?.onError) {

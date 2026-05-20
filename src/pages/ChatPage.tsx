@@ -144,18 +144,21 @@ const ChatPage: FC = () => {
         try {
             let currentTextContent = "";
             let receivedRerank = false;
+            const toolCallMap = new Map<string, string>();
 
             await sendChatMessage(
                 updatedMessages,
                 model,
                 currentConversation.id.startsWith('new-') ? undefined : currentConversation.id,
                 (event) => {
-                    if (event.type === 'RUN_STARTED' && event.thread_id && currentConversation.id.startsWith('new-')) {
+                    if (event.type === 'TOOL_CALL_START' && event.tool_call_id && event.tool_call_name) {
+                        toolCallMap.set(event.tool_call_id, event.tool_call_name);
+                    } else if (event.type === 'RUN_STARTED' && event.thread_id && currentConversation.id.startsWith('new-')) {
                         const newThreadId = event.thread_id;
                         navigate(`/chat/${newThreadId}`, {replace: true});
                         setSelectedConversation(prev => prev ? {...prev, id: newThreadId} : null);
                         // Also update currentConversation in scope so subsequent handlers during this stream don't misbehave if they need it, though they use prev.
-                    } else if (event.type === 'TOOL_CALL_RESULT' && event.tool_call_id === 'rerank_results' && event.content) {
+                    } else if (event.type === 'TOOL_CALL_RESULT' && event.content && event.tool_call_id && (toolCallMap.get(event.tool_call_id) === 'rerank_results' || event.tool_call_id === 'rerank_results')) {
                         receivedRerank = true;
                         const result = JSON.parse(event.content);
                         const {summary, hits} = result;
