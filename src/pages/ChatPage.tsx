@@ -1,5 +1,5 @@
 import {FC, useState, useEffect, useCallback, Fragment, useRef} from "react";
-import {useNavigate, useParams} from "react-router";
+import {useNavigate, useParams, useLocation} from "react-router";
 import {useAuth} from "@/hooks/useAuth.ts";
 import {Conversation, Message} from "@/types/chat.ts";
 import {BackendDataset} from "@/types/commons.ts";
@@ -12,6 +12,7 @@ import {SearchInput} from "@/components/SearchInput.tsx";
 const ChatPage: FC = () => {
     const {id: urlId} = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
     const {user, loading: userLoading} = useAuth();
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
@@ -22,6 +23,9 @@ const ChatPage: FC = () => {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     activeIdRef.current = selectedConversation?.id;
+
+    // To prevent processing initial state multiple times
+    const initialQueryProcessed = useRef(false);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({behavior: "smooth"});
@@ -121,6 +125,25 @@ const ChatPage: FC = () => {
             setSelectedConversation(null);
         }
     }, [urlId, handleSelectConversation]);
+
+    useEffect(() => {
+        if (
+            location.state &&
+            location.state.initialQuery &&
+            !initialQueryProcessed.current
+        ) {
+            const {initialQuery, initialModel} = location.state;
+            initialQueryProcessed.current = true;
+            // Clear the state so a refresh doesn't trigger it again
+            navigate(location.pathname, {replace: true, state: {}});
+
+            // Wait slightly for layout to settle before sending
+            setTimeout(() => {
+                handleSendMessage(initialQuery, initialModel || 'einfracz/qwen3-coder');
+            }, 100);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [location, navigate]);
 
     const handleSendMessage = async (messageText: string, model: string) => {
         if (!messageText.trim()) return;

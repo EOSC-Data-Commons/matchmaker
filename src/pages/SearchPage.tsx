@@ -65,8 +65,12 @@ export const SearchPage = () => {
         })();
     }, [performSearch]);
 
-    const handleSearch = (newQuery: string, newModel: string) => {
-        setSearchParams({q: newQuery, model: newModel});
+    const handleSearch = (newQuery: string, newModel: string, aiMode?: boolean) => {
+        if (aiMode) {
+            navigate('/chat', {state: {initialQuery: newQuery, initialModel: newModel}});
+        } else {
+            setSearchParams({q: newQuery, model: newModel});
+        }
     };
 
     const handleFilterChange = (newFilters: URLSearchParams) => {
@@ -301,4 +305,3 @@ export const SearchPage = () => {
 };
 
 export default SearchPage;
-
