@@ -27,6 +27,24 @@ const ChatPage: FC = () => {
     // To prevent processing initial state multiple times
     const initialQueryProcessed = useRef(false);
 
+    const getInitials = () => {
+        if (!user) return "U";
+        const name = user.name?.trim();
+        if (name) {
+            const names = name.split(/\s+/);
+            if (names.length >= 2) {
+                return (names[0][0] + names[1][0]).toUpperCase();
+            }
+            return name.substring(0, 2).toUpperCase();
+        }
+
+        const preferredUsername = user.preferred_username?.trim();
+        if (preferredUsername) {
+            return preferredUsername.substring(0, 2).toUpperCase();
+        }
+        return user.email ? user.email.substring(0, 2).toUpperCase() : "U";
+    };
+
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({behavior: "smooth"});
     };
@@ -397,11 +415,12 @@ const ChatPage: FC = () => {
                                             className={`group flex gap-3 max-w-[85%] ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
                                             {/* Avatar */}
                                             <div
-                                                className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center shadow-sm mt-1 ${msg.sender === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-blue-600 border border-gray-200'}`}>
+                                                className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center shadow-sm mt-1 overflow-hidden ${msg.sender === 'user' ? 'bg-[#002337] text-white text-sm font-medium' : 'bg-white border border-gray-100 p-1'}`}>
                                                 {msg.sender === 'user' ? (
-                                                    <User className="h-5 w-5"/>
+                                                    getInitials()
                                                 ) : (
-                                                    <Bot className="h-5 w-5"/>
+                                                    <img src={dataCommonsIconBlue} alt="Bot"
+                                                         className="w-full h-full object-contain"/>
                                                 )}
                                             </div>
                                             <div
@@ -437,8 +456,9 @@ const ChatPage: FC = () => {
                                 <div className="w-full flex justify-start">
                                     <div className="flex gap-3 max-w-[85%]">
                                         <div
-                                            className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center shadow-sm bg-gray-100 text-blue-600 border border-gray-200 mt-1">
-                                            <Bot className="h-5 w-5 animate-pulse"/>
+                                            className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center shadow-sm bg-white border border-gray-100 mt-1 p-1 overflow-hidden">
+                                            <img src={dataCommonsIconBlue} alt="Bot"
+                                                 className="w-full h-full object-contain animate-pulse"/>
                                         </div>
                                         <div
                                             className="rounded-2xl px-5 py-3 shadow-sm text-[15px] bg-white border border-gray-200 text-gray-500 rounded-tl-sm flex items-center gap-3">
