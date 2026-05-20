@@ -163,6 +163,7 @@ const ChatPage: FC = () => {
             messages: updatedMessages,
         });
         setIsSending(true);
+        setTimeout(scrollToBottom, 50);
 
         try {
             let currentTextContent = "";
