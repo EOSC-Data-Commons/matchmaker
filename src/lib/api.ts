@@ -221,7 +221,11 @@ export const sendChatMessage = async (
         items: messages.map(msg => ({
             type: 'message',
             role: msg.sender === 'user' ? 'user' : 'assistant',
-            content: [{text: msg.content}]
+            content: [{
+                text: (msg.hits && msg.hits.length > 0)
+                    ? JSON.stringify({summary: msg.content, hits: msg.hits})
+                    : msg.content
+            }]
         })),
         model: model
     };
