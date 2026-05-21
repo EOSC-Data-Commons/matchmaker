@@ -49,7 +49,7 @@ export const SearchInput = ({
     const [showHistory, setShowHistory] = useState(false);
     const [history] = useState<string[]>(getSearchHistory);
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
-    const [aiMode, setAiMode] = useState(false);
+    const [aiMode, setAiMode] = useState(true);
     const searchContainerRef = useRef<HTMLDivElement>(null);
     useNavigate();
 
