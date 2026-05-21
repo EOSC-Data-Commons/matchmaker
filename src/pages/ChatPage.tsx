@@ -5,7 +5,7 @@ import {Conversation, Message} from "@/types/chat.ts";
 import {BackendDataset} from "@/types/commons.ts";
 import {sendChatMessage} from "@/lib/api.ts";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
-import {Plus, MessageSquare, User, Bot, Loader2, Send, ChevronDown} from "lucide-react";
+import {Plus, MessageSquare, User, Loader2, Send, ChevronDown} from "lucide-react";
 import {SearchResultItem} from "@/components/SearchResultItem.tsx";
 import {SearchInput} from "@/components/SearchInput.tsx";
 
@@ -61,7 +61,8 @@ const ChatPage: FC = () => {
             fetch('/api/search/conversations')
                 .then(res => res.json())
                 .then(data => {
-                    const mapped_data = data.map((item: Record<string, string>) => ({
+                    const dataArray = Array.isArray(data) ? data : Object.values(data || {});
+                    const mapped_data = dataArray.map((item: Record<string, string>) => ({
                         id: item.thread_id || item.id,
                         title: item.label || item.title,
                         ...item
@@ -384,7 +385,9 @@ const ChatPage: FC = () => {
                     {/* Header */}
                     {selectedConversation && (
                         <div className="px-6 py-4 border-b border-gray-100 bg-white shrink-0">
-                            <h1 className="text-lg font-semibold text-gray-800 wrap-break-word line-clamp-2 md:line-clamp-none">{selectedConversation.title}</h1>
+                            <h1 className="text-lg font-semibold text-gray-800 wrap-break-word line-clamp-2 md:line-clamp-none">
+                                {conversations.find(c => c.id === selectedConversation.id)?.title || selectedConversation.title}
+                            </h1>
                         </div>
                     )}
 
