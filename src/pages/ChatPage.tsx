@@ -1,4 +1,4 @@
-import {FC, useState, useEffect, useCallback, Fragment, useRef} from "react";
+import {FC, useState, useEffect, useCallback, Fragment, useRef, JSX} from "react";
 import {useNavigate, useParams, useLocation} from "react-router";
 import {useAuth} from "@/hooks/useAuth.ts";
 import {Conversation, Message} from "@/types/chat.ts";
@@ -88,7 +88,7 @@ const ChatPage: FC = () => {
             .then(data => {
                 const parsedMessages: Message[] = [];
                 if (data.items && Array.isArray(data.items)) {
-                    data.items.forEach((item: Record<string, unknown>) => {
+                    data.items.forEach((item: Record<string, unknown>, idx: number) => {
                         if (item.type === 'message' && item.role === 'user') {
                             const contentObj = Array.isArray(item.content) && item.content[0] as Record<string, unknown>;
                             const text = Array.isArray(item.content) && contentObj?.text
@@ -100,8 +100,21 @@ const ChatPage: FC = () => {
                             const text = Array.isArray(item.content) && contentObj?.text
                                 ? String(contentObj.text)
                                 : typeof item.content === 'string' ? item.content : '';
-                            if (text.trim() && text.trim() !== 'No results found') {
-                                parsedMessages.push({sender: 'bot', content: text});
+                            if (text.trim()) {
+                                // Check if this is a standalone "No results found"
+                                const isNoResultsOnly = text.trim() === 'No results found';
+                                const hasPriorAssistantMessage = parsedMessages.some(m => m.sender === 'bot' && !m.hits);
+
+                                // Look back to see if this is in response to a tool call
+                                const prevItem = data.items && data.items[idx - 1];
+                                const isResponseToTool = prevItem?.type === 'tool_result' || prevItem?.type === 'tool_call';
+
+                                // Only suppress if it's a standalone "No results found" AND there's a prior assistant message AND it's not a tool response
+                                if (isNoResultsOnly && hasPriorAssistantMessage && !isResponseToTool) {
+                                    // Skip this message
+                                } else {
+                                    parsedMessages.push({sender: 'bot', content: text});
+                                }
                             }
                         } else if (item.type === 'tool_result' && (item.call_id === 'rerank_results' || (item.metadata as Record<string, unknown>)?.name === 'rerank_results')) {
                             try {
@@ -187,6 +200,7 @@ const ChatPage: FC = () => {
         try {
             let currentTextContent = "";
             let receivedRerank = false;
+            let hasAddedMessage = false; // Track if we've added a message in this cycle
             const toolCallMap = new Map<string, string>();
 
             await sendChatMessage(
@@ -212,16 +226,24 @@ const ChatPage: FC = () => {
                             if (!prev) return null;
                             return {...prev, messages: [...prev.messages, botMessage]};
                         });
+                        hasAddedMessage = true;
                         setIsSending(false);
                     } else if (event.type === 'TEXT_MESSAGE_CHUNK' && event.delta) {
                         currentTextContent += event.delta;
                     } else if (event.type === 'TEXT_MESSAGE_END') {
-                        if (currentTextContent.trim() && !receivedRerank && currentTextContent.trim() !== 'No results found') {
-                            const botMessage: Message = {sender: 'bot', content: currentTextContent};
-                            setSelectedConversation(prev => {
-                                if (!prev) return null;
-                                return {...prev, messages: [...prev.messages, botMessage]};
-                            });
+                        if (currentTextContent.trim() && !receivedRerank) {
+                            // Only add "No results found" if no other message was added in this cycle
+                            const isNoResultsOnly = currentTextContent.trim() === 'No results found';
+                            if (isNoResultsOnly && hasAddedMessage) {
+                                // Skip it — we already have content from a tool result
+                            } else {
+                                const botMessage: Message = {sender: 'bot', content: currentTextContent};
+                                setSelectedConversation(prev => {
+                                    if (!prev) return null;
+                                    return {...prev, messages: [...prev.messages, botMessage]};
+                                });
+                                hasAddedMessage = true;
+                            }
                         }
                         currentTextContent = "";
                         receivedRerank = false;
@@ -246,51 +268,85 @@ const ChatPage: FC = () => {
         }
     };
 
-    const renderMessageContent = (content: string) => {
-        const lines = content.split('\n');
-        return lines.map((line, i) => {
-            const linkRegex = /\[(.*?)]\((.*?)\)/g;
-            const parts = [];
-            let lastIndex = 0;
-            let match;
-            let keyIndex = 0;
-            while ((match = linkRegex.exec(line)) !== null) {
-                parts.push(line.substring(lastIndex, match.index));
-                parts.push(
-                    <a key={`${i}-${keyIndex++}`} href={match[2]} target="_blank" rel="noopener noreferrer"
-                       className="text-blue-500 hover:text-blue-700 underline font-medium break-all">
-                        {match[1]}
+    const renderInlineMarkdown = (line: string, lineIndex: number) => {
+        // Handles **[label](url)**, [label](url), and **bold** in a single pass.
+        const tokenRegex = /\*\*\[(.+?)]\((.+?)\)\*\*|\[(.+?)]\((.+?)\)|\*\*(.+?)\*\*/g;
+        const nodes: (string | JSX.Element)[] = [];
+        let lastIndex = 0;
+        let tokenIndex = 0;
+        let match: RegExpExecArray | null;
+
+        while ((match = tokenRegex.exec(line)) !== null) {
+            if (match.index > lastIndex) {
+                nodes.push(line.substring(lastIndex, match.index));
+            }
+
+            const [fullMatch, boldLinkText, boldLinkHref, linkText, linkHref, boldText] = match;
+            if (boldLinkText && boldLinkHref) {
+                nodes.push(
+                    <a
+                        key={`md-${lineIndex}-${tokenIndex++}`}
+                        href={boldLinkHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-500 hover:text-blue-700 underline font-semibold break-all"
+                    >
+                        {boldLinkText}
                     </a>
                 );
-                lastIndex = match.index + match[0].length;
+            } else if (linkText && linkHref) {
+                nodes.push(
+                    <a
+                        key={`md-${lineIndex}-${tokenIndex++}`}
+                        href={linkHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-500 hover:text-blue-700 underline font-medium break-all"
+                    >
+                        {linkText}
+                    </a>
+                );
+            } else if (boldText) {
+                nodes.push(
+                    <strong key={`md-${lineIndex}-${tokenIndex++}`} className="font-semibold text-gray-900">
+                        {boldText}
+                    </strong>
+                );
+            } else {
+                nodes.push(fullMatch);
             }
-            parts.push(line.substring(lastIndex));
 
-            // Process **bold** text within text parts
-            const formattedParts = parts.map((part, pIdx) => {
-                if (typeof part !== 'string') return part;
-                const boldRegex = /\*\*(.*?)\*\*/g;
-                const subParts = [];
-                let bLastIndex = 0;
-                let bMatch;
-                let bKeyIndex = 0;
-                while ((bMatch = boldRegex.exec(part)) !== null) {
-                    subParts.push(part.substring(bLastIndex, bMatch.index));
-                    subParts.push(<strong key={`b-${pIdx}-${bKeyIndex++}`}
-                                          className="font-semibold text-gray-900">{bMatch[1]}</strong>);
-                    bLastIndex = bMatch.index + bMatch[0].length;
-                }
-                subParts.push(part.substring(bLastIndex));
-                return <Fragment key={`p-${pIdx}`}>{subParts.map((sp, idx) => <Fragment
-                    key={idx}>{sp}</Fragment>)}</Fragment>;
-            });
+            lastIndex = match.index + fullMatch.length;
+        }
 
-            // Handle styling for dataset list details without weird indentation
-            const isMetadata = line.startsWith('**Creator:**') || line.startsWith('**Published:**') || line.startsWith('**Description:**') || line.startsWith('   ');
+        if (lastIndex < line.length) {
+            nodes.push(line.substring(lastIndex));
+        }
+
+        return nodes.map((node, idx) => <Fragment key={`md-frag-${lineIndex}-${idx}`}>{node}</Fragment>);
+    };
+
+    const renderMessageContent = (content: string) => {
+        const lines = content.split('\n');
+
+        return lines.map((rawLine, i) => {
+            const trimmedLeft = rawLine.trimStart();
+            const orderedMatch = trimmedLeft.match(/^(\d+)\.\s+(.*)$/);
+            const unorderedMatch = trimmedLeft.match(/^[*-]\s+(.*)$/);
+            const lineBody = orderedMatch?.[2] ?? unorderedMatch?.[1] ?? rawLine;
+            const formattedParts = renderInlineMarkdown(lineBody, i);
+
+            const isMetadata =
+                trimmedLeft.startsWith('**Creator:**') ||
+                trimmedLeft.startsWith('**Published:**') ||
+                trimmedLeft.startsWith('**Description:**');
+
             const pClass = `leading-relaxed min-h-6 ${isMetadata ? 'text-gray-700 text-sm mt-1' : ''}`;
 
             return (
                 <p key={i} className={pClass}>
+                    {orderedMatch ? <span className="mr-2 font-medium text-gray-700">{orderedMatch[1]}.</span> : null}
+                    {unorderedMatch ? <span className="mr-2 text-gray-500">•</span> : null}
                     {formattedParts}
                 </p>
             );

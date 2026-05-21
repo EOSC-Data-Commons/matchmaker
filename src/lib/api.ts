@@ -1,4 +1,4 @@
-import {BackendSearchResponse} from '../types/commons';
+import {BackendDataset, BackendSearchResponse} from '../types/commons';
 import {logError, fetchWithTimeout} from './utils.ts';
 import {Message} from "@/types/chat.ts";
 
@@ -210,7 +210,7 @@ export const sendChatMessage = async (
             role: msg.sender === 'user' ? 'user' : 'assistant',
             content: [{
                 text: (msg.hits && msg.hits.length > 0)
-                    ? JSON.stringify({summary: msg.content, hits: msg.hits})
+                    ? formatSearchResults(msg.content, msg.hits)
                     : msg.content
             }]
         })),
@@ -248,3 +248,41 @@ export const sendChatMessage = async (
         }
     }
 };
+
+function formatSearchResults(summary: string, hits: BackendDataset[]): string {
+    if (!summary && (!hits || hits.length === 0)) {
+        return 'No results found.';
+    }
+
+    let formatted = (summary || 'No summary available.') + '\n\n';
+
+    if (!hits || hits.length === 0) {
+        return formatted.trim();
+    }
+
+    hits.forEach((hit, index) => {
+        if (!hit) return; // Skip null/undefined entries
+
+        const source = hit._source;
+        const title = source?.titles?.[0]?.title || hit.title || 'Untitled';
+        const creator = source?.creators?.[0]?.creatorName || hit.creator || 'Unknown';
+        const date = source?.dates?.find(d => d.dateType === 'Issued')?.date || hit.publication_date || 'N/A';
+        const doi = source?.doi || hit._id || '';
+
+        formatted += `${index + 1}. [${title}](${doi})\n`;
+        formatted += `**Creator:** ${creator}\n`;
+        formatted += `**Published:** ${date}\n`;
+
+        const description = source?.descriptions?.[0]?.description || hit.description;
+        if (description) {
+            const truncated = description.length > 200
+                ? description.substring(0, 200) + '...'
+                : description;
+            formatted += `**Description:** ${truncated}\n`;
+        }
+
+        formatted += '\n';
+    });
+
+    return formatted.trim();
+}
