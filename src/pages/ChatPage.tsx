@@ -208,6 +208,21 @@ const ChatPage: FC = () => {
         return firstLine.substring(0, 117) + '...';
     };
 
+    const sanitizeLinkHref = (href: string): string | null => {
+        const trimmed = href.trim();
+        if (!trimmed) return null;
+
+        try {
+            const parsed = new URL(trimmed);
+            if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+                return parsed.toString();
+            }
+            return null;
+        } catch {
+            return null;
+        }
+    };
+
 
     const handleSendMessage = async (messageText: string, model: string) => {
         if (!messageText.trim()) return;
@@ -316,10 +331,16 @@ const ChatPage: FC = () => {
 
             const [fullMatch, boldLinkText, boldLinkHref, linkText, linkHref, boldText] = match;
             if (boldLinkText && boldLinkHref) {
+                const safeHref = sanitizeLinkHref(boldLinkHref);
+                if (!safeHref) {
+                    nodes.push(boldLinkText);
+                    lastIndex = match.index + fullMatch.length;
+                    continue;
+                }
                 nodes.push(
                     <a
                         key={`md-${lineIndex}-${tokenIndex++}`}
-                        href={boldLinkHref}
+                        href={safeHref}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-500 hover:text-blue-700 underline font-semibold break-all"
@@ -328,10 +349,16 @@ const ChatPage: FC = () => {
                     </a>
                 );
             } else if (linkText && linkHref) {
+                const safeHref = sanitizeLinkHref(linkHref);
+                if (!safeHref) {
+                    nodes.push(linkText);
+                    lastIndex = match.index + fullMatch.length;
+                    continue;
+                }
                 nodes.push(
                     <a
                         key={`md-${lineIndex}-${tokenIndex++}`}
-                        href={linkHref}
+                        href={safeHref}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-500 hover:text-blue-700 underline font-medium break-all"
