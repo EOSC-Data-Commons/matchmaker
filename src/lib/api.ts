@@ -1,5 +1,6 @@
-import {BackendSearchResponse} from '../types/commons';
+import {BackendDataset, BackendSearchResponse} from '../types/commons';
 import {logError, fetchWithTimeout} from './utils.ts';
+import {Message} from "@/types/chat.ts";
 
 // --- API HELPERS ---
 export const BACKEND_API_URL = '/api/search';
@@ -19,9 +20,10 @@ export class ServerError extends Error {
 }
 
 export interface SearchRequest {
-    messages: Array<{
-        role: 'user';
-        content: string;
+    items: Array<{
+        type: string;
+        role: 'user' | 'assistant';
+        content: Array<{ text: string }>;
     }>;
     model: string;
 }
@@ -31,11 +33,14 @@ export interface SSEEvent {
     type: string;
     message_id?: string;
     tool_call_id?: string;
+    tool_call_name?: string;
     content?: string;
     role?: string;
     error?: string; // For RUN_ERROR events
-    timestamp?: string | null;
+    timestamp?: string | number | null;
     raw_event?: unknown;
+    delta?: string;
+    thread_id?: string;
 }
 
 export interface SSEEventHandler {
@@ -52,7 +57,11 @@ export const searchWithBackend = async (
     timeoutMs: number = 60000 // Default 1 minute timeout
 ): Promise<BackendSearchResponse> => {
     const requestBody: SearchRequest = {
-        messages: [{ role: 'user', content: query }],
+        items: [{
+            type: 'message',
+            role: 'user',
+            content: [{text: query}]
+        }],
         model: model
     };
 
@@ -84,6 +93,8 @@ export const searchWithBackend = async (
         if (!response.ok) throw new Error(`Error sending the request: ${response.status}`);
         // if (!response.headers.get('content-type')?.includes('text/event-stream')) return response.json();
 
+        const toolCallMap = new Map<string, string>();
+
         // Handle SSE stream based on tool_call_id
         return handleStream(response, (event) => {
             if (handlers?.onEvent) handlers.onEvent(event);
@@ -96,12 +107,18 @@ export const searchWithBackend = async (
                 throw error; // Terminate stream processing
             }
 
-            // Handle TOOL_CALL_RESULT events
+            if (event.type === 'TOOL_CALL_START' && event.tool_call_id && event.tool_call_name) {
+                toolCallMap.set(event.tool_call_id, event.tool_call_name);
+            }
+
             if (event.type === 'TOOL_CALL_RESULT' && event.content) {
                 const searchResp = JSON.parse(event.content) as BackendSearchResponse;
-                if (event.tool_call_id === 'rerank_results') {
+
+                const toolName = event.tool_call_id ? (toolCallMap.get(event.tool_call_id) || event.tool_call_id) : undefined;
+
+                if (toolName === 'rerank_results') {
                     if (handlers.onRerankedData) handlers.onRerankedData(searchResp);
-                } else if (event.tool_call_id === 'search_data') {
+                } else if (toolName === 'search_data') {
                     if (handlers.onSearchData) handlers.onSearchData(searchResp);
                 }
                 return searchResp;
@@ -124,7 +141,7 @@ export const searchWithBackend = async (
 /**
  * Generic SSE stream handler - parses data: field and calls onMessage with parsed JSON
  */
-const handleStream = async (
+export const handleStream = async (
     response: Response,
     onMessage: (data: SSEEvent) => BackendSearchResponse | null
 ): Promise<BackendSearchResponse> => {
@@ -137,7 +154,7 @@ const handleStream = async (
 
     try {
         while (true) {
-            const { done, value } = await reader.read();
+            const {done, value} = await reader.read();
             if (done) break;
             buffer += value;
             const parts = buffer.split('\n\n');
@@ -179,3 +196,101 @@ const handleStream = async (
         reader.releaseLock();
     }
 };
+
+export const sendChatMessage = async (
+    messages: Message[],
+    model: string = 'einfracz/qwen3-coder',
+    threadId: string | undefined,
+    onEvent: (event: SSEEvent) => void,
+    onError: (error: Error) => void,
+    timeoutMs: number = 60000
+) => {
+    const requestBody: Record<string, unknown> = {
+        items: messages.map(msg => ({
+            type: 'message',
+            role: msg.sender === 'user' ? 'user' : 'assistant',
+            content: [{
+                text: (msg.hits && msg.hits.length > 0)
+                    ? formatSearchResults(msg.content, msg.hits)
+                    : msg.content
+            }]
+        })),
+        model: model
+    };
+
+    if (threadId) {
+        requestBody.thread_id = threadId;
+    }
+
+    try {
+        const response = await fetchWithTimeout(
+            `${BACKEND_API_URL}/chat`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'text/event-stream',
+                    'Cache-Control': 'no-cache',
+                    'X-Accel-Buffering': 'no'
+                },
+                body: JSON.stringify(requestBody),
+                cache: 'no-store'
+            },
+            timeoutMs
+        );
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        await handleStream(response, (event) => {
+            onEvent(event);
+            return null;
+        });
+
+    } catch (error) {
+        if (error instanceof Error) {
+            onError(error);
+        } else {
+            onError(new Error('An unknown error occurred'));
+        }
+    }
+};
+
+function formatSearchResults(summary: string, hits: BackendDataset[]): string {
+    if (!summary && (!hits || hits.length === 0)) {
+        return 'No results found.';
+    }
+
+    let formatted = (summary || 'No summary available.') + '\n\n';
+
+    if (!hits || hits.length === 0) {
+        return formatted.trim();
+    }
+
+    hits.forEach((hit, index) => {
+        if (!hit) return; // Skip null/undefined entries
+
+        const source = hit._source;
+        const title = source?.titles?.[0]?.title || hit.title || 'Untitled';
+        const creator = source?.creators?.[0]?.creatorName || hit.creator || 'Unknown';
+        const date = source?.dates?.find(d => d.dateType === 'Issued')?.date || hit.publication_date || 'N/A';
+        const doi = source?.doi || hit._id || '';
+
+        formatted += `${index + 1}. [${title}](${doi})\n`;
+        formatted += `**Creator:** ${creator}\n`;
+        formatted += `**Published:** ${date}\n`;
+
+        const description = source?.descriptions?.[0]?.description || hit.description;
+        if (description) {
+            const truncated = description.length > 200
+                ? description.substring(0, 200) + '...'
+                : description;
+            formatted += `**Description:** ${truncated}\n`;
+        }
+
+        formatted += '\n';
+    });
+
+    return formatted.trim();
+}

@@ -7,10 +7,12 @@ import {EasterEgg} from "../components/EasterEgg";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 import eoscLogo from '@/assets/logo-eosc-data-commons.svg';
 import summaryRepoImage from '@/assets/SummaryRepo_24Nov25.png';
+import {useAuth} from "@/hooks/useAuth.ts";
+import {UserMenu} from "@/components/UserMenu.tsx";
 
 export const LandingPage = () => {
     const navigate = useNavigate();
-    // const {user, loading, logout} = useAuth();
+    const {user, loading, logout} = useAuth();
     const [logoClickCount, setLogoClickCount] = useState(0);
     const [showEasterEgg, setShowEasterEgg] = useState(false);
 
@@ -24,17 +26,26 @@ export const LandingPage = () => {
         }
     };
 
-    const handleSearch = (query: string, model: string) => {
-        navigate(`/search?q=${encodeURIComponent(query)}&model=${encodeURIComponent(model)}`);
+    const handleSearch = (query: string, model: string, aiMode?: boolean) => {
+        if (aiMode) {
+            // Using state to potentially start chat if the backend/chat page leverages it, as per instructions.
+            navigate('/chat', {state: {initialQuery: query, initialModel: model}});
+        } else {
+            navigate(`/search?q=${encodeURIComponent(query)}&model=${encodeURIComponent(model)}`);
+        }
+    };
+
+    const handleChat = () => {
+        navigate('/chat');
     };
 
     const handleAbout = () => {
         window.open('https://www.eosc-data-commons.eu/service/eosc-matchmaker', '_blank', 'noopener,noreferrer');
     };
 
-    // const handleLogin = () => {
-    //     window.location.href = '/auth/login';
-    // };
+    const handleLogin = () => {
+        window.location.href = '/auth/login';
+    };
 
     const dataCards = [
         "Glucose level changes in the liver of individuals with type 1 diabetes from 1980 to 2020",
@@ -73,18 +84,26 @@ export const LandingPage = () => {
                     >
                         About
                     </button>
-                    {/*{!loading && (*/}
-                    {/*    user ? (*/}
-                    {/*        <UserMenu user={user} onLogout={logout}/>*/}
-                    {/*    ) : (*/}
-                    {/*        <button*/}
-                    {/*            onClick={handleLogin}*/}
-                    {/*            className="bg-white border border-eosc-border rounded-lg px-4 py-2 text-sm font-light text-eosc-text hover:bg-gray-50 hover:border-eosc-light-blue transition-colors cursor-pointer"*/}
-                    {/*        >*/}
-                    {/*            Login*/}
-                    {/*        </button>*/}
-                    {/*    )*/}
-                    {/*)}*/}
+                    {user && (
+                        <button
+                            onClick={handleChat}
+                            className="bg-white border border-eosc-border rounded-lg px-4 py-2 text-sm font-light text-eosc-text hover:bg-gray-50 hover:border-eosc-light-blue transition-colors cursor-pointer"
+                        >
+                            Chat
+                        </button>
+                    )}
+                    {!loading && (
+                        user ? (
+                            <UserMenu user={user} onLogout={logout}/>
+                        ) : (
+                            <button
+                                onClick={handleLogin}
+                                className="bg-white border border-eosc-border rounded-lg px-4 py-2 text-sm font-light text-eosc-text hover:bg-gray-50 hover:border-eosc-light-blue transition-colors cursor-pointer"
+                            >
+                                Login
+                            </button>
+                        )
+                    )}
                 </div>
             </header>
 
@@ -115,6 +134,8 @@ export const LandingPage = () => {
                         <SearchInput
                             onSearch={handleSearch}
                             className="w-full max-w-2xl"
+                            isLoggedIn={!!user}
+                            showAiToggle={true}
                         />
                     </div>
                 </div>

@@ -1,4 +1,4 @@
-import {useEffect, useRef, useState} from "react";
+import React, {useEffect, useRef, useState} from "react";
 import {useNavigate} from "react-router";
 import {ModelSelector} from "./ModelSelector.tsx";
 import {getSearchHistory} from "../lib/history.ts";
@@ -20,10 +20,15 @@ const models = [
 interface SearchInputProps {
     initialQuery?: string;
     initialModel?: string;
-    onSearch: (query: string, model: string) => void;
+    onSearch: (query: string, model: string, aiMode?: boolean) => void;
     loading?: boolean;
     placeholder?: string;
     className?: string;
+    clearOnSearch?: boolean;
+    buttonText?: React.ReactNode;
+    disableHistory?: boolean;
+    isLoggedIn?: boolean;
+    showAiToggle?: boolean;
 }
 
 export const SearchInput = ({
@@ -32,16 +37,23 @@ export const SearchInput = ({
                                 loading = false,
                                 placeholder = "Search for data... e.g., 'climate data for the last decade'",
                                 className = "",
-                                initialModel
+                                initialModel,
+                                clearOnSearch = false,
+                                buttonText = "Search",
+                                disableHistory = false,
+                                isLoggedIn = false,
+                                showAiToggle = false
                             }: SearchInputProps) => {
     const [query, setQuery] = useState(initialQuery);
     const [selectedModel, setSelectedModel] = useState(initialModel || DEFAULT_MODEL);
     const [showHistory, setShowHistory] = useState(false);
     const [history] = useState<string[]>(getSearchHistory);
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
+    const [aiMode, setAiMode] = useState(true);
     const searchContainerRef = useRef<HTMLDivElement>(null);
     useNavigate();
 
+    const effectiveAiMode = isLoggedIn && aiMode;
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -58,13 +70,22 @@ export const SearchInput = ({
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
+        if (loading) return;
         if (query.trim()) {
-            onSearch(query.trim(), selectedModel);
+            onSearch(query.trim(), selectedModel, effectiveAiMode);
             setShowHistory(false);
+            if (clearOnSearch) {
+                setQuery('');
+            }
         }
     };
     const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (showHistory && filteredHistory.length > 0) {
+        if (loading && e.key === 'Enter') {
+            e.preventDefault();
+            return;
+        }
+
+        if (!disableHistory && showHistory && filteredHistory.length > 0) {
             if (e.key === 'ArrowDown') {
                 e.preventDefault();
                 setHighlightedIndex(prevIndex =>
@@ -87,13 +108,17 @@ export const SearchInput = ({
     };
 
     const handleHistoryItemClick = (item: string) => {
+        if (loading) return;
         setQuery(item);
-        onSearch(item, selectedModel);
+        onSearch(item, selectedModel, effectiveAiMode);
         setShowHistory(false);
         setHighlightedIndex(-1);
+        if (clearOnSearch) {
+            setQuery('');
+        }
     };
 
-    const filteredHistory = history.filter(item => item.toLowerCase().includes(query.toLowerCase()));
+    const filteredHistory = disableHistory ? [] : history.filter(item => item.toLowerCase().includes(query.toLowerCase()));
 
     return (
         <div className={`relative ${className}`} ref={searchContainerRef}>
@@ -105,10 +130,10 @@ export const SearchInput = ({
                         onChange={(e) => setQuery(e.target.value)}
                         onKeyDown={handleKeyDown}
                         onFocus={() => setShowHistory(true)}
-                        placeholder={placeholder}
+                        placeholder={effectiveAiMode ? "Ask a question about datasets..." : placeholder}
                         className={`truncate w-full h-16 px-4 text-lg text-eosc-gray font-light rounded-xl border-2 border-eosc-border bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-eosc-light-blue focus:border-eosc-light-blue ${SHOW_MODEL_SELECTOR ? 'pr-64' : 'pr-32'}`}
                     />
-                    {showHistory && filteredHistory.length > 0 && (
+                    {!disableHistory && showHistory && filteredHistory.length > 0 && (
                         <div
                             className="absolute z-10 w-full mt-1 bg-white border border-eosc-border rounded-lg shadow-lg">
                             <ul>
@@ -127,7 +152,7 @@ export const SearchInput = ({
                         </div>
                     )}
                     {SHOW_MODEL_SELECTOR && (
-                        <div className="absolute right-28 top-3 w-32">
+                        <div className="absolute right-32 top-3 w-32">
                             <ModelSelector
                                 models={models}
                                 selectedModel={selectedModel}
@@ -138,11 +163,52 @@ export const SearchInput = ({
                     <button
                         type="submit"
                         disabled={loading}
-                        className="absolute right-2 top-2 w-24 h-12 bg-blue-500 text-white text-lg font-light rounded-lg hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 cursor-pointer disabled:cursor-not-allowed"
+                        className="absolute right-2 top-2 px-4 min-w-[6rem] h-12 bg-blue-600 text-white text-lg font-light rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                        Search
+                        {buttonText}
                     </button>
                 </div>
+
+                {showAiToggle && (
+                    <div className="flex items-center gap-2.5 mt-3 ml-2">
+                        <span
+                            className={`inline-flex items-center justify-center h-6 text-xs font-medium px-2.5 rounded-full tracking-wide ${effectiveAiMode ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-700'}`}>
+                            ✦ AI mode
+                        </span>
+
+                        <div className="relative group flex items-center justify-center">
+                            <button
+                                type="button"
+                                onClick={() => isLoggedIn && setAiMode(v => !v)}
+                                disabled={!isLoggedIn}
+                                aria-label="Toggle AI mode"
+                                className={`w-11 h-6 rounded-full transition-colors relative focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${effectiveAiMode ? 'bg-blue-600' : 'bg-gray-300'} ${!isLoggedIn ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+                            >
+                                <span
+                                    className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all duration-300 ${effectiveAiMode ? 'left-[22px]' : 'left-0.5'}`}/>
+                            </button>
+
+                            {!isLoggedIn && (
+                                <div
+                                    className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                                    Sign in to use AI mode
+                                </div>
+                            )}
+                        </div>
+
+                        <span
+                            className={`inline-flex items-center justify-center h-6 text-xs font-medium px-2.5 rounded-full ${effectiveAiMode ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>
+                            {effectiveAiMode ? 'on' : 'off'}
+                        </span>
+
+                        {!isLoggedIn && (
+                            <a href="/auth/login"
+                               className="inline-flex items-center h-6 text-xs text-blue-600 hover:text-blue-700 hover:underline ml-1">
+                                Sign in to unlock
+                            </a>
+                        )}
+                    </div>
+                )}
             </form>
         </div>
     );

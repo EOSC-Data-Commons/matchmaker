@@ -39,12 +39,12 @@ export const links = () => [
 
 export default function App() {
     return (
-        <>
+        <div>
             <MatomoTracker/>
             <AppErrorBoundary>
                 <Outlet/>
             </AppErrorBoundary>
-        </>
+        </div>
     );
 }
 

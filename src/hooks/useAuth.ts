@@ -12,6 +12,7 @@ export function useAuth() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        const controller = new AbortController();
         const checkAuth = async () => {
             try {
                 const response = await fetch('/auth/user');
@@ -30,6 +31,7 @@ export function useAuth() {
         };
 
         checkAuth();
+        return () => controller.abort();
     }, []);
 
     const logout = () => {
