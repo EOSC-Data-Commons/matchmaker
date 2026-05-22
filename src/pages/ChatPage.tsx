@@ -9,6 +9,19 @@ import {Plus, MessageSquare, User, Loader2, Send, ChevronDown, ChevronUp} from "
 import {SearchResultItem} from "@/components/SearchResultItem.tsx";
 import {SearchInput} from "@/components/SearchInput.tsx";
 
+type ChatLocationState = {
+    initialQuery?: string;
+    initialModel?: string;
+};
+
+const isChatLocationState = (state: unknown): state is ChatLocationState => {
+    if (!state || typeof state !== 'object') return false;
+    const candidate = state as Record<string, unknown>;
+    const hasValidInitialQuery = candidate.initialQuery === undefined || typeof candidate.initialQuery === 'string';
+    const hasValidInitialModel = candidate.initialModel === undefined || typeof candidate.initialModel === 'string';
+    return hasValidInitialQuery && hasValidInitialModel;
+};
+
 const ChatPage: FC = () => {
     const {id: urlId} = useParams();
     const navigate = useNavigate();
@@ -170,12 +183,13 @@ const ChatPage: FC = () => {
     }, [urlId, handleSelectConversation]);
 
     useEffect(() => {
+        const state = location.state;
         if (
-            location.state &&
-            location.state.initialQuery &&
+            isChatLocationState(state) &&
+            state.initialQuery &&
             !initialQueryProcessed.current
         ) {
-            const {initialQuery, initialModel} = location.state;
+            const {initialQuery, initialModel} = state;
             initialQueryProcessed.current = true;
             // Clear the state so a refresh doesn't trigger it again
             navigate(location.pathname, {replace: true, state: {}});
