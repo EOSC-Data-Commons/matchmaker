@@ -62,6 +62,12 @@ Install dependencies:
 npm install
 ```
 
+> [!NOTE]
+> This repository uses a project-level npm config in `.npmrc`: `in-release-age=3`.
+> It tells npm to avoid package versions newer than 3 days at install time, to reduce exposure to very recent malicious
+> package publishes.
+> If your npm version does not support this config, npm may warn and ignore it.
+
 ### Step 2: Set Up the Backend (EOSC Data Commons search server)
 
 Follow the instructions in the backend [README](https://github.com/EOSC-Data-Commons/data-commons-search) to set up and run the server. The frontend expects the backend to be running on port 8000 by default.
