@@ -202,7 +202,8 @@ export const sendChatMessage = async (
     model: string = 'einfracz/qwen3-coder',
     threadId: string | undefined,
     onEvent: (event: SSEEvent) => void,
-    onError: (error: Error) => void
+    onError: (error: Error) => void,
+    timeoutMs: number = 60000
 ) => {
     const requestBody: Record<string, unknown> = {
         items: messages.map(msg => ({
@@ -222,14 +223,21 @@ export const sendChatMessage = async (
     }
 
     try {
-        const response = await fetch('/api/search/chat', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'text/event-stream',
+        const response = await fetchWithTimeout(
+            `${BACKEND_API_URL}/chat`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'text/event-stream',
+                    'Cache-Control': 'no-cache',
+                    'X-Accel-Buffering': 'no'
+                },
+                body: JSON.stringify(requestBody),
+                cache: 'no-store'
             },
-            body: JSON.stringify(requestBody),
-        });
+            timeoutMs
+        );
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
