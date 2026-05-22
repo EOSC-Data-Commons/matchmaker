@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0] - 2026-05-22
+
+- Enhanced `SearchInput` with an AI mode toggle (available to authenticated users), sign-in prompt for locked AI mode
+- Added ChatPage with chat-style interaction support, including message history
+- Updated landing page to render user menu.
+- Added repository logo support for `HAL` and `PaNOSC`, and updated the `DABAR` logo in `RepoLogo`.
+- Added `.npmrc` policy `in-release-age=3` to prefer package versions at least 3 days old, and documented this behavior
+  in `README.md`.
+
+## [0.6.1 -> 0.6.4] - 2026-04 -> 2026-05
+
+- Updated project dependencies and dev dependencies as maintenance updates.
+
 ## [0.6.0] - 2026-03-17
 
 - Introduced user authentication with login/logout functionality and user profile menu.
