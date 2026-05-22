@@ -5,7 +5,7 @@ import {Conversation, Message} from "@/types/chat.ts";
 import {BackendDataset} from "@/types/commons.ts";
 import {sendChatMessage} from "@/lib/api.ts";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
-import {Plus, MessageSquare, User, Loader2, Send, ChevronDown} from "lucide-react";
+import {Plus, MessageSquare, User, Loader2, Send, ChevronDown, ChevronUp} from "lucide-react";
 import {SearchResultItem} from "@/components/SearchResultItem.tsx";
 import {SearchInput} from "@/components/SearchInput.tsx";
 
@@ -19,6 +19,7 @@ const ChatPage: FC = () => {
     const [loading, setLoading] = useState(true);
     const [isSending, setIsSending] = useState(false);
     const [showScrollButton, setShowScrollButton] = useState(false);
+    const [collapsedMessages, setCollapsedMessages] = useState<Set<number>>(new Set());
     const activeIdRef = useRef<string | undefined>(undefined);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -176,6 +177,27 @@ const ChatPage: FC = () => {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [location, navigate]);
+
+    // Reset collapsed state when switching conversations
+    useEffect(() => {
+        setCollapsedMessages(new Set());
+    }, [selectedConversation?.id]);
+
+    const toggleMessageCollapse = (index: number) => {
+        setCollapsedMessages(prev => {
+            const next = new Set(prev);
+            if (next.has(index)) next.delete(index);
+            else next.add(index);
+            return next;
+        });
+    };
+
+    const getMessageSummary = (content: string): string => {
+        const firstLine = content.split('\n').find(l => l.trim()) || '';
+        if (firstLine.length <= 120) return firstLine;
+        return firstLine.substring(0, 117) + '...';
+    };
+
 
     const handleSendMessage = async (messageText: string, model: string) => {
         if (!messageText.trim()) return;
@@ -491,8 +513,35 @@ const ChatPage: FC = () => {
                                             >
                                                 {msg.sender === 'user' ? (
                                                     <p className="leading-relaxed">{msg.content}</p>
+                                                ) : collapsedMessages.has(index) ? (
+                                                    <div className="flex items-center gap-3">
+                                                        <p className="text-gray-400 text-sm italic flex-1 truncate">
+                                                            {getMessageSummary(msg.content)}
+                                                            {msg.hits && msg.hits.length > 0 && (
+                                                                <span
+                                                                    className="ml-2 text-blue-400 font-medium not-italic">
+                                                                    · {msg.hits.length} result{msg.hits.length !== 1 ? 's' : ''}
+                                                                </span>
+                                                            )}
+                                                        </p>
+                                                        <button
+                                                            onClick={() => toggleMessageCollapse(index)}
+                                                            className="shrink-0 text-gray-400 hover:text-blue-600 transition-colors cursor-pointer"
+                                                            title="Expand message"
+                                                        >
+                                                            <ChevronDown className="h-4 w-4"/>
+                                                        </button>
+                                                    </div>
                                                 ) : (
                                                     <div className="flex flex-col space-y-4">
+                                                        <button
+                                                            onClick={() => toggleMessageCollapse(index)}
+                                                            className="self-start text-xs text-gray-400 hover:text-blue-600 transition-colors flex items-center gap-1 cursor-pointer"
+                                                            title="Collapse message"
+                                                        >
+                                                            <ChevronUp className="h-3 w-3"/>
+                                                            <span>Collapse</span>
+                                                        </button>
                                                         {msg.content && <div>{renderMessageContent(msg.content)}</div>}
                                                         {msg.hits && msg.hits.length > 0 && (
                                                             <div className="flex flex-col space-y-4 mt-2">
