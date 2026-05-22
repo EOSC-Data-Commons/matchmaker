@@ -60,7 +60,12 @@ const ChatPage: FC = () => {
     const fetchConversations = useCallback(() => {
         if (user?.sub) {
             fetch('/api/search/conversations')
-                .then(res => res.json())
+                .then(res => {
+                    if (!res.ok) {
+                        throw new Error(`Failed to fetch conversations: ${res.status} ${res.statusText}`);
+                    }
+                    return res.json();
+                })
                 .then(data => {
                     const dataArray = Array.isArray(data) ? data : Object.values(data || {});
                     const mapped_data = dataArray.map((item: Record<string, string>) => ({
@@ -85,7 +90,12 @@ const ChatPage: FC = () => {
     const handleSelectConversation = useCallback((id: string) => {
         setLoading(true);
         fetch(`/api/search/conversation/${id}`)
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error(`Failed to fetch conversation: ${res.status} ${res.statusText}`);
+                }
+                return res.json();
+            })
             .then(data => {
                 const parsedMessages: Message[] = [];
                 if (data.items && Array.isArray(data.items)) {
@@ -201,6 +211,7 @@ const ChatPage: FC = () => {
 
     const handleSendMessage = async (messageText: string, model: string) => {
         if (!messageText.trim()) return;
+        if (isSending) return; // Prevent concurrent sends
 
         const userMessage: Message = {sender: 'user', content: messageText};
 
