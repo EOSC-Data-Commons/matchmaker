@@ -64,9 +64,9 @@ const ChatPage: FC = () => {
                 .then(data => {
                     const dataArray = Array.isArray(data) ? data : Object.values(data || {});
                     const mapped_data = dataArray.map((item: Record<string, string>) => ({
+                        ...item,
                         id: item.thread_id || item.id,
                         title: item.label || item.title,
-                        ...item
                     }));
                     setConversations(mapped_data as Conversation[]);
                     setLoading(false);
