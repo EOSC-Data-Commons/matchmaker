@@ -70,6 +70,7 @@ export const SearchInput = ({
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
+        if (loading) return;
         if (query.trim()) {
             onSearch(query.trim(), selectedModel, effectiveAiMode);
             setShowHistory(false);
@@ -79,6 +80,11 @@ export const SearchInput = ({
         }
     };
     const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (loading && e.key === 'Enter') {
+            e.preventDefault();
+            return;
+        }
+
         if (!disableHistory && showHistory && filteredHistory.length > 0) {
             if (e.key === 'ArrowDown') {
                 e.preventDefault();
@@ -102,6 +108,7 @@ export const SearchInput = ({
     };
 
     const handleHistoryItemClick = (item: string) => {
+        if (loading) return;
         setQuery(item);
         onSearch(item, selectedModel, effectiveAiMode);
         setShowHistory(false);
