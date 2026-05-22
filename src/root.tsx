@@ -39,12 +39,12 @@ export const links = () => [
 
 export default function App() {
     return (
-        <React.StrictMode>
+        <div>
             <MatomoTracker/>
             <AppErrorBoundary>
                 <Outlet/>
             </AppErrorBoundary>
-        </React.StrictMode>
+        </div>
     );
 }
 
