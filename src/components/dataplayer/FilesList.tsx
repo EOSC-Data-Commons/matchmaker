@@ -1,4 +1,3 @@
-import React from 'react';
 import {LoaderIcon} from 'lucide-react';
 import {FileMeta} from '@/types/dataplayerTypes';
 
