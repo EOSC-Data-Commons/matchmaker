@@ -32,9 +32,10 @@ export function ToolResultSelect({
     handleToolSelect: (key: string) => Promise<void>;
 }) {
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {Object.entries(results).length === 0 ? (
-                    <div className="col-span-full text-center py-8 text-eosc-gray">
+                    <div
+                        className="col-span-full text-center py-8 text-eosc-gray bg-eosc-card rounded-lg border border-eosc-border">
                         No tools found.
                     </div>
                 ) :
@@ -43,10 +44,10 @@ export function ToolResultSelect({
                         key={key}
                         onClick={() => handleToolSelect(key)}
                         disabled={isFilesLoading}
-                        className="p-4 sm:p-6 border-2 border-eosc-border rounded-lg hover:border-eosc-light-blue hover:bg-eosc-bg transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed bg-eosc-card"
+                        className="p-5 border border-eosc-border flex flex-col items-start rounded-xl hover:border-eosc-light-blue hover:shadow-md transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed bg-eosc-card h-full w-full overflow-hidden"
                     >
-                        <h3 className="text-base sm:text-lg font-semibold text-eosc-text mb-1 sm:mb-2">{config.name}</h3>
-                        <p className="text-xs sm:text-sm text-eosc-gray">{config.description}</p>
+                        <h3 className="text-base sm:text-lg font-semibold text-eosc-dark-blue mb-2 break-words w-full">{config.name}</h3>
+                        <p className="text-sm text-eosc-gray break-words w-full flex-grow">{config.description}</p>
                     </button>
                 ))}
         </div>
@@ -106,4 +107,3 @@ export const ToolSelectionStep = ({
         </div>
     );
 };
-
