@@ -1,15 +1,15 @@
 export interface ToolConfig {
-  name: string;
-  description: string;
-  slots: ToolSlot[];
+    name: string;
+    description: string;
+    slots: ToolSlot[];
 }
 
-export type TypedValue = 
+export type TypedValue =
     | boolean
     | string
     | number;
 
-export type InputParameterTyp = 
+export type InputParameterTyp =
     | "Number"
     | "Text"
     | "File"
@@ -17,41 +17,41 @@ export type InputParameterTyp =
     | "Unknown";
 
 export interface ToolSlot {
-  name: string;
-  typ: InputParameterTyp;
-  id: string;
+    name: string;
+    typ: InputParameterTyp;
+    id: string;
 }
 
 export interface FileMeta {
-  downloadUrl?: string;
-  /** abs path as received from the server */
-  dataPath: string;
-  /** basename, same as dataPath for now — mirrors Rust impl */
-  filename: string;
-  /** human-readable decimal size string, e.g. "1.2 MB" */
-  // XXX: is it good to use human-readable string size, I only display it or it involve with some calculation?
-  size: string;
-  hash: string | null;
-  hash_type: string;
-  isDir: boolean;
-  mimetype?: string;
+    downloadUrl?: string;
+    /** abs path as received from the server */
+    dataPath: string;
+    /** basename, same as dataPath for now — mirrors Rust impl */
+    filename: string;
+    /** human-readable decimal size string, e.g. "1.2 MB" */
+    // XXX: is it good to use human-readable string size, I only display it or it involve with some calculation?
+    size: string;
+    hash: string | null;
+    hash_type: string;
+    isDir: boolean;
+    mimetype?: string;
 }
 
 export type TaskId = string;
 
 export interface DispatchResult {
-  url?: string;
+    url?: string;
 }
 
 export type TypLaunchToolRequest = {
-  toolId: string;
-  dataset: string;
-  slotToValueMapping: Record<string, TypedValue>,
-  slotToFileMapping: Record<string, FileMeta>;
+    toolId: string;
+    dataset: string;
+    slotToValueMapping: Record<string, TypedValue>,
+    slotToFileMapping: Record<string, FileMeta>;
 };
 
 // XXX: this need to sync with ToolState of protobuf
-export type TaskState = 
+export type TaskState =
     | "PENDING"
     | "PREPARING"
     | "RUNNING"

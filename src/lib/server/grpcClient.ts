@@ -43,7 +43,7 @@ export {
     ToolState_State,
 } from "./generated/coordinator.ts";
 
-import { FileMeta, InputParameterTyp, ToolSlot, TypedValue } from "@/types/dataplayerTypes.ts";
+import {FileMeta, InputParameterTyp, ToolSlot, TypedValue} from "@/types/dataplayerTypes.ts";
 
 // const GRPC_TARGET = "129-132-86-131.net4.ethz.ch:443";
 const GRPC_TARGET = "grpc.eosc-coordinator.ethz.ch:443";
@@ -69,11 +69,12 @@ const channel = creds;
 // JWT-token mocking
 // This supposed to provide from matchmaker login
 const JWT_SECRET = "my_secret_key";
+
 export function createToken(): string {
     return jwt.sign(
-        { sub: "user123", name: "Alice", role: "admin" },
+        {sub: "user123", name: "Alice", role: "admin"},
         JWT_SECRET,
-        { expiresIn: 1_999_999_999 - Math.floor(Date.now() / 1000) },
+        {expiresIn: 1_999_999_999 - Math.floor(Date.now() / 1000)},
     );
 }
 
@@ -177,6 +178,7 @@ export function valueToGrpcValue(value: TypedValue): GrpcTypedValue {
 // FIXME: all users share same TCP connection, security no safe, do per user mapping singleton.
 // On the server side the validation happens for every rpc.
 let db_client: DatasetServiceClient | null = null;
+
 export function getDatasetClient() {
     if (!db_client) {
         db_client = new DatasetServiceClient(
@@ -190,7 +192,7 @@ export function getDatasetClient() {
 process.on("SIGINT", () => {
     console.log("SIGINT received: closing gRPC client...");
     // closes HTTP/2 channel to avoid resource leaking
-    db_client.close(); 
+    db_client.close();
     process.exit();
 });
 
@@ -265,29 +267,29 @@ export async function fetchDatasetFilesFromDatahuggerByUrl(
 // data player service
 // TODO: string as id is not a good type, use TaskId and ToolId to distinguish them can be more clear.
 export async function launchTool(
-    toolId: string, 
-    dataset: string, 
+    toolId: string,
+    dataset: string,
     slotToValueMapping: Record<string, TypedValue>,
     slotToFileMapping: Record<string, FileMeta>
 ): Promise<string> {
-    const token = createToken(); 
+    const token = createToken();
     const metadata = makeAuthMetadata(token);
 
     // XXX: if I deploy the grpc server with client in the same NAT, I can use insecure channel, but if goes to ethz deployment, should not.
     // Should use SSL for msg over wire.
     const client = new DataplayerServiceClient(
-        GRPC_TARGET, 
+        GRPC_TARGET,
         channel,
     );
 
-    const msgFileSlotsMapping = {} as {string: FileEntry};
+    const msgFileSlotsMapping = {} as { string: FileEntry };
     for (const k in slotToFileMapping) {
-        msgFileSlotsMapping[k] = fileMetaToFileEntry(slotToFileMapping[k]); 
+        msgFileSlotsMapping[k] = fileMetaToFileEntry(slotToFileMapping[k]);
     }
 
-    const msgValueSlotsMapping = {} as {string: GrpcTypedValue};
+    const msgValueSlotsMapping = {} as { string: GrpcTypedValue };
     for (const k in slotToValueMapping) {
-        msgValueSlotsMapping[k] = valueToGrpcValue(slotToValueMapping[k]); 
+        msgValueSlotsMapping[k] = valueToGrpcValue(slotToValueMapping[k]);
     }
 
     const request: LaunchToolRequest = {
@@ -306,11 +308,12 @@ export async function launchTool(
             }
 
             resolve(response.handlerId);
-        }); 
+        });
     });
 }
 
 let player_client: DataplayerServiceClient | null = null;
+
 export function getDataplayerClient() {
     if (!player_client) {
         player_client = new DataplayerServiceClient(
@@ -322,6 +325,7 @@ export function getDataplayerClient() {
 }
 
 let toolsrc_client: ToolServiceClient | null = null;
+
 export function getToolSrcClient() {
     if (!toolsrc_client) {
         toolsrc_client = new ToolServiceClient(

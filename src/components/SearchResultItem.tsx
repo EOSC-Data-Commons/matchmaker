@@ -168,7 +168,7 @@ export const SearchResultItem = ({hit, isAiRanked = false}: SearchResultItemProp
                         <div className="flex flex-wrap gap-1">
                             {hit._source.subjects.slice(0, 5).map((subj, index) => (
                                 <span key={index}
-                                    className="inline-block bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded-full">
+                                      className="inline-block bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded-full">
                                     {subj.subject}
                                 </span>
                             ))}
@@ -193,8 +193,8 @@ export const SearchResultItem = ({hit, isAiRanked = false}: SearchResultItemProp
                         <span className="leading-none">Play</span>
                     </button>
                     <a href={hit._id} target="_blank" rel="noopener noreferrer"
-                        aria-label={`Redinect to the source of dataset ${hit.title}`}
-                        className="inline-flex items-center justify-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-colors cursor-pointer">
+                       aria-label={`Redinect to the source of dataset ${hit.title}`}
+                       className="inline-flex items-center justify-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-colors cursor-pointer">
                         <ExternalLinkIcon className="h-4 w-4"/>
                         <span className="leading-none">Source</span>
                     </a>
