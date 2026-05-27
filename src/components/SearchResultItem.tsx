@@ -23,7 +23,7 @@ export const SearchResultItem = ({hit, isAiRanked = false}: SearchResultItemProp
     const [authorsExpanded, setAuthorsExpanded] = useState(false);
 
     const handleDataplayer = () => {
-        // Open the dispatcher run page in a new tab with dataset info
+        // Open the dataplayer page in a new tab with dataset info
         const params = new URLSearchParams();
         params.set('datasetId', hit._id);
         if (hit.title) {
@@ -193,7 +193,7 @@ export const SearchResultItem = ({hit, isAiRanked = false}: SearchResultItemProp
                         <span className="leading-none">Play</span>
                     </button>
                     <a href={hit._id} target="_blank" rel="noopener noreferrer"
-                       aria-label={`Redinect to the source of dataset ${hit.title}`}
+                       aria-label={`Redirect to the source of dataset ${hit.title}`}
                        className="inline-flex items-center justify-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-colors cursor-pointer">
                         <ExternalLinkIcon className="h-4 w-4"/>
                         <span className="leading-none">Source</span>
