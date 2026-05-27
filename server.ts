@@ -2,8 +2,8 @@ import compression from "compression";
 import express from "express";
 import morgan from "morgan";
 import path from "path";
-import { createProxyMiddleware } from "http-proxy-middleware";
-import { createRequestHandler } from "@react-router/express";
+import {createProxyMiddleware} from "http-proxy-middleware";
+import {createRequestHandler} from "@react-router/express";
 
 import {
     fetchDatasetFilesFromDatahuggerByUrl,
@@ -21,7 +21,7 @@ import {
     GrpcSlotToSlot,
 } from "./src/lib/server/grpcClient.ts";
 
-import { FileMeta, TaskState, TaskStatus, ToolConfig, TypLaunchToolRequest } from "./src/types/dataplayerTypes.ts";
+import {FileMeta, TaskState, TaskStatus, ToolConfig, TypLaunchToolRequest} from "./src/types/dataplayerTypes.ts";
 
 // Constants
 const DEVELOPMENT = process.env.NODE_ENV !== "production";
@@ -30,7 +30,7 @@ const PORT = Number.parseInt(
 );
 const SEARCH_API_URL = process.env.SEARCH_API_URL || "http://127.0.0.1:8000";
 const COORDINATOR_API_URL = process.env.COORDINATOR_API_URL ||
-  "https://eosc-coordinator.ethz.ch";
+    "https://eosc-coordinator.ethz.ch";
 
 const app = express();
 
@@ -42,7 +42,7 @@ app.use(
     createProxyMiddleware({
         target: SEARCH_API_URL,
         changeOrigin: true,
-        pathRewrite: { "^/api/search": "" },
+        pathRewrite: {"^/api/search": ""},
         on: {
             error: (err, _req, res) => {
                 console.error("Search API proxy error:", err);
@@ -58,7 +58,7 @@ app.use(
     createProxyMiddleware({
         target: COORDINATOR_API_URL,
         changeOrigin: true,
-        pathRewrite: { "^/api/coordinator": "" },
+        pathRewrite: {"^/api/coordinator": ""},
         secure: false,
         on: {
             error: (err, _req, res) => {
@@ -98,7 +98,7 @@ app.post("/api/coordinator/start-task", async (req, res) => {
         );
 
         if (!taskId) {
-            return res.status(500).json({ error: "No task_id returned" });
+            return res.status(500).json({error: "No task_id returned"});
         }
 
         // 3️⃣ Return task ID for SSE tracking
@@ -115,7 +115,7 @@ app.post("/api/coordinator/start-task", async (req, res) => {
 app.get("/api/coordinator/task-status/:taskId", async (req, res) => {
     // TODO: token or session cookie to prevent access from anywhere.
 
-    const { taskId } = req.params;
+    const {taskId} = req.params;
 
     // SSE headers
     res.setHeader("Content-Type", "text/event-stream");
@@ -131,7 +131,7 @@ app.get("/api/coordinator/task-status/:taskId", async (req, res) => {
     let lastState: ToolState_State | null = null;
 
     stream.on("data", (resp: MonitorStateResponse) => {
-    // when state machine transit to the end state.
+        // when state machine transit to the end state.
         const toolState = resp.status;
         const currentState = toolState?.state ?? null;
 
@@ -156,7 +156,7 @@ app.get("/api/coordinator/task-status/:taskId", async (req, res) => {
             // TODO: stateStr as TaskState
             const payload: TaskStatus = {
                 state: stateStr as TaskState,
-                message: toolState?.log?? "",
+                message: toolState?.log ?? "",
             };
 
             res.write(`event: state\ndata: ${
@@ -173,7 +173,7 @@ app.get("/api/coordinator/task-status/:taskId", async (req, res) => {
 // TODO: rename to task/result/:taskId
 app.use(express.json());
 app.get("/api/coordinator/tasks-result/:taskId", async (req, res) => {
-    const { taskId } = req.params;
+    const {taskId} = req.params;
     const client = getDataplayerClient();
     try {
         const grpc_req: GetArtifactRequest = {
@@ -209,7 +209,7 @@ app.post("/api/coordinator/tool/match", async (req, res) => {
     const client = getToolSrcClient();
     try {
         // XXX: @reggie here is the abstract interface to the tool registry.
-        const { files } = req.body as { files: FileMeta[] };
+        const {files} = req.body as { files: FileMeta[] };
         const grpc_req: MatchToolsByDataRequest = {
             files: files
                 .filter(f => !f.isDir)
@@ -273,10 +273,10 @@ app.get("/api/coordinator/tool/search", async (req, res) => {
 
 app.use(express.json());
 app.get("/api/coordinator/tool/get/:toolId", async (req, res) => {
-    const { toolId: id } = req.params;
+    const {toolId: id} = req.params;
     const client = getToolSrcClient();
     try {
-    // XXX: @reggie here is the abstract interface to the tool registry.
+        // XXX: @reggie here is the abstract interface to the tool registry.
         const grpc_req: GetToolRequest = {
             id,
         };
@@ -310,19 +310,19 @@ app.get("/api/coordinator/tool/get/:toolId", async (req, res) => {
 app.get("/api/coordinator/files", async (req, res) => {
     const handle = req.query.handle as string;
     if (!handle) {
-        return res.status(400).json({ error: "Missing handle parameter" });
+        return res.status(400).json({error: "Missing handle parameter"});
     }
 
     // TODO: cache entry, inmemory from start, and maybe move to use redis in production.
 
     try {
-    // XXX: where error goes if url is invalid?? Should we give this to user??
+        // XXX: where error goes if url is invalid?? Should we give this to user??
         const url = `${handle}`;
         const files = await fetchDatasetFilesFromDatahuggerByUrl(url);
         res.json(files);
     } catch (err) {
         console.error("Error fetching files:", err);
-        res.status(500).json({ error: "Failed to fetch files" });
+        res.status(500).json({error: "Failed to fetch files"});
     }
 });
 
@@ -331,7 +331,7 @@ app.use(
     createProxyMiddleware({
         target: SEARCH_API_URL,
         changeOrigin: false,
-        pathRewrite: { "^/": "/auth/" },
+        pathRewrite: {"^/": "/auth/"},
         on: {
             error: (err, _req, res) => {
                 console.error("Auth API proxy error:", err);
@@ -349,7 +349,7 @@ if (DEVELOPMENT) {
     console.log("Starting development server");
     const viteDevServer = await import("vite").then((vite) =>
         vite.createServer({
-            server: { middlewareMode: true },
+            server: {middlewareMode: true},
         })
     );
     app.use(viteDevServer.middlewares);
@@ -359,7 +359,7 @@ if (DEVELOPMENT) {
                 "virtual:react-router/server-build",
             );
             // @ts-expect-error - The source from viteDevServer is generic, but compatible at runtime
-            return createRequestHandler({ build: source })(req, res, next);
+            return createRequestHandler({build: source})(req, res, next);
         } catch (error) {
             if (typeof error === "object" && error instanceof Error) {
                 viteDevServer.ssrFixStacktrace(error);
@@ -371,15 +371,15 @@ if (DEVELOPMENT) {
     console.log("Starting production server");
     app.use(
         "/assets",
-        express.static("build/client/assets", { immutable: true, maxAge: "1y" }),
+        express.static("build/client/assets", {immutable: true, maxAge: "1y"}),
     );
     app.use(morgan("tiny"));
-    app.use(express.static("build/client", { maxAge: "1h" }));
+    app.use(express.static("build/client", {maxAge: "1h"}));
 
     const build = await import(
         path.resolve(process.cwd(), "build/server/index.js")
-    );
-    app.use(createRequestHandler({ build }));
+        );
+    app.use(createRequestHandler({build}));
 }
 
 app.listen(PORT, () => {
