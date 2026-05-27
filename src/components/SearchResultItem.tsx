@@ -34,7 +34,7 @@ export const SearchResultItem = ({hit, isAiRanked = false}: SearchResultItemProp
         if (currentQuery) {
             params.set('q', currentQuery);
         }
-        window.open(`/dataplayer?${params.toString()}`, '_blank');
+        window.open(`/dataplayer?${params.toString()}`, '_blank', 'noopener,noreferrer');
     };
 
     const scorePercent = (hit.score || 0) * 100;

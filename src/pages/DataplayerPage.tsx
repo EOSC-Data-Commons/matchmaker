@@ -81,11 +81,11 @@ export const DataplayerPage = () => {
                 }
             }
 
-            if (slotName === "none") {
-                return newMapping;
+            if (fileIndex === -1) {
+                delete newMapping[slotName];
+            } else {
+                newMapping[slotName] = fileIndex;
             }
-
-            newMapping[slotName] = fileIndex;
 
             return newMapping;
         });
