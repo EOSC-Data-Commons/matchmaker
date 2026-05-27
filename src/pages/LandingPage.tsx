@@ -28,7 +28,6 @@ export const LandingPage = () => {
 
     const handleSearch = (query: string, model: string, aiMode?: boolean) => {
         if (aiMode) {
-            ``
             // Using state to potentially start chat if the backend/chat page leverages it, as per instructions.
             navigate('/chat', {state: {initialQuery: query, initialModel: model}});
         } else {

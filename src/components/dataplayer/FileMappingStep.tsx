@@ -129,6 +129,8 @@ export const FileMappingStep = ({
                                     {(param.typ === "Number") && (
                                         <input
                                             type="number"
+                                            value={(valueParametersMapping[param.name] as number) ?? ""}
+                                            onChange={(e) => handleValueSlotSet(param.name, Number(e.target.value))}
                                             className="block w-full px-3 py-2 text-sm border border-eosc-border rounded-md shadow-sm focus:outline-none focus:ring-eosc-light-blue focus:border-eosc-light-blue bg-eosc-card text-eosc-text"
                                         />
                                     )}
@@ -136,6 +138,7 @@ export const FileMappingStep = ({
                                     {(param.typ === "Text") && (
                                         <input
                                             type="text"
+                                            value={(valueParametersMapping[param.name] as string) ?? ""}
                                             onChange={(e) => handleValueSlotSet(param.name, e.target.value)}
                                             className="block w-full px-3 py-2 text-sm border border-eosc-border rounded-md shadow-sm focus:outline-none focus:ring-eosc-light-blue focus:border-eosc-light-blue bg-eosc-card text-eosc-text"
                                         />
@@ -144,6 +147,8 @@ export const FileMappingStep = ({
                                     {param.typ === "Flag" && (
                                         <input
                                             type="checkbox"
+                                            checked={(valueParametersMapping[param.name] as boolean) || false}
+                                            onChange={(e) => handleValueSlotSet(param.name, e.target.checked)}
                                             className="h-4 w-4 text-eosc-light-blue border-eosc-border rounded"
                                         />
                                     )}
