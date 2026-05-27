@@ -1,6 +1,6 @@
 // This file serve the purpose to hide the grpc calls in a wrapped typed function for frontend to call
 
-import { DispatchResult, FileMeta, TaskId, ToolConfig, TypedValue, TypLaunchToolRequest } from "../types/dataplayerTypes";
+import {DispatchResult, FileMeta, TaskId, ToolConfig, TypedValue, TypLaunchToolRequest} from "../types/dataplayerTypes";
 
 export async function matchToolsByFiles(
     files: FileMeta[],
@@ -52,12 +52,12 @@ export async function searchToolsByText(text: string): Promise<Record<string, To
         throw new Error(`Failed to search tool by text: ${res.status} ${res.statusText}`)
     }
 
-    const tools: Record<string, ToolConfig>  = await res.json();
+    const tools: Record<string, ToolConfig> = await res.json();
     return tools;
 }
 
 export async function startLaunchTask(
-    toolId: string, 
+    toolId: string,
     dataset: string,
     slotToValueMapping: Record<string, TypedValue>,
     slotToFileMapping: Record<string, FileMeta>,
@@ -70,7 +70,7 @@ export async function startLaunchTask(
     };
     const res = await fetch("/api/coordinator/start-task", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {"Content-Type": "application/json"},
         body: JSON.stringify(payload),
     });
 
@@ -96,6 +96,6 @@ export async function getDispatchResultById(taskId: TaskId): Promise<DispatchRes
         throw new Error(`Failed to dispatch: ${res.status} ${res.statusText}`)
     }
 
-    const dispatchResult: DispatchResult = { url: await res.text() };
+    const dispatchResult: DispatchResult = {url: await res.text()};
     return dispatchResult;
 }

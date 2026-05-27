@@ -3,7 +3,6 @@ import {useNavigate} from "react-router";
 import {getSearchHistory} from "../lib/history.ts";
 
 
-
 interface PlayInputProps {
     initialQuery?: string;
     label: string;
@@ -14,13 +13,13 @@ interface PlayInputProps {
 }
 
 export const DataplayInput = ({
-    initialQuery = '',
-    label,
-    onPlay,
-    loading = false,
-    placeholder = "Provide your dataset to play with, e.g. github, materials cloud.",
-    className = "",
-}: PlayInputProps) => {
+                                  initialQuery = '',
+                                  label,
+                                  onPlay,
+                                  loading = false,
+                                  placeholder = "Provide your dataset to play with, e.g. github, materials cloud.",
+                                  className = "",
+                              }: PlayInputProps) => {
     const [query, setQuery] = useState(initialQuery);
     const [showHistory, setShowHistory] = useState(false);
     const [history] = useState<string[]>(getSearchHistory);
