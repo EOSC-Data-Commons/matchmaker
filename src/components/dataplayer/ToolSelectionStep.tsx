@@ -1,4 +1,3 @@
-import React from 'react';
 import {ToolConfig} from '@/types/dataplayerTypes';
 
 // component: textbox to input text to search tool

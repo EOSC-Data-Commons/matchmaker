@@ -1,4 +1,3 @@
-import React from 'react';
 import {FileMeta, ToolConfig, TypedValue} from '@/types/dataplayerTypes';
 
 interface FileMappingStepProps {
