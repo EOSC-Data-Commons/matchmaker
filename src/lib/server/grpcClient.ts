@@ -281,12 +281,12 @@ export async function launchTool(
         channel,
     );
 
-    const msgFileSlotsMapping = {} as { string: FileEntry };
+    const msgFileSlotsMapping: Record<string, FileEntry> = {};
     for (const k in slotToFileMapping) {
         msgFileSlotsMapping[k] = fileMetaToFileEntry(slotToFileMapping[k]);
     }
 
-    const msgValueSlotsMapping = {} as { string: GrpcTypedValue };
+    const msgValueSlotsMapping: Record<string, GrpcTypedValue> = {};
     for (const k in slotToValueMapping) {
         msgValueSlotsMapping[k] = valueToGrpcValue(slotToValueMapping[k]);
     }
