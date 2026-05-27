@@ -70,7 +70,7 @@ app.use(
     createProxyMiddleware({
         target: COORDINATOR_API_URL,
         changeOrigin: true,
-        pathRewrite: {"^/api/coordinator": ""},
+        pathRewrite: {"^/api/coordinator-online": ""},
         secure: false,
         on: {
             error: (err, _req, res) => {
@@ -142,32 +142,41 @@ app.get("/api/coordinator/task-status/:taskId", async (req, res) => {
     const stream = client.monitorState(grpc_req);
     let lastState: ToolState_State | null = null;
 
+    req.on("close", () => {
+        stream.cancel();
+        res.end();
+    });
+
     stream.on("data", (resp: MonitorStateResponse) => {
         // when state machine transit to the end state.
         const toolState = resp.status;
         const currentState = toolState?.state ?? null;
 
         // Stream progress
-        if (currentState && currentState != lastState) {
+        if (currentState !== null && currentState !== lastState) {
             lastState = currentState;
 
-            let stateStr = "UNKNOWN";
-            // XXX: ??? why currentState don't match?
-            // if (currentState === ToolState_State.PREPARING) {
-            //     stateStr = "PREPARING";
-            // }
-            if (currentState === ToolState_State.READY) {
-                stateStr = "READY";
+            let stateStr: TaskState = "UNKNOWN";
+            switch (currentState) {
+                case ToolState_State.PREPARING:
+                    stateStr = "PREPARING";
+                    break;
+                case ToolState_State.READY:
+                    stateStr = "READY";
+                    break;
+                case ToolState_State.DROPPED:
+                    stateStr = "DROPPED";
+                    break;
+                case ToolState_State.EXCEPTION:
+                    stateStr = "EXCEPTION";
+                    break;
+                default:
+                    stateStr = "UNKNOWN";
+                    break;
             }
-            if (currentState === ToolState_State.DROPPED) {
-                stateStr = "DROPPED";
-            }
-            if (currentState === ToolState_State.EXCEPTION) {
-                stateStr = "EXCEPTION";
-            }
-            // TODO: stateStr as TaskState
+
             const payload: TaskStatus = {
-                state: stateStr as TaskState,
+                state: stateStr,
                 message: toolState?.log ?? "",
             };
 
