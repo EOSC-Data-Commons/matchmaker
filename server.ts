@@ -184,6 +184,7 @@ app.get("/api/coordinator/tasks-result/:taskId", async (req, res) => {
         client.getArtifact(grpc_req, (err, response) => {
             if (err) {
                 console.error(err);
+                res.status(500).json({error: err.message || String(err)});
                 return;
             }
             let callbackUrl: string | undefined;
@@ -194,6 +195,7 @@ app.get("/api/coordinator/tasks-result/:taskId", async (req, res) => {
                 callbackUrl = response.hosted.callbackUrl;
             } else {
                 console.error("No entry_point found");
+                res.status(404).json({error: "No entry_point found"});
                 return;
             }
             v_callbackUrl = callbackUrl;
@@ -201,6 +203,7 @@ app.get("/api/coordinator/tasks-result/:taskId", async (req, res) => {
         });
     } catch (err) {
         console.error(err);
+        res.status(500).json({error: err instanceof Error ? err.message : String(err)});
     }
 });
 
@@ -219,6 +222,7 @@ app.post("/api/coordinator/tool/match", async (req, res) => {
         client.matchToolsByData(grpc_req, (err, response) => {
             if (err) {
                 console.error(err);
+                res.status(500).json({error: err.message || String(err)});
                 return;
             }
 
@@ -236,6 +240,7 @@ app.post("/api/coordinator/tool/match", async (req, res) => {
         });
     } catch (err) {
         console.error(err);
+        res.status(500).json({error: err instanceof Error ? err.message : String(err)});
     }
 });
 
@@ -251,6 +256,7 @@ app.get("/api/coordinator/tool/search", async (req, res) => {
         client.searchToolsByText(grpc_req, (err, response) => {
             if (err) {
                 console.error(err);
+                res.status(500).json({error: err.message || String(err)});
                 return;
             }
 
@@ -268,6 +274,7 @@ app.get("/api/coordinator/tool/search", async (req, res) => {
         });
     } catch (err) {
         console.error(err);
+        res.status(500).json({error: err instanceof Error ? err.message : String(err)});
     }
 });
 
@@ -284,12 +291,14 @@ app.get("/api/coordinator/tool/get/:toolId", async (req, res) => {
         client.getTool(grpc_req, (err, response) => {
             if (err) {
                 console.error(err);
+                res.status(500).json({error: err.message || String(err)});
                 return;
             }
 
             const tool = response.tool;
             if (!tool) {
                 console.error("not a valid tool");
+                res.status(404).json({error: "not a valid tool"});
                 return;
             }
 
@@ -304,6 +313,7 @@ app.get("/api/coordinator/tool/get/:toolId", async (req, res) => {
         });
     } catch (err) {
         console.error(err);
+        res.status(500).json({error: err instanceof Error ? err.message : String(err)});
     }
 });
 
