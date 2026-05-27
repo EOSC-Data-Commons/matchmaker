@@ -52,13 +52,17 @@ export function useTaskLauncher() {
         try {
             esRef.current?.close();
 
-            console.warn("page", value_mapping);
-            console.warn("page", file_mapping);
             const id = await startLaunchTask(toolId, dataset, value_mapping, file_mapping);
             setTaskId(id);
 
             const es = taskStatusAsEventSource(id);
             esRef.current = es;
+
+            es.onerror = (err) => {
+                es.close();
+                esRef.current = null;
+                callbacks.onError(err);
+            };
 
             es.addEventListener("state", async (event) => {
                 const data: TaskStatus = JSON.parse(event.data);
@@ -71,6 +75,10 @@ export function useTaskLauncher() {
                     const result = await getDispatchResultById(id);
                     setTaskResult(result);
                     callbacks.onSuccess();
+                } else if (data.state === "EXCEPTION" || data.state === "DROPPED") {
+                    es.close();
+                    esRef.current = null;
+                    callbacks.onError(new Error(`Task failed with state: ${data.state}`));
                 }
             });
 
@@ -106,7 +114,11 @@ export function useDataset(datasetHandle: string | null) {
 
     useEffect(() => {
         const load = async () => {
-            if (!datasetHandle) return;
+            if (!datasetHandle) {
+                setIsFilesLoading(false);
+                setError("No dataset ID provided");
+                return;
+            }
             console.log("Start loading");
             try {
                 setIsFilesLoading(true);
