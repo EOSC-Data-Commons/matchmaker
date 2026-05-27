@@ -105,10 +105,19 @@ export const FileMappingStep = ({
                                 <td className="px-6 py-4">
                                     {param.typ === "File" && (
                                         <select
-                                            onChange={(e) => handleFileSlotSet(param.name, Number(e.target.value))}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                if (val === "") {
+                                                    // Let the parent component know we're unsetting the mapping
+                                                    handleFileSlotSet(param.name, -1);
+                                                } else {
+                                                    handleFileSlotSet(param.name, Number(val));
+                                                }
+                                            }}
+                                            value={fileParametersMapping[param.name] !== undefined ? fileParametersMapping[param.name] : ""}
                                             className="block w-full px-3 py-2 text-sm border border-eosc-border rounded-md shadow-sm focus:outline-none focus:ring-eosc-light-blue focus:border-eosc-light-blue bg-eosc-card text-eosc-text"
                                         >
-                                            <option key="none" value="None">--select to set parameter--</option>
+                                            <option key="none" value="">--select to set parameter--</option>
                                             {files.map((file, fileIndex) => (
                                                 <option key={fileIndex} value={fileIndex}>
                                                     {file.filename}
@@ -178,4 +187,3 @@ export const FileMappingStep = ({
         </div>
     );
 };
-
