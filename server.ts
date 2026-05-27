@@ -84,8 +84,8 @@ app.use(
 // TODO: rename to task/start
 app.use(express.json());
 app.post("/api/coordinator/start-task", async (req, res) => {
-    console.debug("headers:", req.headers);
-    console.debug("body:", req.body);
+    // console.debug("headers:", req.headers);
+    // console.debug("body:", req.body);
     // TODO: compile time type safety through a type/api.ts to share type info with client.
     // this can prevent the parsing typos etc.
     //
@@ -99,9 +99,9 @@ app.post("/api/coordinator/start-task", async (req, res) => {
 
     try {
         // launch tool
-        console.warn(toolId);
-        console.warn("server", slotToValueMapping);
-        console.warn("server", slotToFileMapping);
+        // console.warn(toolId);
+        // console.warn("server", slotToValueMapping);
+        // console.warn("server", slotToFileMapping);
         const taskId = await launchTool(
             toolId,
             dataset,

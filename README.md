@@ -163,7 +163,7 @@ npx protoc \
   ./req-packager/proto/coordinator.proto
 ```
 
-This will generate a `./src/generated/coordinator.ts` file contains all types to be implemented for a client.
+This will generate a `./src/lib/server/generated/coordinator.ts` file contains all types to be implemented for a client.
 
 ### data flow
 
