@@ -191,13 +191,13 @@ export function getDatasetClient() {
 process.on("SIGINT", () => {
     console.log("SIGINT received: closing gRPC client...");
     // closes HTTP/2 channel to avoid resource leaking
-    db_client.close();
+    db_client?.close();
     process.exit();
 });
 
 process.on("SIGTERM", () => {
     console.log("SIGTERM received: closing gRPC client...");
-    db_client.close();
+    db_client?.close();
     process.exit();
 });
 

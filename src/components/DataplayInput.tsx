@@ -1,5 +1,4 @@
 import {useEffect, useRef, useState} from "react";
-import {useNavigate} from "react-router";
 import {getSearchHistory} from "../lib/history.ts";
 
 
@@ -25,7 +24,6 @@ export const DataplayInput = ({
     const [history] = useState<string[]>(getSearchHistory);
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
     const searchContainerRef = useRef<HTMLDivElement>(null);
-    useNavigate();
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {

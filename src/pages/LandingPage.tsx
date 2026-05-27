@@ -51,7 +51,6 @@ export const LandingPage = () => {
     //         console.warn("Invalid URL:", datasetHandle);
     //     }
     //
-    //     params.set('datasetId', datasetHandle);
     //     params.set('title', title);
     //     window.open(`/dataplayer?${params.toString()}`, '_blank');
     // };
@@ -221,7 +220,7 @@ export const LandingPage = () => {
                                 {toolCards.map((card, index) => (
                                     <div
                                         key={index}
-                                        onClick={() => window.open(card.url, '_blank')}
+                                        onClick={() => window.open(card.url, '_blank', 'noopener,noreferrer')}
                                         className="bg-white border border-eosc-border rounded-xl p-6 min-h-[75px] flex items-center justify-center cursor-pointer hover:bg-gray-50 hover:border-eosc-light-blue transition-colors"
                                     >
                                         <p className="text-sm font-light text-black text-center">

@@ -1,7 +1,9 @@
 // Logger utility for error handling and messaging
 
-// const isDev = import.meta.env.MODE === 'development';
-const isDev = true;
+// Define isDev based on Vite's import.meta.env or Node's process.env
+const isDev = typeof import.meta !== 'undefined' && import.meta.env
+    ? import.meta.env.MODE === 'development'
+    : process.env.NODE_ENV === 'development';
 
 export function logError(error: unknown, context?: string) {
     if (isDev) {
