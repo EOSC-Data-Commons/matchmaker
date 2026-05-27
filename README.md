@@ -64,7 +64,8 @@ npm install
 
 > [!NOTE]
 > This repository uses a project-level npm config in `.npmrc`: `in-release-age=3`.
-> It tells npm to avoid package versions newer than 3 days at install time, to reduce exposure to very recent malicious
+> It tells npm to avoid package versions newer than 3 days at installation time, to reduce exposure to very recent
+> malicious
 > package publishes.
 > If your npm version does not support this config, npm may warn and ignore it.
 
@@ -132,12 +133,13 @@ docker run -p 5173:80 ghcr.io/eosc-data-commons/matchmaker-frontend:latest
 
 ## Coordinator server
 
-The matchmaker talk to backend services such as dataplayer, tool registry and file fetcher through the coordinator server.
+The matchmaker talks to backend services such as data-player, tool registry and file fetcher through the coordinator
+server.
 The messages in between follow the same protobuf as the contract.
-Matchmaker implement the client side of grpc in typescript by `grpc-js`.
+Matchmaker implements the client side of grpc in TypeScript by `grpc-js`.
 To synchronous the protobuf with the coordinator code base so to avaid contract out of sync in the local development, the coordinator code base (called `req-packager` for historical reason) is set as a submodule in the repo.
 
-For developer, clone the repo by:
+For a developer, clone the repo by:
 
 ```console
 git clone --recurse-submodules https://github.com/EOSC-Data-Commons/matchmaker.git
@@ -150,7 +152,7 @@ Check https://git-scm.com/book/en/v2/Git-Tools-Submodules for more information f
 
 ### grpc codegen
 
-Generate the typescript code that whic grpc related types and functions by:
+Generate the TypeScript code that whic grpc related types and functions by:
 
 ```console
 npx protoc \
@@ -161,7 +163,7 @@ npx protoc \
   ./req-packager/proto/coordinator.proto
 ```
 
-This will generate a `./src/generated/coordinator.ts` file contains all types to be implemented for client.
+This will generate a `./src/generated/coordinator.ts` file contains all types to be implemented for a client.
 
 ### data flow
 
@@ -177,9 +179,10 @@ Majorly maintained by @unkcpz
 
 <--HTTP/2--> 
 
-coordinator server run as a binary (as grpc server) which hide the backend services from UI.
+a coordinator server runs as a binary (as grpc server) which hides the backend services from UI.
 
-Majorly maintained by @unkcpz as [request packager](https://github.com/EOSC-Data-Commons/req-packager) (a.k.a coordinator under matchmaker context)
+Majorly maintained by @unkcpz as [request packager](https://github.com/EOSC-Data-Commons/req-packager) (a.k.a.
+coordinator under matchmaker context)
 
 ## How to Search
 

@@ -15,7 +15,6 @@
  *   npm install -D ts-proto grpc-tools @types/jsonwebtoken typescript
  */
 
-import * as fs from "fs";
 import * as grpc from "@grpc/grpc-js";
 import jwt from "jsonwebtoken";
 
