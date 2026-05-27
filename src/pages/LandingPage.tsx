@@ -1,7 +1,6 @@
 import {useNavigate} from "react-router";
 import {useState} from "react";
 import {SearchInput} from "../components/SearchInput";
-import {DataplayInput} from "../components/DataplayInput";
 import {AlphaDisclaimer} from "../components/AlphaDisclaimer";
 import {Footer} from "../components/Footer";
 import {EasterEgg} from "../components/EasterEgg";
@@ -29,6 +28,7 @@ export const LandingPage = () => {
 
     const handleSearch = (query: string, model: string, aiMode?: boolean) => {
         if (aiMode) {
+            ``
             // Using state to potentially start chat if the backend/chat page leverages it, as per instructions.
             navigate('/chat', {state: {initialQuery: query, initialModel: model}});
         } else {
@@ -40,21 +40,21 @@ export const LandingPage = () => {
         navigate('/chat');
     };
 
-    const handlePlay = (datasetHandle: string) => {
-        const params = new URLSearchParams();
-        params.set('datasetId', datasetHandle);
-        let title = "";
-        try {
-            const url = new URL(datasetHandle);
-            title = `A dataset from source: ${url}`;
-        } catch {
-            console.warn("Invalid URL:", datasetHandle);
-        }
-
-        params.set('datasetId', datasetHandle);
-        params.set('title', title);
-        window.open(`/dataplayer?${params.toString()}`, '_blank');
-    };
+    // const handlePlay = (datasetHandle: string) => {
+    //     const params = new URLSearchParams();
+    //     params.set('datasetId', datasetHandle);
+    //     let title = "";
+    //     try {
+    //         const url = new URL(datasetHandle);
+    //         title = `A dataset from source: ${url}`;
+    //     } catch {
+    //         console.warn("Invalid URL:", datasetHandle);
+    //     }
+    //
+    //     params.set('datasetId', datasetHandle);
+    //     params.set('title', title);
+    //     window.open(`/dataplayer?${params.toString()}`, '_blank');
+    // };
 
     const handleAbout = () => {
         window.open('https://www.eosc-data-commons.eu/service/eosc-matchmaker', '_blank', 'noopener,noreferrer');
@@ -155,11 +155,11 @@ export const LandingPage = () => {
                             showAiToggle={true}
                         />
 
-                        <DataplayInput
-                            label="Play (tdb)"
-                            onPlay={handlePlay}
-                            className="w-full max-w-2xl"
-                        />
+                        {/*<DataplayInput*/}
+                        {/*    label="Play (tdb)"*/}
+                        {/*    onPlay={handlePlay}*/}
+                        {/*    className="w-full max-w-2xl"*/}
+                        {/*/>*/}
                     </div>
                 </div>
 
