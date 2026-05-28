@@ -188,7 +188,7 @@ export const SearchResultItem = ({hit, isAiRanked = false}: SearchResultItemProp
                     <button
                         onClick={handleDataplayer}
                         aria-label={`View dataset for ${hit.title}`}
-                        className="inline-flex items-center justify-center gap-1 rounded-md bg-green-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 transition-colors">
+                        className="inline-flex items-center justify-center gap-1 rounded-md bg-green-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 transition-colors cursor-pointer">
                         <Rocket className="h-4 w-4"/>
                         <span className="leading-none">Play</span>
                     </button>

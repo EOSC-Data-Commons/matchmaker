@@ -52,7 +52,7 @@ export const FilesList = ({files, isFilesLoading, error}: FilesListProps) => {
                         <div className="flex items-center gap-4 text-sm shrink-0">
                             {!file.isDir && (
                                 <span
-                                    className="text-eosc-gray px-2 py-1 bg-gray-50 border border-eosc-border rounded text-xs font-light">{file.size}</span>
+                                    className="text-[#646363] px-2 py-1 bg-gray-50 border border-eosc-border rounded text-xs font-light">{file.size}</span>
                             )}
                             {file.downloadUrl && (
                                 <button
