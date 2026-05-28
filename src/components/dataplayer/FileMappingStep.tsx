@@ -28,7 +28,8 @@ export const FileMappingStep = ({
     if (!selectedToolId) return null;
 
     return (
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
+        <div
+            className="max-w-5xl mx-auto px-4 sm:px-6 py-6 bg-eosc-card rounded-xl border border-eosc-border shadow-sm">
             <div className="mb-6 sm:mb-8">
                 <h2 className="text-xl sm:text-2xl font-bold text-eosc-dark-blue mb-2">Map Input Files & Parameters</h2>
                 <p className="text-sm sm:text-base text-eosc-gray">
@@ -42,7 +43,7 @@ export const FileMappingStep = ({
                             <p className="text-xs font-semibold text-eosc-gray uppercase tracking-wider mb-1">
                                 Selected Tool
                             </p>
-                            <p className="text-sm sm:text-base text-eosc-text font-medium break-words">
+                            <p className="text-sm sm:text-base text-eosc-text font-medium wrap-break-word">
                                 {toolConfig ? toolConfig.name : "Loading tool config..."}
                             </p>
                         </div>
@@ -50,7 +51,7 @@ export const FileMappingStep = ({
                             <p className="text-xs font-semibold text-eosc-gray uppercase tracking-wider mb-1">
                                 Execution Environment
                             </p>
-                            <p className="text-sm sm:text-base text-eosc-text font-medium break-words">
+                            <p className="text-sm sm:text-base text-eosc-text font-medium wrap-break-word">
                                 VRE Instance (System Default)
                             </p>
                         </div>
@@ -85,95 +86,95 @@ export const FileMappingStep = ({
             <div className="bg-eosc-card rounded-lg border border-eosc-border shadow-sm overflow-hidden mb-8">
                 <div className="overflow-x-auto">
                     {toolConfig ? (<table className="min-w-full divide-y divide-eosc-border table-fixed">
-                        <thead className="bg-eosc-bg">
-                        <tr>
-                            <th className="w-1/4 px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-semibold text-eosc-gray uppercase tracking-wider">
-                                Parameter
-                            </th>
-                            <th className="w-1/4 px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-semibold text-eosc-gray uppercase tracking-wider">
-                                Data Type
-                            </th>
-                            <th className="w-1/2 px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-semibold text-eosc-gray uppercase tracking-wider">
-                                Value Assignment
-                            </th>
-                        </tr>
-                        </thead>
-                        <tbody className="bg-eosc-card divide-y divide-eosc-border">
-                        {toolConfig.slots.map((param) => (
-                            <tr className="hover:bg-gray-50 transition-colors" key={param.name}>
-                                <td className="px-4 sm:px-6 py-4 text-sm font-medium text-eosc-text break-words">
-                                    {param.name}
-                                </td>
-                                <td className="px-4 sm:px-6 py-4 text-sm text-eosc-gray break-words">
+                            <thead className="bg-eosc-bg">
+                            <tr>
+                                <th className="w-1/4 px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-semibold text-eosc-gray uppercase tracking-wider">
+                                    Parameter
+                                </th>
+                                <th className="w-1/4 px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-semibold text-eosc-gray uppercase tracking-wider">
+                                    Data Type
+                                </th>
+                                <th className="w-1/2 px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-semibold text-eosc-gray uppercase tracking-wider">
+                                    Value Assignment
+                                </th>
+                            </tr>
+                            </thead>
+                            <tbody className="bg-eosc-card divide-y divide-eosc-border">
+                            {toolConfig.slots.map((param) => (
+                                <tr className="hover:bg-gray-50 transition-colors" key={param.name}>
+                                    <td className="px-4 sm:px-6 py-4 text-sm font-medium text-eosc-text wrap-break-word">
+                                        {param.name}
+                                    </td>
+                                    <td className="px-4 sm:px-6 py-4 text-sm text-eosc-gray wrap-break-word">
                                     <span
                                         className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
                                         {param.typ}
                                     </span>
-                                </td>
-                                <td className="px-4 sm:px-6 py-4 p-2">
-                                    {param.typ === "File" && (
-                                        <select
-                                            onChange={(e) => {
-                                                const val = e.target.value;
-                                                if (val === "") {
-                                                    // Let the parent component know we're unsetting the mapping
-                                                    handleFileSlotSet(param.name, -1);
-                                                } else {
-                                                    handleFileSlotSet(param.name, Number(val));
-                                                }
-                                            }}
-                                            value={fileParametersMapping[param.name] !== undefined ? fileParametersMapping[param.name] : ""}
-                                            className="block w-full max-w-full px-3 py-2 text-sm border border-eosc-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-eosc-light-blue focus:border-eosc-light-blue bg-white text-eosc-text break-words whitespace-normal"
-                                        >
-                                            <option key="none" value="">-- Select a file to assign --</option>
-                                            {files.map((file, fileIndex) => (
-                                                <option key={fileIndex} value={fileIndex}>
-                                                    {file.filename}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    )}
+                                    </td>
+                                    <td className="px-4 sm:px-6 py-4 p-2">
+                                        {param.typ === "File" && (
+                                            <select
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    if (val === "") {
+                                                        // Let the parent component know we're unsetting the mapping
+                                                        handleFileSlotSet(param.name, -1);
+                                                    } else {
+                                                        handleFileSlotSet(param.name, Number(val));
+                                                    }
+                                                }}
+                                                value={fileParametersMapping[param.name] !== undefined ? fileParametersMapping[param.name] : ""}
+                                                className="block w-full max-w-full px-3 py-2 text-sm border border-eosc-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-eosc-light-blue focus:border-eosc-light-blue bg-white text-eosc-text wrap-break-word whitespace-normal"
+                                            >
+                                                <option key="none" value="">-- Select a file to assign --</option>
+                                                {files.map((file, fileIndex) => (
+                                                    <option key={fileIndex} value={fileIndex}>
+                                                        {file.filename}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        )}
 
-                                    {(param.typ === "Number") && (
-                                        <input
-                                            type="number"
-                                            value={(valueParametersMapping[param.name] as number) ?? ""}
-                                            onChange={(e) => handleValueSlotSet(param.name, Number(e.target.value))}
-                                            placeholder="Enter number..."
-                                            className="block w-full max-w-md px-3 py-2 text-sm border border-eosc-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-eosc-light-blue focus:border-eosc-light-blue bg-white text-eosc-text"
-                                        />
-                                    )}
-
-                                    {(param.typ === "Text") && (
-                                        <input
-                                            type="text"
-                                            value={(valueParametersMapping[param.name] as string) ?? ""}
-                                            onChange={(e) => handleValueSlotSet(param.name, e.target.value)}
-                                            placeholder="Enter text..."
-                                            className="block w-full max-w-md px-3 py-2 text-sm border border-eosc-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-eosc-light-blue focus:border-eosc-light-blue bg-white text-eosc-text"
-                                        />
-                                    )}
-
-                                    {param.typ === "Flag" && (
-                                        <label className="inline-flex items-center cursor-pointer">
+                                        {(param.typ === "Number") && (
                                             <input
-                                                type="checkbox"
-                                                checked={(valueParametersMapping[param.name] as boolean) || false}
-                                                onChange={(e) => handleValueSlotSet(param.name, e.target.checked)}
-                                                className="form-checkbox h-5 w-5 text-eosc-light-blue border-eosc-border rounded focus:ring-eosc-light-blue transition duration-150 ease-in-out"
+                                                type="number"
+                                                value={(valueParametersMapping[param.name] as number) ?? ""}
+                                                onChange={(e) => handleValueSlotSet(param.name, Number(e.target.value))}
+                                                placeholder="Enter number..."
+                                                className="block w-full max-w-md px-3 py-2 text-sm border border-eosc-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-eosc-light-blue focus:border-eosc-light-blue bg-white text-eosc-text"
                                             />
-                                            <span
-                                                className="ml-2 text-sm text-eosc-text">{valueParametersMapping[param.name] ? 'Enabled' : 'Disabled'}</span>
-                                        </label>
-                                    )}
+                                        )}
 
-                                    {param.typ === "Unknown" && (
-                                        <span className="text-gray-400 text-sm italic">Unsupported parameter type</span>
-                                    )}
-                                </td>
-                            </tr>
-                        ))}
-                        </tbody>
+                                        {(param.typ === "Text") && (
+                                            <input
+                                                type="text"
+                                                value={(valueParametersMapping[param.name] as string) ?? ""}
+                                                onChange={(e) => handleValueSlotSet(param.name, e.target.value)}
+                                                placeholder="Enter text..."
+                                                className="block w-full max-w-md px-3 py-2 text-sm border border-eosc-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-eosc-light-blue focus:border-eosc-light-blue bg-white text-eosc-text"
+                                            />
+                                        )}
+
+                                        {param.typ === "Flag" && (
+                                            <label className="inline-flex items-center cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={(valueParametersMapping[param.name] as boolean) || false}
+                                                    onChange={(e) => handleValueSlotSet(param.name, e.target.checked)}
+                                                    className="form-checkbox h-5 w-5 text-eosc-light-blue border-eosc-border rounded focus:ring-eosc-light-blue transition duration-150 ease-in-out"
+                                                />
+                                                <span
+                                                    className="ml-2 text-sm text-eosc-text">{valueParametersMapping[param.name] ? 'Enabled' : 'Disabled'}</span>
+                                            </label>
+                                        )}
+
+                                        {param.typ === "Unknown" && (
+                                            <span className="text-gray-400 text-sm italic">Unsupported parameter type</span>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                            </tbody>
                         </table>) :
                         <div className="p-8 text-center text-eosc-gray">No parameters available for this tool.</div>}
                 </div>
@@ -207,3 +208,12 @@ export const FileMappingStep = ({
         </div>
     );
 };
+
+// Card wrapper for mapping UI
+function MappingCard({children, className = ""}: { children: React.ReactNode, className?: string }) {
+    return (
+        <div className={`bg-white border border-eosc-border rounded-lg shadow-md p-4 ${className}`}>
+            {children}
+        </div>
+    );
+}

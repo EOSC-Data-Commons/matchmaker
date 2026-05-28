@@ -11,7 +11,7 @@ export const FilesList = ({files, isFilesLoading, error}: FilesListProps) => {
     if (isFilesLoading) {
         return (
             <div
-                className="p-4 bg-eosc-bg rounded-lg border border-eosc-border flex items-center gap-3 shadow-sm">
+                className="p-4 bg-white rounded-lg border border-eosc-border flex items-center gap-3 shadow-md">
                 <LoaderIcon className="h-5 w-5 text-eosc-light-blue animate-spin shrink-0"/>
                 <p className="text-sm font-medium text-eosc-dark-blue">Loading files from FileMetrix...</p>
             </div>
@@ -20,22 +20,22 @@ export const FilesList = ({files, isFilesLoading, error}: FilesListProps) => {
 
     if (error) {
         return (
-            <div className="p-4 bg-red-50 rounded-lg border border-red-200 shadow-sm">
-                <p className="text-sm text-red-600 font-medium break-words">{error}</p>
+            <div className="p-4 bg-red-50 rounded-lg border border-red-200 shadow-md">
+                <p className="text-sm text-red-600 font-medium wrap-break-word">{error}</p>
             </div>
         );
     }
 
     if (!files || !files.length) {
         return (
-            <div className="p-8 text-center bg-eosc-bg rounded-lg border border-eosc-border shadow-sm">
+            <div className="p-8 text-center bg-white rounded-lg border border-eosc-border shadow-md">
                 <p className="text-sm text-eosc-gray font-medium">No files found.</p>
             </div>
         );
     }
 
     return (
-        <div className="bg-white rounded-lg border border-eosc-border shadow-sm overflow-hidden">
+        <div className="bg-white rounded-lg border border-eosc-border shadow-md overflow-hidden">
             <ul className="divide-y divide-eosc-border m-0 p-0">
                 {files.map((file) => (
                     <li
@@ -43,9 +43,9 @@ export const FilesList = ({files, isFilesLoading, error}: FilesListProps) => {
                         className="flex flex-col sm:flex-row justify-between sm:items-center p-4 hover:bg-gray-50 transition-colors gap-3"
                     >
                         <div
-                            className="text-sm text-eosc-text font-medium flex items-center gap-2 break-all overflow-hidden flex-1">
+                            className="text-sm text-eosc-text font-medium flex items-center gap-2 wrap-break-word overflow-hidden flex-1 min-w-0">
                             <span className="shrink-0 text-lg">{file.isDir ? "📁" : "📄"}</span>
-                            <span>{file.filename}</span>
+                            <span className="truncate wrap-break-word" title={file.filename}>{file.filename}</span>
                         </div>
 
                         <div className="flex items-center gap-4 text-sm shrink-0">
