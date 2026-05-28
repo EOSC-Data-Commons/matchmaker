@@ -216,17 +216,17 @@ export const DataplayerPage = () => {
                 {/* Main Content Area */}
                 <div className="flex flex-col lg:flex-row gap-8">
                     {/* Left Panel: Files */}
-                    <div className="w-full lg:w-1/3 flex flex-col gap-6">
+                    <div className="w-full lg:w-2/4 flex flex-col gap-6">
                         <div className="bg-white rounded-xl border border-eosc-border p-6 shadow-sm">
                             <h2 className="text-lg font-light text-eosc-text mb-4">Files</h2>
                             <FilesList files={files} isFilesLoading={isFilesLoading} error={error}/>
                         </div>
 
                         <div
-                            className="bg-white rounded-xl border border-eosc-border p-6 shadow-sm flex flex-col gap-4">
+                            className="bg-white rounded-xl border border-eosc-border p-6 shadow-sm flex flex-col gap-4 ">
                             <h2 className="text-lg font-light text-eosc-text">Additional Datasets</h2>
                             <DataplayInput
-                                label={isAdding ? "Loading..." : "Add Group"}
+                                label={isAdding ? "Loading..." : "Add"}
                                 onPlay={handleAddGroup}
                                 className="w-full"
                                 loading={isAdding}
@@ -251,7 +251,7 @@ export const DataplayerPage = () => {
                     </div>
 
                     {/* Right Panel: Tools / Steps */}
-                    <div className="w-full lg:w-2/3 flex flex-col">
+                    <div className="w-full lg:w-2/4 flex flex-col">
                         <div className="bg-white rounded-xl border border-eosc-border p-6 shadow-sm min-h-[400px]">
                             {currentStep === 'select-analysis' && (
                                 <ToolSelectionStep
