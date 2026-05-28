@@ -44,9 +44,9 @@ export const FilesList = ({files, isFilesLoading, error}: FilesListProps) => {
                         className="flex flex-col sm:flex-row justify-between sm:items-center p-4 hover:bg-gray-50 transition-colors gap-3"
                     >
                         <div
-                            className="text-sm text-eosc-text font-light flex items-center gap-2 wrap-break-word overflow-hidden flex-1 min-w-0">
+                            className="text-sm text-eosc-text font-light flex items-start gap-2 break-all flex-1 min-w-0">
                             <span className="shrink-0 text-lg">{file.isDir ? "📁" : "📄"}</span>
-                            <span className="truncate wrap-break-word" title={file.filename}>{file.filename}</span>
+                            <span className="break-all" title={file.filename}>{file.filename}</span>
                         </div>
 
                         <div className="flex items-center gap-4 text-sm shrink-0">
@@ -55,14 +55,12 @@ export const FilesList = ({files, isFilesLoading, error}: FilesListProps) => {
                                     className="text-eosc-gray px-2 py-1 bg-gray-50 border border-eosc-border rounded text-xs font-light">{file.size}</span>
                             )}
                             {file.downloadUrl && (
-                                <a
-                                    href={file.downloadUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-eosc-light-blue hover:text-eosc-dark-blue font-light transition-colors border border-transparent hover:border-eosc-light-blue px-3 py-1.5 rounded-md"
+                                <button
+                                    onClick={() => window.open(file.downloadUrl, '_blank')}
+                                    className="text-eosc-light-blue hover:text-blue-500 font-light transition-colors border border-eosc-light-blue hover:border-eosc-dark-blue px-3 py-1.5 rounded-md text-sm bg-white hover:bg-gray-50 cursor-pointer"
                                 >
                                     Download
-                                </a>
+                                </button>
                             )}
                         </div>
                     </li>
