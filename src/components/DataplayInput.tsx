@@ -14,7 +14,7 @@ export const DataplayInput = ({
                                   label,
                                   onPlay,
                                   loading = false,
-                                  placeholder = "Provide your dataset to play with, e.g. github, materials cloud.",
+                                  placeholder = "Provide your dataset URL e.g. GitHub, materials cloud",
                                   className = "",
                               }: DataplayInputProps) => {
     const [value, setValue] = useState(initialValue);
@@ -47,7 +47,7 @@ export const DataplayInput = ({
                     <button
                         type="submit"
                         disabled={loading}
-                        className="absolute right-2 top-2 w-24 h-12 bg-green-500 text-white text-lg font-light rounded-lg hover:bg-green-600 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 cursor-pointer disabled:cursor-not-allowed"
+                        className="absolute right-2 top-2 px-4 min-w-[6rem] h-12 bg-blue-600 text-white text-lg font-light rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                         {label}
                     </button>
