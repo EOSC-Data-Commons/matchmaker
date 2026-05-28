@@ -2,7 +2,6 @@ import {useState} from 'react';
 import {useSearchParams, useNavigate} from 'react-router';
 import {Footer} from '../components/Footer';
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
-import eoscLogo from '@/assets/logo-eosc-data-commons.svg';
 import {DispatchResult, FileMeta, TaskState, TaskStatus, TypedValue} from '@/types/dataplayerTypes';
 import {fetchFilesMetaByDatasetHandle} from '@/lib/coordinatorApi';
 import {DataplayInput} from '@/components/DataplayInput';
@@ -189,116 +188,109 @@ export const DataplayerPage = () => {
     };
 
     return (
-        <div className="min-h-screen flex flex-col bg-eosc-bg">
-            <header className="border-b border-eosc-border bg-white">
-                <div className="container mx-auto px-4 py-3 sm:py-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2 sm:space-x-3 cursor-pointer"
-                             onClick={() => navigate('/')}>
-                            <img src={dataCommonsIconBlue} alt="Data Commons" className="h-8 w-8 sm:h-10 sm:w-10"/>
-                            <div className="flex flex-col space-y-0.5 sm:space-y-1">
-                                <img
-                                    src={eoscLogo}
-                                    alt="EOSC Data Commons"
-                                    className="h-6 sm:h-8 w-auto"
-                                />
-                                <p className="text-xs sm:text-sm text-eosc-gray">Playing with data...!!!</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+        <div className="min-h-screen flex flex-col bg-eosc-bg font-light items-center">
+            <header
+                className="w-full bg-white flex justify-between items-center p-4 sm:p-6 border-b border-eosc-border flex-shrink-0">
+                <img src={dataCommonsIconBlue} alt="EOSC" className="w-16 h-9 cursor-pointer"
+                     onClick={() => navigate('/')}/>
+                <p className="text-sm font-light text-eosc-gray">Data Sandbox</p>
             </header>
 
-            <div className="container mx-auto p-4">
-                {datasetTitle && (
-                    <div className="mt-4 p-3 sm:p-4 bg-eosc-card rounded-lg border border-eosc-border">
-                        <p className="text-xs sm:text-sm font-medium text-eosc-gray">Dataset:</p>
-                        <p className="text-sm sm:text-base text-eosc-text break-words">{datasetTitle}</p>
-                    </div>
-                )}
-                <div className="mt-4 sm:mt-6">
+            <div className="w-full max-w-7xl mx-auto flex-grow flex flex-col px-4 py-8 gap-8">
+                {/* Top Section */}
+                <div className="flex flex-col gap-4">
                     <button
                         onClick={() => navigate('/search?q=' + (searchParams.get('q') || ''))}
-                        className="text-sm sm:text-base text-eosc-light-blue hover:text-eosc-dark-blue font-medium"
+                        className="self-start text-sm text-eosc-gray hover:text-eosc-light-blue font-light flex items-center transition-colors"
                     >
                         ← Back to Search Results
                     </button>
+                    {datasetTitle && (
+                        <div className="bg-white rounded-xl border border-eosc-border p-6 shadow-sm">
+                            <p className="text-sm text-eosc-gray mb-1">Dataset</p>
+                            <h1 className="text-xl font-light text-eosc-text">{datasetTitle}</h1>
+                        </div>
+                    )}
                 </div>
-            </div>
 
-            <div className="flex-1 container mx-auto p-4">
-                <div className="flex flex-col md:flex-row gap-4">
-
-                    <div className="flex-1 min-w-0 space-y-4">
-                        <div className="bg-eosc-card rounded border border-eosc-border p-4">
-                            <h2 className="text-lg font-semibold text-eosc-text mb-2">Files</h2>
+                {/* Main Content Area */}
+                <div className="flex flex-col lg:flex-row gap-8">
+                    {/* Left Panel: Files */}
+                    <div className="w-full lg:w-1/3 flex flex-col gap-6">
+                        <div className="bg-white rounded-xl border border-eosc-border p-6 shadow-sm">
+                            <h2 className="text-lg font-light text-eosc-text mb-4">Files</h2>
                             <FilesList files={files} isFilesLoading={isFilesLoading} error={error}/>
                         </div>
 
-                        <div className="space-y-4">
+                        <div
+                            className="bg-white rounded-xl border border-eosc-border p-6 shadow-sm flex flex-col gap-4">
+                            <h2 className="text-lg font-light text-eosc-text">Additional Datasets</h2>
                             <DataplayInput
                                 label={isAdding ? "Loading..." : "Add Group"}
                                 onPlay={handleAddGroup}
-                                className="w-full max-w-2xl"
+                                className="w-full"
                                 loading={isAdding}
                             />
 
                             {isAdding && (
-                                <div className="flex justify-center">
+                                <div className="flex justify-center mt-2">
                                     <div
-                                        className="w-6 h-6 border-2 border-gray-300 border-t-black rounded-full animate-spin"/>
+                                        className="w-6 h-6 border-2 border-gray-300 border-t-eosc-light-blue rounded-full animate-spin"/>
                                 </div>
                             )}
 
                             {fileGroups.map((group, idx) => (
-                                <div key={idx} className="bg-eosc-card rounded border border-eosc-border p-4">
-                                    <h2 className="text-lg font-semibold text-eosc-text mb-2">
-                                        Extra files: Group {idx + 1}
-                                    </h2>
+                                <div key={idx} className="mt-2 border-t border-eosc-border pt-4">
+                                    <h3 className="text-md font-light text-eosc-text mb-2">
+                                        Group {idx + 1}
+                                    </h3>
                                     <FilesList files={group} isFilesLoading={false} error={null}/>
                                 </div>
                             ))}
                         </div>
                     </div>
 
-                    <div className="flex-1 container mx-auto py-4 sm:py-6 md:py-8">
-                        {currentStep === 'select-analysis' && (
-                            <ToolSelectionStep
-                                toolSearchText={toolSearchText}
-                                setToolSearchText={setToolSearchText}
-                                isFilesLoading={isFilesLoading}
-                                queryToolResults={queryToolResults}
-                                handleToolSelect={handleToolSelect}
-                                filesError={filesError}
-                                selectedToolId={selectedToolId}
-                            />
-                        )}
-                        {currentStep === 'map-files' && (
-                            <FileMappingStep
-                                selectedToolId={selectedToolId}
-                                toolConfig={toolConfig}
-                                files={files}
-                                fileParametersMapping={fileParametersMapping}
-                                valueParametersMapping={valueParametersMapping}
-                                handleFileSlotSet={handleFileSlotSet}
-                                handleValueSlotSet={handleValueSlotSet}
-                                allParametersMapped={areAllParametersMapped(toolConfig, fileParametersMapping, valueParametersMapping)}
-                                onReselectTool={handleStartOver}
-                                onSubmit={handleSubmit}
-                            />
-                        )}
-                        {(currentStep === 'submitting' || currentStep === 'monitoring') && (
-                            <MonitoringStep
-                                statusType={statusType}
-                                statusMessage={statusMessage}
-                                datasetTitle={datasetTitle}
-                                selectedToolId={selectedToolId}
-                                toolConfig={toolConfig}
-                                taskId={taskId}
-                                taskResult={taskResult}
-                                onStartOver={handleStartOver}
-                            />
-                        )}
+                    {/* Right Panel: Tools / Steps */}
+                    <div className="w-full lg:w-2/3 flex flex-col">
+                        <div className="bg-white rounded-xl border border-eosc-border p-6 shadow-sm min-h-[400px]">
+                            {currentStep === 'select-analysis' && (
+                                <ToolSelectionStep
+                                    toolSearchText={toolSearchText}
+                                    setToolSearchText={setToolSearchText}
+                                    isFilesLoading={isFilesLoading}
+                                    queryToolResults={queryToolResults}
+                                    handleToolSelect={handleToolSelect}
+                                    filesError={filesError}
+                                    selectedToolId={selectedToolId}
+                                />
+                            )}
+                            {currentStep === 'map-files' && (
+                                <FileMappingStep
+                                    selectedToolId={selectedToolId}
+                                    toolConfig={toolConfig}
+                                    files={files}
+                                    fileParametersMapping={fileParametersMapping}
+                                    valueParametersMapping={valueParametersMapping}
+                                    handleFileSlotSet={handleFileSlotSet}
+                                    handleValueSlotSet={handleValueSlotSet}
+                                    allParametersMapped={areAllParametersMapped(toolConfig, fileParametersMapping, valueParametersMapping)}
+                                    onReselectTool={handleStartOver}
+                                    onSubmit={handleSubmit}
+                                />
+                            )}
+                            {(currentStep === 'submitting' || currentStep === 'monitoring') && (
+                                <MonitoringStep
+                                    statusType={statusType}
+                                    statusMessage={statusMessage}
+                                    datasetTitle={datasetTitle}
+                                    selectedToolId={selectedToolId}
+                                    toolConfig={toolConfig}
+                                    taskId={taskId}
+                                    taskResult={taskResult}
+                                    onStartOver={handleStartOver}
+                                />
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
