@@ -19,9 +19,9 @@ import {
     SearchToolsByTextRequest,
     ToolState_State,
     GrpcSlotToSlot,
-} from "./src/lib/server/grpcClient.ts";
+} from "./src/lib/server/grpcClient";
 
-import {FileMeta, TaskState, TaskStatus, ToolConfig, TypLaunchToolRequest} from "./src/types/dataplayerTypes.ts";
+import type {FileMeta, TaskState, TaskStatus, ToolConfig, TypLaunchToolRequest} from "./src/types/dataplayerTypes";
 
 // Constants
 const DEVELOPMENT = process.env.NODE_ENV !== "production";

@@ -28,30 +28,29 @@ export const FileMappingStep = ({
     if (!selectedToolId) return null;
 
     return (
-        <div
-            className="max-w-5xl mx-auto px-4 sm:px-6 py-6 bg-eosc-card rounded-xl border border-eosc-border shadow-sm">
+        <div className="w-full font-light">
             <div className="mb-6 sm:mb-8">
-                <h2 className="text-xl sm:text-2xl font-bold text-eosc-dark-blue mb-2">Map Input Files & Parameters</h2>
-                <p className="text-sm sm:text-base text-eosc-gray">
+                <h2 className="text-xl sm:text-2xl font-light text-eosc-text mb-2">Map Input Files & Parameters</h2>
+                <p className="text-sm sm:text-base text-eosc-gray font-light">
                     Setup required input parameters for running tool. Assign files to a tool file input. Each file slot
                     must have exactly one file.
                 </p>
 
-                <div className="mt-4 p-4 sm:p-5 bg-eosc-bg rounded-lg border border-eosc-border shadow-sm">
+                <div className="mt-4 p-4 sm:p-5 bg-eosc-bg rounded-lg border border-eosc-border flex flex-col gap-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <p className="text-xs font-semibold text-eosc-gray uppercase tracking-wider mb-1">
+                            <p className="text-xs font-medium text-eosc-gray uppercase tracking-wider mb-1">
                                 Selected Tool
                             </p>
-                            <p className="text-sm sm:text-base text-eosc-text font-medium wrap-break-word">
+                            <p className="text-sm sm:text-base text-eosc-text font-light wrap-break-word">
                                 {toolConfig ? toolConfig.name : "Loading tool config..."}
                             </p>
                         </div>
                         <div>
-                            <p className="text-xs font-semibold text-eosc-gray uppercase tracking-wider mb-1">
+                            <p className="text-xs font-medium text-eosc-gray uppercase tracking-wider mb-1">
                                 Execution Environment
                             </p>
-                            <p className="text-sm sm:text-base text-eosc-text font-medium wrap-break-word">
+                            <p className="text-sm sm:text-base text-eosc-text font-light wrap-break-word">
                                 VRE Instance (System Default)
                             </p>
                         </div>
@@ -60,8 +59,8 @@ export const FileMappingStep = ({
             </div>
 
             {/* Required Parameters Info */}
-            <div className="mb-6 p-4 sm:p-5 bg-eosc-card rounded-lg border border-eosc-border shadow-sm">
-                <p className="text-xs font-semibold text-eosc-gray uppercase tracking-wider mb-3">Required Parameters
+            <div className="mb-6 p-4 sm:p-5 bg-white rounded-lg border border-eosc-border">
+                <p className="text-xs font-medium text-eosc-gray uppercase tracking-wider mb-3">Required Parameters
                     Tracking</p>
                 <div className="flex flex-wrap gap-2">
                     {toolConfig ? toolConfig.slots.map(param => {
@@ -69,45 +68,45 @@ export const FileMappingStep = ({
                         return (
                             <span
                                 key={param.name}
-                                className={`px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium border ${
+                                className={`px-3 py-1.5 rounded-md text-xs sm:text-sm font-light border ${
                                     isMapped
                                         ? 'bg-blue-50 text-eosc-light-blue border-blue-200'
                                         : 'bg-eosc-bg text-eosc-gray border-eosc-border'
                                 }`}
                             >
                                 {param.name} <span
-                                className="opacity-75 font-normal">({param.typ})</span> {isMapped ? '✓' : '⚠'}
+                                className="opacity-75 font-light">({param.typ})</span> {isMapped ? '✓' : '⚠'}
                             </span>
                         );
                     }) : "Loading tool config"}
                 </div>
             </div>
 
-            <div className="bg-eosc-card rounded-lg border border-eosc-border shadow-sm overflow-hidden mb-8">
+            <div className="bg-white rounded-lg border border-eosc-border overflow-hidden mb-8">
                 <div className="overflow-x-auto">
                     {toolConfig ? (<table className="min-w-full divide-y divide-eosc-border table-fixed">
                             <thead className="bg-eosc-bg">
                             <tr>
-                                <th className="w-1/4 px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-semibold text-eosc-gray uppercase tracking-wider">
+                                <th className="w-1/4 px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-medium text-eosc-gray uppercase tracking-wider">
                                     Parameter
                                 </th>
-                                <th className="w-1/4 px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-semibold text-eosc-gray uppercase tracking-wider">
+                                <th className="w-1/4 px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-medium text-eosc-gray uppercase tracking-wider">
                                     Data Type
                                 </th>
-                                <th className="w-1/2 px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-semibold text-eosc-gray uppercase tracking-wider">
+                                <th className="w-1/2 px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-medium text-eosc-gray uppercase tracking-wider">
                                     Value Assignment
                                 </th>
                             </tr>
                             </thead>
-                            <tbody className="bg-eosc-card divide-y divide-eosc-border">
+                            <tbody className="bg-white divide-y divide-eosc-border">
                             {toolConfig.slots.map((param) => (
                                 <tr className="hover:bg-gray-50 transition-colors" key={param.name}>
-                                    <td className="px-4 sm:px-6 py-4 text-sm font-medium text-eosc-text wrap-break-word">
+                                    <td className="px-4 sm:px-6 py-4 text-sm font-light text-eosc-text wrap-break-word">
                                         {param.name}
                                     </td>
                                     <td className="px-4 sm:px-6 py-4 text-sm text-eosc-gray wrap-break-word">
                                     <span
-                                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-light bg-eosc-bg border border-eosc-border text-eosc-text">
                                         {param.typ}
                                     </span>
                                     </td>
@@ -141,7 +140,7 @@ export const FileMappingStep = ({
                                                 value={(valueParametersMapping[param.name] as number) ?? ""}
                                                 onChange={(e) => handleValueSlotSet(param.name, Number(e.target.value))}
                                                 placeholder="Enter number..."
-                                                className="block w-full max-w-md px-3 py-2 text-sm border border-eosc-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-eosc-light-blue focus:border-eosc-light-blue bg-white text-eosc-text"
+                                                className="block w-full max-w-md px-3 py-2 font-light text-sm border border-eosc-border rounded-md focus:outline-none focus:ring-2 focus:ring-eosc-light-blue focus:border-eosc-light-blue bg-white text-eosc-text"
                                             />
                                         )}
 
@@ -151,7 +150,7 @@ export const FileMappingStep = ({
                                                 value={(valueParametersMapping[param.name] as string) ?? ""}
                                                 onChange={(e) => handleValueSlotSet(param.name, e.target.value)}
                                                 placeholder="Enter text..."
-                                                className="block w-full max-w-md px-3 py-2 text-sm border border-eosc-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-eosc-light-blue focus:border-eosc-light-blue bg-white text-eosc-text"
+                                                className="block w-full max-w-md px-3 py-2 font-light text-sm border border-eosc-border rounded-md focus:outline-none focus:ring-2 focus:ring-eosc-light-blue focus:border-eosc-light-blue bg-white text-eosc-text"
                                             />
                                         )}
 
@@ -185,21 +184,21 @@ export const FileMappingStep = ({
                 className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-eosc-border">
                 <button
                     onClick={onReselectTool}
-                    className="text-sm font-medium text-eosc-gray hover:text-eosc-dark-blue flex items-center transition-colors px-4 py-2 rounded-md hover:bg-eosc-bg"
+                    className="text-sm font-light text-eosc-gray hover:text-eosc-light-blue flex items-center transition-colors px-4 py-2 rounded-md hover:bg-eosc-bg cursor-pointer"
                 >
                     <span className="mr-2">←</span> Reselect Tool
                 </button>
 
                 <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
                     {!allParametersMapped && (
-                        <p className="text-sm text-orange-600 bg-orange-50 px-3 py-1.5 rounded-md border border-orange-200 w-full sm:w-auto text-center">
+                        <p className="text-sm text-orange-600 bg-orange-50 px-3 py-1.5 rounded-md border border-orange-200 w-full sm:w-auto text-center font-light">
                             Map all required parameters to proceed
                         </p>
                     )}
                     <button
                         onClick={onSubmit}
                         disabled={!allParametersMapped}
-                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md bg-eosc-light-blue px-6 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-eosc-dark-blue focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-eosc-light-blue transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md bg-white border border-eosc-border px-6 py-2.5 text-sm font-light text-eosc-text hover:bg-gray-50 hover:border-eosc-light-blue focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap cursor-pointer"
                     >
                         Submit to VRE
                     </button>
@@ -208,12 +207,3 @@ export const FileMappingStep = ({
         </div>
     );
 };
-
-// Card wrapper for mapping UI
-function MappingCard({children, className = ""}: { children: React.ReactNode, className?: string }) {
-    return (
-        <div className={`bg-white border border-eosc-border rounded-lg shadow-md p-4 ${className}`}>
-            {children}
-        </div>
-    );
-}

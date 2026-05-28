@@ -29,7 +29,7 @@ import {
     Slot,
     ToolServiceClient,
     TypedValue as GrpcTypedValue,
-} from "./generated/coordinator.ts";
+} from "./generated/coordinator";
 
 // re-export so it can be access from server.rs
 export {
@@ -40,9 +40,9 @@ export {
     MonitorStateResponse,
     SearchToolsByTextRequest,
     ToolState_State,
-} from "./generated/coordinator.ts";
+} from "./generated/coordinator";
 
-import {FileMeta, InputParameterTyp, ToolSlot, TypedValue} from "@/types/dataplayerTypes.ts";
+import type {FileMeta, InputParameterTyp, ToolSlot, TypedValue} from "../../types/dataplayerTypes.ts";
 
 // const GRPC_TARGET = "129-132-86-131.net4.ethz.ch:443";
 const GRPC_TARGET = "grpc.eosc-coordinator.ethz.ch:443";
