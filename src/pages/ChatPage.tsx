@@ -1,12 +1,12 @@
-import {FC, useState, useEffect, useCallback, Fragment, useRef, JSX} from "react";
-import {useNavigate, useParams, useLocation} from "react-router";
+import {FC, Fragment, JSX, useCallback, useEffect, useRef, useState} from "react";
+import {useLocation, useNavigate, useParams} from "react-router";
 import {useAuth} from "@/hooks/useAuth.ts";
 import {Conversation, Message} from "@/types/chat.ts";
 import {BackendDataset} from "@/types/commons.ts";
 import {sendChatMessage} from "@/lib/api.ts";
 import {getUserInitials} from "@/lib/userUtils.ts";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
-import {Plus, MessageSquare, User, Loader2, Send, ChevronDown, ChevronUp} from "lucide-react";
+import {ChevronDown, ChevronUp, Loader2, MessageSquare, Plus, Send, User} from "lucide-react";
 import {SearchResultItem} from "@/components/SearchResultItem.tsx";
 import {SearchInput} from "@/components/SearchInput.tsx";
 import {DeleteConversationDialog} from "@/components/DeleteConversationDialog.tsx";
@@ -250,9 +250,9 @@ const ChatPage: FC = () => {
     };
 
     const getMessageSummary = (content: string): string => {
-        const firstLine = content.split('\n').find(l => l.trim()) || '';
-        if (firstLine.length <= 120) return firstLine;
-        return firstLine.substring(0, 117) + '...';
+        // Return the first non-empty line of the content as the summary.
+        // Previously this truncated to a fixed character limit; show the full summary instead.
+        return content.split('\n').find(l => l.trim()) || '';
     };
 
     const sanitizeLinkHref = (href: string): string | null => {
@@ -610,7 +610,7 @@ const ChatPage: FC = () => {
                                                     <p className="leading-relaxed">{msg.content}</p>
                                                 ) : collapsedMessages.has(index) ? (
                                                     <div className="flex items-center gap-3">
-                                                        <p className="text-gray-400 text-sm italic flex-1 truncate">
+                                                        <p className="text-gray-400 text-sm italic flex-1 whitespace-pre-wrap">
                                                             {getMessageSummary(msg.content)}
                                                             {msg.hits && msg.hits.length > 0 && (
                                                                 <span
