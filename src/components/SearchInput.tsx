@@ -29,6 +29,7 @@ interface SearchInputProps {
     disableHistory?: boolean;
     isLoggedIn?: boolean;
     showAiToggle?: boolean;
+    inputRef?: React.Ref<HTMLInputElement>;
 }
 
 export const SearchInput = ({
@@ -42,7 +43,8 @@ export const SearchInput = ({
                                 buttonText = "Search",
                                 disableHistory = false,
                                 isLoggedIn = false,
-                                showAiToggle = false
+                                showAiToggle = false,
+                                inputRef
                             }: SearchInputProps) => {
     const [query, setQuery] = useState(initialQuery);
     const [selectedModel, setSelectedModel] = useState(initialModel || DEFAULT_MODEL);
@@ -126,6 +128,7 @@ export const SearchInput = ({
                 <div className="relative">
                     <input
                         type="text"
+                        ref={inputRef}
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         onKeyDown={handleKeyDown}

@@ -41,6 +41,7 @@ const ChatPage: FC = () => {
     const activeIdRef = useRef<string | undefined>(undefined);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
+    const chatInputRef = useRef<HTMLInputElement>(null);
     activeIdRef.current = selectedConversation?.id;
 
     // To prevent processing initial state multiple times
@@ -56,6 +57,12 @@ const ChatPage: FC = () => {
         const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
         setShowScrollButton(!isNearBottom);
     };
+
+    const focusChatInput = useCallback(() => {
+        requestAnimationFrame(() => {
+            chatInputRef.current?.focus();
+        });
+    }, []);
 
     const fetchConversations = useCallback(() => {
         if (user?.sub) {
@@ -509,6 +516,7 @@ const ChatPage: FC = () => {
                             onClick={() => {
                                 setSelectedConversation(null);
                                 if (urlId) navigate('/chat');
+                                focusChatInput();
                             }}
                             className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors shadow-sm cursor-pointer"
                         >
@@ -693,6 +701,7 @@ const ChatPage: FC = () => {
                                 loading={isSending}
                                 placeholder="Ask anything or search for datasets..."
                                 clearOnSearch={true}
+                                inputRef={chatInputRef}
                                 buttonText={
                                     isSending ? (
                                         <>
