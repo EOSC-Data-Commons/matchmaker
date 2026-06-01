@@ -1,5 +1,6 @@
 import {useState, useRef, useEffect} from 'react';
 import {UserInfo} from '../hooks/useAuth';
+import {getUserInitials} from '@/lib/user.ts';
 
 interface UserMenuProps {
     user: UserInfo;
@@ -24,23 +25,6 @@ export const UserMenu = ({user, onLogout}: UserMenuProps) => {
         };
     }, []);
 
-    const getInitials = () => {
-        const name = user.name?.trim();
-        if (name) {
-            const names = name.split(/\s+/);
-            if (names.length >= 2) {
-                return (names[0][0] + names[1][0]).toUpperCase();
-            }
-            return name.substring(0, 2).toUpperCase();
-        }
-
-        const preferredUsername = user.preferred_username?.trim();
-        if (preferredUsername) {
-            return preferredUsername.substring(0, 2).toUpperCase();
-        }
-        return user.email.substring(0, 2).toUpperCase();
-    };
-
     return (
         <div className="relative" ref={menuRef}>
             <button
@@ -51,7 +35,7 @@ export const UserMenu = ({user, onLogout}: UserMenuProps) => {
                 aria-expanded={isOpen}
                 aria-label={`User menu for ${user.name || user.email}`}
             >
-                {getInitials()}
+                {getUserInitials(user)}
             </button>
 
             {isOpen && (
