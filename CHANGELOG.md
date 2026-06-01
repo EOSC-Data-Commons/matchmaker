@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.2] - 2026-06-01
+
+- Added an option to delete a chat conversation in the ChatPage, with a confirmation prompt to prevent accidental
+  deletions.
+- Refactored user initials logic into the shared `getUserInitials` utility and updated all usages for consistency
+
 ## [0.7.0] - 2026-05-22
 
 - Enhanced `SearchInput` with an AI mode toggle (available to authenticated users), sign-in prompt for locked AI mode

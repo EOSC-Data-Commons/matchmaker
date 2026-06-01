@@ -4,10 +4,13 @@ import {useAuth} from "@/hooks/useAuth.ts";
 import {Conversation, Message} from "@/types/chat.ts";
 import {BackendDataset} from "@/types/commons.ts";
 import {sendChatMessage} from "@/lib/api.ts";
+import {getUserInitials} from "@/lib/userUtils.ts";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 import {Plus, MessageSquare, User, Loader2, Send, ChevronDown, ChevronUp} from "lucide-react";
 import {SearchResultItem} from "@/components/SearchResultItem.tsx";
 import {SearchInput} from "@/components/SearchInput.tsx";
+import {DeleteConversationDialog} from "@/components/DeleteConversationDialog.tsx";
+import {ConversationSidebarItem} from "@/components/ConversationSidebarItem.tsx";
 
 type ChatLocationState = {
     initialQuery?: string;
@@ -33,6 +36,8 @@ const ChatPage: FC = () => {
     const [isSending, setIsSending] = useState(false);
     const [showScrollButton, setShowScrollButton] = useState(false);
     const [collapsedMessages, setCollapsedMessages] = useState<Set<number>>(new Set());
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
     const activeIdRef = useRef<string | undefined>(undefined);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -40,24 +45,6 @@ const ChatPage: FC = () => {
 
     // To prevent processing initial state multiple times
     const initialQueryProcessed = useRef(false);
-
-    const getInitials = () => {
-        if (!user) return "U";
-        const name = user.name?.trim();
-        if (name) {
-            const names = name.split(/\s+/);
-            if (names.length >= 2) {
-                return (names[0][0] + names[1][0]).toUpperCase();
-            }
-            return name.substring(0, 2).toUpperCase();
-        }
-
-        const preferredUsername = user.preferred_username?.trim();
-        if (preferredUsername) {
-            return preferredUsername.substring(0, 2).toUpperCase();
-        }
-        return user.email ? user.email.substring(0, 2).toUpperCase() : "U";
-    };
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({behavior: "smooth"});
@@ -206,6 +193,45 @@ const ChatPage: FC = () => {
     useEffect(() => {
         setCollapsedMessages(new Set());
     }, [selectedConversation?.id]);
+
+    useEffect(() => {
+        const handleClickOutside = () => setMenuOpenId(null);
+        if (menuOpenId) {
+            document.addEventListener('click', handleClickOutside);
+        }
+        return () => document.removeEventListener('click', handleClickOutside);
+    }, [menuOpenId]);
+
+    const handleDeleteConversation = async (id: string) => {
+        try {
+            let res = await fetch('/api/search/conversations', {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify([id])
+            });
+            if (res.status === 422) {
+                res = await fetch('/api/search/conversations', {
+                    method: 'DELETE',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({thread_ids: [id]})
+                });
+            }
+            if (!res.ok) {
+                throw new Error(`Failed to delete conversation: ${res.statusText}`);
+            }
+
+            setConversations(prev => prev.filter(c => c.id !== id));
+            if (selectedConversation?.id === id || urlId === id) {
+                setSelectedConversation(null);
+                navigate('/chat', {replace: true});
+            }
+        } catch (err) {
+            console.error("Failed to delete conversation", err);
+            alert("Failed to delete conversation. Please try again.");
+        } finally {
+            setDeletingId(null);
+        }
+    };
 
     const toggleMessageCollapse = (index: number) => {
         setCollapsedMessages(prev => {
@@ -429,6 +455,11 @@ const ChatPage: FC = () => {
 
     return (
         <div className="flex flex-col h-dvh bg-white overflow-hidden">
+            <DeleteConversationDialog
+                isOpen={!!deletingId}
+                onClose={() => setDeletingId(null)}
+                onConfirm={() => deletingId && handleDeleteConversation(deletingId)}
+            />
             {!userLoading && !user && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
                     <div
@@ -492,18 +523,22 @@ const ChatPage: FC = () => {
                             conversations.map(convo => {
                                 const isActive = convo.id === selectedConversation?.id || convo.id === urlId;
                                 return (
-                                    <div
+                                    <ConversationSidebarItem
                                         key={convo.id}
-                                        title={convo.title}
-                                        className={`px-3 py-2.5 rounded-lg cursor-pointer transition-colors text-sm wrap-break-word ${
-                                            isActive
-                                                ? 'bg-blue-100 text-blue-800 font-medium'
-                                                : 'text-gray-700 hover:bg-gray-200'
-                                        }`}
+                                        conversation={convo}
+                                        isActive={isActive}
+                                        menuOpen={menuOpenId === convo.id}
                                         onClick={() => handleSelectConversation(convo.id)}
-                                    >
-                                        {convo.title}
-                                    </div>
+                                        onMenuToggle={(e) => {
+                                            e.stopPropagation();
+                                            setMenuOpenId(menuOpenId === convo.id ? null : convo.id);
+                                        }}
+                                        onDeleteClick={(e) => {
+                                            e.stopPropagation();
+                                            setDeletingId(convo.id);
+                                            setMenuOpenId(null);
+                                        }}
+                                    />
                                 );
                             })
                         )}
@@ -550,7 +585,7 @@ const ChatPage: FC = () => {
                                             <div
                                                 className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center shadow-sm mt-1 overflow-hidden ${msg.sender === 'user' ? 'bg-[#002337] text-white text-sm font-medium' : 'bg-white border border-gray-100 p-1'}`}>
                                                 {msg.sender === 'user' ? (
-                                                    getInitials()
+                                                    getUserInitials(user)
                                                 ) : (
                                                     <img src={dataCommonsIconBlue} alt="Bot"
                                                          className="w-full h-full object-contain"/>

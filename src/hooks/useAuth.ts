@@ -1,11 +1,7 @@
 import {useState, useEffect} from 'react';
+import {UserInfo} from '@/types/user.ts';
 
-export interface UserInfo {
-    sub: string;
-    email: string;
-    name?: string;
-    preferred_username?: string;
-}
+export type {UserInfo};
 
 export function useAuth() {
     const [user, setUser] = useState<UserInfo | null>(null);
