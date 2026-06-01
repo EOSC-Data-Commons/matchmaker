@@ -1,4 +1,4 @@
-import type {UserInfo} from '@/hooks/useAuth.ts';
+import type {UserInfo} from '@/types/user.ts';
 
 export function getUserInitials(user: Pick<UserInfo, 'name' | 'preferred_username' | 'email'> | null | undefined): string {
     if (!user) return 'U';

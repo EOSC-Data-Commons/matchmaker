@@ -1,6 +1,6 @@
 import {useState, useRef, useEffect} from 'react';
-import {UserInfo} from '../hooks/useAuth';
-import {getUserInitials} from '@/lib/user.ts';
+import {UserInfo} from '@/types/user.ts';
+import {getUserInitials} from '@/lib/userUtils.ts';
 
 interface UserMenuProps {
     user: UserInfo;
