@@ -190,7 +190,7 @@ const ChatPage: FC = () => {
 
             // Wait slightly for layout to settle before sending
             setTimeout(() => {
-                handleSendMessage(initialQuery, initialModel || 'einfracz/qwen3-coder');
+                handleSendMessage(initialQuery, initialModel || 'cesnet/qwen3-coder');
             }, 100);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
