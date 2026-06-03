@@ -629,14 +629,16 @@ const ChatPage: FC = () => {
                                                     </div>
                                                 ) : (
                                                     <div className="flex flex-col space-y-4">
-                                                        <button
-                                                            onClick={() => toggleMessageCollapse(index)}
-                                                            className="self-start text-xs text-gray-400 hover:text-blue-600 transition-colors flex items-center gap-1 cursor-pointer"
-                                                            title="Collapse message"
-                                                        >
-                                                            <ChevronUp className="h-3 w-3"/>
-                                                            <span>Collapse</span>
-                                                        </button>
+                                                        <div className="flex justify-end">
+                                                            <button
+                                                                onClick={() => toggleMessageCollapse(index)}
+                                                                className="text-xs text-gray-400 hover:text-blue-600 transition-colors flex items-center gap-1 cursor-pointer"
+                                                                title="Collapse message"
+                                                            >
+                                                                <ChevronUp className="h-3 w-3"/>
+                                                                <span>Collapse</span>
+                                                            </button>
+                                                        </div>
                                                         {msg.content && <div>{renderMessageContent(msg.content)}</div>}
                                                         {msg.hits && msg.hits.length > 0 && (
                                                             <div className="flex flex-col space-y-4 mt-2">
