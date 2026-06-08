@@ -11,12 +11,11 @@
  *    ./req-packager/proto/coordinator.proto
  *
  * Install deps:
- *   npm install @grpc/grpc-js jsonwebtoken
- *   npm install -D ts-proto grpc-tools @types/jsonwebtoken typescript
+ *   npm install @grpc/grpc-js
+ *   npm install -D ts-proto grpc-tools typescript
  */
 
 import * as grpc from "@grpc/grpc-js";
-import jwt from "jsonwebtoken";
 
 // These are all generated from your .proto by ts-proto
 import {
@@ -64,18 +63,6 @@ const creds = grpc.credentials.createSsl();
 // }
 
 const channel = creds;
-
-// JWT-token mocking
-// This supposed to provide from matchmaker login
-const JWT_SECRET = "my_secret_key";
-
-export function createToken(): string {
-    return jwt.sign(
-        {sub: "user123", name: "Alice", role: "admin"},
-        JWT_SECRET,
-        {expiresIn: 1_999_999_999 - Math.floor(Date.now() / 1000)},
-    );
-}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -213,8 +200,8 @@ function makeAuthMetadata(token: string): grpc.Metadata {
 // to let it routing the data source.
 export async function fetchDatasetFilesFromDatahuggerByUrl(
     handle: string,
+    token: string,
 ): Promise<FileMeta[]> {
-    const token = createToken();
     const metadata = makeAuthMetadata(token);
 
     // XXX: in-efficient, create client as singlton
@@ -269,9 +256,9 @@ export async function launchTool(
     toolId: string,
     dataset: string,
     slotToValueMapping: Record<string, TypedValue>,
-    slotToFileMapping: Record<string, FileMeta>
+    slotToFileMapping: Record<string, FileMeta>,
+    token: string,
 ): Promise<string> {
-    const token = createToken();
     const metadata = makeAuthMetadata(token);
 
     // XXX: if I deploy the grpc server with client in the same NAT, I can use insecure channel, but if goes to ethz deployment, should not.
