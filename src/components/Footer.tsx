@@ -2,6 +2,7 @@ import {FaLinkedin} from 'react-icons/fa';
 import {FaBluesky} from 'react-icons/fa6';
 import {MdEmail} from 'react-icons/md';
 import eoscLogo from '@/assets/logo-eosc-data-commons.svg';
+import euLogo from '@/assets/EU_blue.png';
 import {version} from '../../package.json';
 
 interface FooterProps {
@@ -67,7 +68,7 @@ export const Footer = ({translucent = false, className = ''}: FooterProps) => {
                             rel="noreferrer"
                             href="https://www.eosc-data-commons.eu"
                             aria-label="Link to Homepage"
-                            className="cursor-pointer mb-2"
+                            className="cursor-pointer"
                         >
                             <div className="w-64">
                                 <div className="w-full h-16 flex items-center justify-center text-sm">
@@ -79,6 +80,20 @@ export const Footer = ({translucent = false, className = ''}: FooterProps) => {
                                 </div>
                             </div>
                         </a>
+
+                        {/* EOSC Data Commons Funding Acknowledgment */}
+                        <div className="flex flex-col md:flex-row items-center md:items-center gap-2 mb-2">
+                            <img
+                                src={euLogo}
+                                alt="European Union Flag"
+                                className="h-6 w-auto"
+                            />
+                            <p className="text-xs font-light text-eosc-gray text-center md:text-right max-w-xs">
+                                EOSC Data Commons is funded by the European Union <br className="hidden md:block"/>
+                                Grant Agreement Number 101188179
+                            </p>
+                        </div>
+
                         <div className="flex items-center gap-4">
                             <a
                                 target="_blank"
