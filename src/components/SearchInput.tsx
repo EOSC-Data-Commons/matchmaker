@@ -6,15 +6,15 @@ import {getSearchHistory} from "../lib/history.ts";
 
 const SHOW_MODEL_SELECTOR = import.meta.env.VITE_SHOW_MODEL_SELECTOR === 'true';
 
-const DEFAULT_MODEL = "einfracz/qwen3-coder";
+const DEFAULT_MODEL = "cesnet/qwen3-coder";
 
 const models = [
     "openai/gpt-4.1",
     "mistralai/mistral-large-latest",
     "groq/moonshotai/kimi-k2-instruct",
-    "einfracz/qwen3-coder",
-    "einfracz/gpt-oss-120b",
-    "einfracz/deepseek-v3.2-thinking"
+    "cesnet/qwen3-coder",
+    "cesnet/gpt-oss-120b",
+    "cesnet/deepseek-v3.2-thinking"
 ];
 
 interface SearchInputProps {
@@ -29,6 +29,7 @@ interface SearchInputProps {
     disableHistory?: boolean;
     isLoggedIn?: boolean;
     showAiToggle?: boolean;
+    inputRef?: React.Ref<HTMLInputElement>;
 }
 
 export const SearchInput = ({
@@ -42,7 +43,8 @@ export const SearchInput = ({
                                 buttonText = "Search",
                                 disableHistory = false,
                                 isLoggedIn = false,
-                                showAiToggle = false
+                                showAiToggle = false,
+                                inputRef
                             }: SearchInputProps) => {
     const [query, setQuery] = useState(initialQuery);
     const [selectedModel, setSelectedModel] = useState(initialModel || DEFAULT_MODEL);
@@ -126,6 +128,7 @@ export const SearchInput = ({
                 <div className="relative">
                     <input
                         type="text"
+                        ref={inputRef}
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         onKeyDown={handleKeyDown}

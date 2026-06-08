@@ -1,12 +1,12 @@
-import {FC, useState, useEffect, useCallback, Fragment, useRef, JSX} from "react";
-import {useNavigate, useParams, useLocation} from "react-router";
+import {FC, Fragment, JSX, useCallback, useEffect, useRef, useState} from "react";
+import {useLocation, useNavigate, useParams} from "react-router";
 import {useAuth} from "@/hooks/useAuth.ts";
 import {Conversation, Message} from "@/types/chat.ts";
 import {BackendDataset} from "@/types/commons.ts";
 import {sendChatMessage} from "@/lib/api.ts";
 import {getUserInitials} from "@/lib/userUtils.ts";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
-import {Plus, MessageSquare, User, Loader2, Send, ChevronDown, ChevronUp} from "lucide-react";
+import {ChevronDown, ChevronUp, Loader2, MessageSquare, Plus, Send, User} from "lucide-react";
 import {SearchResultItem} from "@/components/SearchResultItem.tsx";
 import {SearchInput} from "@/components/SearchInput.tsx";
 import {DeleteConversationDialog} from "@/components/DeleteConversationDialog.tsx";
@@ -41,6 +41,7 @@ const ChatPage: FC = () => {
     const activeIdRef = useRef<string | undefined>(undefined);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
+    const chatInputRef = useRef<HTMLInputElement>(null);
     activeIdRef.current = selectedConversation?.id;
 
     // To prevent processing initial state multiple times
@@ -56,6 +57,12 @@ const ChatPage: FC = () => {
         const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
         setShowScrollButton(!isNearBottom);
     };
+
+    const focusChatInput = useCallback(() => {
+        requestAnimationFrame(() => {
+            chatInputRef.current?.focus();
+        });
+    }, []);
 
     const fetchConversations = useCallback(() => {
         if (user?.sub) {
@@ -183,7 +190,7 @@ const ChatPage: FC = () => {
 
             // Wait slightly for layout to settle before sending
             setTimeout(() => {
-                handleSendMessage(initialQuery, initialModel || 'einfracz/qwen3-coder');
+                handleSendMessage(initialQuery, initialModel || 'cesnet/qwen3-coder');
             }, 100);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -243,9 +250,9 @@ const ChatPage: FC = () => {
     };
 
     const getMessageSummary = (content: string): string => {
-        const firstLine = content.split('\n').find(l => l.trim()) || '';
-        if (firstLine.length <= 120) return firstLine;
-        return firstLine.substring(0, 117) + '...';
+        // Return the first non-empty line of the content as the summary.
+        // Previously this truncated to a fixed character limit; show the full summary instead.
+        return content.split('\n').find(l => l.trim()) || '';
     };
 
     const sanitizeLinkHref = (href: string): string | null => {
@@ -509,6 +516,7 @@ const ChatPage: FC = () => {
                             onClick={() => {
                                 setSelectedConversation(null);
                                 if (urlId) navigate('/chat');
+                                focusChatInput();
                             }}
                             className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors shadow-sm cursor-pointer"
                         >
@@ -602,7 +610,7 @@ const ChatPage: FC = () => {
                                                     <p className="leading-relaxed">{msg.content}</p>
                                                 ) : collapsedMessages.has(index) ? (
                                                     <div className="flex items-center gap-3">
-                                                        <p className="text-gray-400 text-sm italic flex-1 truncate">
+                                                        <p className="text-gray-400 text-sm italic flex-1 whitespace-pre-wrap">
                                                             {getMessageSummary(msg.content)}
                                                             {msg.hits && msg.hits.length > 0 && (
                                                                 <span
@@ -621,14 +629,16 @@ const ChatPage: FC = () => {
                                                     </div>
                                                 ) : (
                                                     <div className="flex flex-col space-y-4">
-                                                        <button
-                                                            onClick={() => toggleMessageCollapse(index)}
-                                                            className="self-start text-xs text-gray-400 hover:text-blue-600 transition-colors flex items-center gap-1 cursor-pointer"
-                                                            title="Collapse message"
-                                                        >
-                                                            <ChevronUp className="h-3 w-3"/>
-                                                            <span>Collapse</span>
-                                                        </button>
+                                                        <div className="flex justify-end">
+                                                            <button
+                                                                onClick={() => toggleMessageCollapse(index)}
+                                                                className="text-xs text-gray-400 hover:text-blue-600 transition-colors flex items-center gap-1 cursor-pointer"
+                                                                title="Collapse message"
+                                                            >
+                                                                <ChevronUp className="h-3 w-3"/>
+                                                                <span>Collapse</span>
+                                                            </button>
+                                                        </div>
                                                         {msg.content && <div>{renderMessageContent(msg.content)}</div>}
                                                         {msg.hits && msg.hits.length > 0 && (
                                                             <div className="flex flex-col space-y-4 mt-2">
@@ -693,6 +703,7 @@ const ChatPage: FC = () => {
                                 loading={isSending}
                                 placeholder="Ask anything or search for datasets..."
                                 clearOnSearch={true}
+                                inputRef={chatInputRef}
                                 buttonText={
                                     isSending ? (
                                         <>

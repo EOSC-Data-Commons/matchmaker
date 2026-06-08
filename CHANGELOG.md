@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.3] - 2026-06-08
+
+- Updated default model to `cesnet/qwen3-coder` across all entry points.
+- Improved chat message summary logic to avoid truncation.
+- Aligned the collapse button to the right in chat messages.
+- Added programmatic focus support for the chat input via `chatInputRef`.
+- Added EU funding acknowledgment and logo to the Footer component.
+- Security: updated `react-router` and all `@react-router/*` packages to 7.17.0, resolving 5 high-severity CVEs
+  (RCE via turbo-stream deserialization, open redirect, XSS in RSC redirects, stored XSS in prerendered HTML, DoS via
+  manifest endpoint and single-fetch).
+- Security: updated `pm2` to 7.0.1 (resolves ReDoS) and overrode `ws` to `^8.21.0` (resolves uninitialized memory
+  disclosure in pm2's bundled `ws`).
+
 ## [0.7.2] - 2026-06-01
 
 - Added an option to delete a chat conversation in the ChatPage, with a confirmation prompt to prevent accidental

@@ -52,7 +52,7 @@ export interface SSEEventHandler {
 
 export const searchWithBackend = async (
     query: string,
-    model: string = 'einfracz/qwen3-coder',
+    model: string = 'cesnet/qwen3-coder',
     handlers: SSEEventHandler,
     timeoutMs: number = 60000 // Default 1 minute timeout
 ): Promise<BackendSearchResponse> => {
@@ -199,7 +199,7 @@ export const handleStream = async (
 
 export const sendChatMessage = async (
     messages: Message[],
-    model: string = 'einfracz/qwen3-coder',
+    model: string = 'cesnet/qwen3-coder',
     threadId: string | undefined,
     onEvent: (event: SSEEvent) => void,
     onError: (error: Error) => void,
