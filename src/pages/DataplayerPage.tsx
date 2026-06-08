@@ -13,11 +13,10 @@ import {
     useFilesToQueryTool,
     useSearchTextToQueryTool,
     useSelectedToolId,
-    buildSlotToFileMapping
 } from '@/hooks/useDataplayerHooks';
 
 import {ToolSelectionStep} from '@/components/dataplayer/ToolSelectionStep';
-import {FileMappingStep} from '@/components/dataplayer/FileMappingStep';
+import {SlotsMappingAndFilesSetStep} from '@/components/dataplayer/slotsMappingAndFilesSetStep';
 import {MonitoringStep} from '@/components/dataplayer/MonitoringStep';
 import {FilesList} from '@/components/dataplayer/FilesList';
 
@@ -42,7 +41,7 @@ export const DataplayerPage = () => {
     const [selectedToolId, setSelectedToolId] = useState<string>(null);
 
     // File management
-    const [fileParametersMapping, setFileParametersMapping] = useState<Record<string, number>>({});
+    const [filesMapping, setFilesMapping] = useState<Record<string, FileMeta>>({});
     const [valueParametersMapping, setValueParametersMapping] = useState<Record<string, TypedValue>>({});
     const [filesError, setFilesError] = useState<string | null>(null);
 
@@ -69,27 +68,6 @@ export const DataplayerPage = () => {
 
     const {toolConfig} = useSelectedToolId(selectedToolId);
 
-    // Handle input slot mapping change
-    const handleFileSlotSet = (slotName: string, fileIndex: number) => {
-        setFileParametersMapping(prev => {
-            const newMapping = {...prev};
-
-            for (const key in newMapping) {
-                if (newMapping[key] === fileIndex) {
-                    delete newMapping[key];
-                }
-            }
-
-            if (fileIndex === -1) {
-                delete newMapping[slotName];
-            } else {
-                newMapping[slotName] = fileIndex;
-            }
-
-            return newMapping;
-        });
-    };
-
     const handleAddGroup = async (datasetHandle: string) => {
         try {
             setIsAdding(true);
@@ -102,6 +80,30 @@ export const DataplayerPage = () => {
         } finally {
             setIsAdding(false);
         }
+    };
+    
+    const addToFilesSet = (name: string, fileMeta: FileMeta) => {
+        setFilesMapping(prev => {
+            const newMapping = { ...prev };
+
+            for (const key in newMapping) {
+                if (newMapping[key].dataPath === fileMeta.dataPath) {
+                    delete newMapping[key];
+                }
+            }
+
+            newMapping[name] = fileMeta;
+
+            return newMapping;
+        });
+    };
+
+    const removeFromFilesSet = (slotName: string) => {
+        setFilesMapping(prev => {
+            const newMapping = { ...prev };
+            delete newMapping[slotName];
+            return newMapping;
+        });
     };
 
     const handleValueSlotSet = (slotName: string, value: TypedValue) => {
@@ -145,13 +147,12 @@ export const DataplayerPage = () => {
             setStatusType("PENDING");
 
             console.log("selected tool id:" + selectedToolId);
-            const slotToFileMapping = buildSlotToFileMapping(fileParametersMapping, files);
             const slotToValueMapping = valueParametersMapping;
 
             // console.warn(slotToValueMapping);
             // console.warn(slotToFileMapping);
 
-            await launch(selectedToolId, datasetHandle, slotToValueMapping, slotToFileMapping, {
+            await launch(selectedToolId, datasetHandle, slotToValueMapping, filesMapping, {
                 onState: (data) => {
                     setStatusMessage(data.message);
                     setStatusType(data.state);
@@ -182,7 +183,7 @@ export const DataplayerPage = () => {
         setCurrentStep('select-analysis');
         setSelectedToolId(null);
         resetDataset();
-        setFileParametersMapping({});
+        setFilesMapping({});
         setValueParametersMapping({});
         resetTask();
     };
@@ -265,15 +266,16 @@ export const DataplayerPage = () => {
                                 />
                             )}
                             {currentStep === 'map-files' && (
-                                <FileMappingStep
+                                <SlotsMappingAndFilesSetStep
                                     selectedToolId={selectedToolId}
                                     toolConfig={toolConfig}
                                     files={files}
-                                    fileParametersMapping={fileParametersMapping}
+                                    filesMapping={filesMapping}
                                     valueParametersMapping={valueParametersMapping}
-                                    handleFileSlotSet={handleFileSlotSet}
+                                    addToFilesSet={addToFilesSet}
+                                    removeFromFilesSet={removeFromFilesSet}
                                     handleValueSlotSet={handleValueSlotSet}
-                                    allParametersMapped={areAllParametersMapped(toolConfig, fileParametersMapping, valueParametersMapping)}
+                                    allParametersMapped={areAllParametersMapped(toolConfig, valueParametersMapping)}
                                     onReselectTool={handleStartOver}
                                     onSubmit={handleSubmit}
                                 />

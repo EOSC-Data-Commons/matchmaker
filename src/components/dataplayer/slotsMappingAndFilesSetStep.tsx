@@ -1,31 +1,51 @@
 import {FileMeta, ToolConfig, TypedValue} from '@/types/dataplayerTypes';
 
-interface FileMappingStepProps {
+interface slotsMappingAndFilesSetProps {
     selectedToolId: string | null;
     toolConfig: ToolConfig | null;
     files: FileMeta[];
-    fileParametersMapping: Record<string, number>;
+    filesMapping: Record<string, FileMeta>;
     valueParametersMapping: Record<string, TypedValue>;
-    handleFileSlotSet: (slotName: string, fileIndex: number) => void;
+    addToFilesSet: (name: string, fileMeta: FileMeta) => void;
+    removeFromFilesSet: (name: string) => void;
     handleValueSlotSet: (slotName: string, value: TypedValue) => void;
     allParametersMapped: boolean;
     onReselectTool: () => void;
     onSubmit: () => void;
 }
 
-export const FileMappingStep = ({
+export const SlotsMappingAndFilesSetStep = ({
                                     selectedToolId,
                                     toolConfig,
                                     files,
-                                    fileParametersMapping,
+                                    filesMapping,
                                     valueParametersMapping,
-                                    handleFileSlotSet,
+                                    addToFilesSet,
+                                    removeFromFilesSet,
                                     handleValueSlotSet,
                                     allParametersMapped,
                                     onReselectTool,
                                     onSubmit
-                                }: FileMappingStepProps) => {
+                                }: slotsMappingAndFilesSetProps) => {
+    console.warn(selectedToolId);
+    console.warn(toolConfig);
+    
     if (!selectedToolId) return null;
+
+    const addFile = () => {
+        const slotIndex = Object.keys(filesMapping).length + 1;
+        const name = `slot-${slotIndex}`;
+
+        addToFilesSet(name, {
+            dataPath: "",
+            filename: "",
+            size: "",
+            hash: null,
+            hash_type: "",
+            isDir: false,
+            mimetype: "",
+        });
+    };
 
     return (
         <div className="w-full font-light">
@@ -64,7 +84,7 @@ export const FileMappingStep = ({
                     Tracking</p>
                 <div className="flex flex-wrap gap-2">
                     {toolConfig ? toolConfig.slots.map(param => {
-                        const isMapped = Object.keys(fileParametersMapping).includes(param.name) || Object.keys(valueParametersMapping).includes(param.name);
+                        const isMapped = Object.keys(valueParametersMapping).includes(param.name);
                         return (
                             <span
                                 key={param.name}
@@ -114,15 +134,11 @@ export const FileMappingStep = ({
                                         {param.typ === "File" && (
                                             <select
                                                 onChange={(e) => {
-                                                    const val = e.target.value;
-                                                    if (val === "") {
-                                                        // Let the parent component know we're unsetting the mapping
-                                                        handleFileSlotSet(param.name, -1);
-                                                    } else {
-                                                        handleFileSlotSet(param.name, Number(val));
-                                                    }
+                                                    const index = Number(e.target.value);
+                                                    const selectedFile = files[index];
+                                                    handleValueSlotSet(param.name, selectedFile);
                                                 }}
-                                                value={fileParametersMapping[param.name] !== undefined ? fileParametersMapping[param.name] : ""}
+                                                value={files.findIndex(f => f === valueParametersMapping[param.name]) ?? ""}
                                                 className="block w-full max-w-full px-3 py-2 text-sm border border-eosc-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-eosc-light-blue focus:border-eosc-light-blue bg-white text-eosc-text wrap-break-word whitespace-normal"
                                             >
                                                 <option key="none" value="">-- Select a file to assign --</option>
@@ -180,8 +196,88 @@ export const FileMappingStep = ({
             </div>
 
             {/* For filesOnly and SlotsAndFiles tool, require widget for getting files. */}
-            <div>
-            </div>
+            {( toolConfig && ( toolConfig.typ == "FilesOnly" || toolConfig.typ == "FilesAndSlots")) && (
+                <div className="bg-white rounded-lg border border-eosc-border overflow-hidden mb-8">
+                    <div className="p-4 space-y-4">
+
+                        {/* Header */}
+                        <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium text-eosc-text">
+                                Input Files
+                            </span>
+
+                            <button
+                                onClick={addFile}
+                                className=""
+                            >
+                                + Add File
+                            </button>
+                        </div>
+
+                        {/* Rows */}
+                        <div className="space-y-3">
+                            {Object.entries(filesMapping).map(([key, item]) => (
+                                <div
+                                    key={key}
+                                    className="flex flex-col sm:flex-row gap-2"
+                                >
+                                    {/* Select file */}
+                                    <select
+                                        value={item.dataPath ?? ""}
+                                        onChange={(e) => {
+                                            const selected = files.find(
+                                                f => f.dataPath === e.target.value
+                                            );
+                                            if (selected) {
+                                                addToFilesSet(key, selected);
+                                            }
+                                        }}
+                                        className="block w-full sm:w-1/2 px-3 py-2 text-sm border border-eosc-border rounded-md bg-white"
+                                    >
+                                        <option value="">-- Select file --</option>
+                                        {files.map((file) => (
+                                            <option
+                                                key={file.dataPath}
+                                                value={file.dataPath}
+                                            >
+                                                {file.filename}
+                                            </option>
+                                        ))}
+                                    </select>
+
+                                    {/* Rename */}
+                                    <input
+                                        type="text"
+                                        value={item.dataPath ?? item.filename ?? ""}
+                                        onChange={(e) =>
+                                            addToFilesSet(key, {
+                                                ...item,
+                                                dataPath: e.target.value,
+                                            })
+                                        }
+                                        placeholder="Rename file..."
+                                        className="block w-full sm:w-1/2 px-3 py-2 text-sm border border-eosc-border rounded-md"
+                                    />
+
+                                    {/* Remove */}
+                                    <button
+                                        onClick={() => removeFromFilesSet(key)}
+                                        className="text-red-500 text-sm px-2 py-1 hover:underline"
+                                    >
+                                        Remove
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+
+                        {Object.keys(filesMapping).length === 0 && (
+                            <div className="text-sm text-eosc-gray text-center">
+                                No files added.
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* Action Buttons */}
             <div

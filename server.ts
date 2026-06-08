@@ -19,6 +19,7 @@ import {
     SearchToolsByTextRequest,
     ToolState_State,
     GrpcSlotToSlot,
+    mapToolKindToTyp,
 } from "./src/lib/server/grpcClient";
 
 import type {FileMeta, TaskState, TaskStatus, ToolConfig, TypLaunchToolRequest} from "./src/types/dataplayerTypes";
@@ -93,6 +94,7 @@ app.post("/api/coordinator/start-task", async (req, res) => {
         toolId,
         dataset,
         slotMapping,
+        files,
     } = req.body as TypLaunchToolRequest;
 
     try {
@@ -100,10 +102,14 @@ app.post("/api/coordinator/start-task", async (req, res) => {
         // console.warn(toolId);
         // console.warn("server", slotToValueMapping);
         // console.warn("server", slotToFileMapping);
+        const file_entries = files
+            .filter(f => !f.isDir)
+            .map(f => (fileMetaToFileEntry(f)));
         const taskId = await launchTool(
             toolId,
             dataset,
             slotMapping,
+            file_entries,
         );
 
         if (!taskId) {
@@ -250,6 +256,7 @@ app.post("/api/coordinator/tool/match", async (req, res) => {
                     name: tool.name,
                     description: tool.description,
                     slots: tool.slots.map(GrpcSlotToSlot),
+                    typ: mapToolKindToTyp(tool.kind),
                 };
 
                 foundTools[tool.id] = config;
@@ -284,6 +291,7 @@ app.get("/api/coordinator/tool/search", async (req, res) => {
                     name: tool.name,
                     description: tool.description,
                     slots: tool.slots.map(GrpcSlotToSlot),
+                    typ: mapToolKindToTyp(tool.kind),
                 };
 
                 foundTools[tool.id] = config;
@@ -324,6 +332,7 @@ app.get("/api/coordinator/tool/get/:toolId", async (req, res) => {
                 name: tool.name,
                 description: tool.description,
                 slots: tool.slots.map(GrpcSlotToSlot),
+                typ: mapToolKindToTyp(tool.kind),
             };
             console.warn(config);
 

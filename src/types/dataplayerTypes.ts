@@ -1,7 +1,14 @@
+export type ToolTyp = 
+    | "FilesOnly"
+    | "SlotsOnly"
+    | "FilesAndSlots"
+    | "DatasetOnly";
+
 export interface ToolConfig {
     name: string;
     description: string;
     slots: ToolSlot[];
+    typ: ToolTyp;
 }
 
 export type TypedValue =
@@ -48,6 +55,7 @@ export type TypLaunchToolRequest = {
     toolId: string;
     dataset: string;
     slotMapping: Record<string, TypedValue>,
+    files: Record<string, FileMeta>,
 };
 
 // XXX: this need to sync with ToolState of protobuf

@@ -28,6 +28,7 @@ import {
     Slot,
     ToolServiceClient,
     TypedValue as GrpcTypedValue,
+    ToolMeta_ToolKind,
 } from "./generated/coordinator";
 
 // re-export so it can be access from server.rs
@@ -41,7 +42,7 @@ export {
     ToolState_State,
 } from "./generated/coordinator";
 
-import type {FileMeta, InputParameterTyp, ToolSlot, TypedValue} from "../../types/dataplayerTypes.ts";
+import type {FileMeta, InputParameterTyp, ToolSlot, TypedValue, ToolTyp} from "../../types/dataplayerTypes.ts";
 
 const GRPC_TARGET =
   process.env.GRPC_TARGET ?? "grpc.eosc-coordinator.ethz.ch:443";
@@ -72,6 +73,24 @@ if (GRPC_TARGET === 'grpc.eosc-coordinator.ethz.ch:443') {
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
+export function mapToolKindToTyp(kind: ToolMeta_ToolKind): ToolTyp {
+    switch (kind) {
+        case ToolMeta_ToolKind.DatasetOnly:
+            return "DatasetOnly";
+
+        case ToolMeta_ToolKind.SlotsOnly:
+            return "SlotsOnly";
+
+        case ToolMeta_ToolKind.FilesOnly:
+            return "FilesOnly";
+
+        case ToolMeta_ToolKind.SlotsAndFiles:
+            return "FilesAndSlots";
+
+        case ToolMeta_ToolKind.UNRECOGNIZED:
+            return
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -276,6 +295,7 @@ export async function launchTool(
     toolId: string,
     dataset: string,
     slotMapping: Record<string, TypedValue>,
+    files: FileEntry[],
 ): Promise<string> {
     const metadata = makeAuthMetadata(token);
 
@@ -295,6 +315,7 @@ export async function launchTool(
         toolId,
         dataset,
         slotsMapping: msgSlotsMapping,
+        files,
     }
 
     return new Promise((resolve, reject) => {
