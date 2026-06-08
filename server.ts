@@ -32,6 +32,17 @@ const SEARCH_API_URL = process.env.SEARCH_API_URL || "http://127.0.0.1:8000";
 const COORDINATOR_API_URL = process.env.COORDINATOR_API_URL ||
     "https://eosc-coordinator.ethz.ch";
 
+function getEgiToken(req: express.Request): string {
+    const cookieHeader = req.headers.cookie ?? "";
+    for (const part of cookieHeader.split(";")) {
+        const [name, ...rest] = part.trim().split("=");
+        if (name.trim() === "access_token") {
+            return decodeURIComponent(rest.join("="));
+        }
+    }
+    throw new Error("EGI access_token cookie not found — user may not be authenticated");
+}
+
 const app = express();
 
 app.disable("x-powered-by");
@@ -98,7 +109,7 @@ app.post("/api/coordinator/start-task", async (req, res) => {
     } = req.body as TypLaunchToolRequest;
 
     try {
-        // launch tool
+        const token = getEgiToken(req);
         // console.warn(toolId);
         // console.warn("server", slotToValueMapping);
         // console.warn("server", slotToFileMapping);
@@ -107,6 +118,7 @@ app.post("/api/coordinator/start-task", async (req, res) => {
             dataset,
             slotToValueMapping,
             slotToFileMapping,
+            token,
         );
 
         if (!taskId) {
@@ -347,9 +359,9 @@ app.get("/api/coordinator/files", async (req, res) => {
     // TODO: cache entry, inmemory from start, and maybe move to use redis in production.
 
     try {
+        const token = getEgiToken(req);
         // XXX: where error goes if url is invalid?? Should we give this to user??
-        const url = `${handle}`;
-        const files = await fetchDatasetFilesFromDatahuggerByUrl(url);
+        const files = await fetchDatasetFilesFromDatahuggerByUrl(handle, token);
         res.json(files);
     } catch (err) {
         console.error("Error fetching files:", err);
