@@ -60,11 +60,13 @@ export async function startLaunchTask(
     toolId: string,
     dataset: string,
     slotMapping: Record<string, TypedValue>,
+    files: Record<string, FileMeta>,
 ): Promise<TaskId> {
     const payload: TypLaunchToolRequest = {
         toolId,
         dataset,
         slotMapping,
+        files,
     };
     const res = await fetch("/api/coordinator/start-task", {
         method: "POST",

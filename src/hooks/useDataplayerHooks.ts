@@ -42,7 +42,7 @@ export function useTaskLauncher() {
         toolId: string,
         dataset: string,
         value_mapping: Record<string, TypedValue>,
-        file_mapping: Record<string, FileMeta>,
+        files: Record<string, FileMeta>,
         callbacks: {
             onState: (data: TaskStatus) => void;
             onSuccess: () => void;
@@ -52,7 +52,7 @@ export function useTaskLauncher() {
         try {
             esRef.current?.close();
 
-            const id = await startLaunchTask(toolId, dataset, value_mapping, file_mapping);
+            const id = await startLaunchTask(toolId, dataset, value_mapping, files);
             setTaskId(id);
 
             const es = taskStatusAsEventSource(id);
@@ -91,15 +91,13 @@ export function useTaskLauncher() {
 
 export const areAllParametersMapped = (
     config: ToolConfig | null,
-    fileParametersMapping: Record<string, number>,
     valueParametersMapping: Record<string, TypedValue>,
 ): boolean => {
     if (!config) return false;
 
-    const fileMapped = new Set(Object.keys(fileParametersMapping));
     const valueMapped = new Set(Object.keys(valueParametersMapping));
 
-    return config.slots.every(param => fileMapped.has(param.name) || valueMapped.has(param.name));
+    return config.slots.every(param => valueMapped.has(param.name));
 };
 
 export function useDataset(datasetHandle: string | null) {
@@ -198,6 +196,7 @@ export function useSelectedToolId(selectedToolId: string | null): { toolConfig: 
     useEffect(() => {
         async function load() {
             if (selectedToolId != null) {
+                console.warn("here??", selectedToolId);
                 const config = await getToolById(selectedToolId);
                 setToolConfig(config);
             }
