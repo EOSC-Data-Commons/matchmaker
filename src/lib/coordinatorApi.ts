@@ -68,6 +68,7 @@ export async function startLaunchTask(
         slotMapping,
         files,
     };
+    console.warn(payload);
     const res = await fetch("/api/coordinator/start-task", {
         method: "POST",
         headers: {"Content-Type": "application/json"},

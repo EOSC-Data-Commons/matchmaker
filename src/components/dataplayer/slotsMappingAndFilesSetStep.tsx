@@ -4,9 +4,9 @@ interface slotsMappingAndFilesSetProps {
     selectedToolId: string | null;
     toolConfig: ToolConfig | null;
     files: FileMeta[];
-    filesMapping: Record<string, FileMeta>;
+    filesMapping: Record<string, [FileMeta, string]>;
     valueParametersMapping: Record<string, TypedValue>;
-    addToFilesSet: (name: string, fileMeta: FileMeta) => void;
+    addToFilesSet: (slotName: string, fileMeta: FileMeta, renameTo: string) => void;
     removeFromFilesSet: (name: string) => void;
     handleValueSlotSet: (slotName: string, value: TypedValue) => void;
     allParametersMapped: boolean;
@@ -44,7 +44,7 @@ export const SlotsMappingAndFilesSetStep = ({
             hash_type: "",
             isDir: false,
             mimetype: "",
-        });
+        }, "");
     };
 
     return (
@@ -223,13 +223,13 @@ export const SlotsMappingAndFilesSetStep = ({
                                 >
                                     {/* Select file */}
                                     <select
-                                        value={item.dataPath ?? ""}
+                                        value={item[0].dataPath ?? ""}
                                         onChange={(e) => {
                                             const selected = files.find(
                                                 f => f.dataPath === e.target.value
                                             );
                                             if (selected) {
-                                                addToFilesSet(key, selected);
+                                                addToFilesSet(key, selected, selected.filename);
                                             }
                                         }}
                                         className="block w-full sm:w-1/2 px-3 py-2 text-sm border border-eosc-border rounded-md bg-white"
@@ -238,7 +238,7 @@ export const SlotsMappingAndFilesSetStep = ({
                                         {files.map((file) => (
                                             <option
                                                 key={file.dataPath}
-                                                value={file.dataPath}
+                                                value={file.filename}
                                             >
                                                 {file.filename}
                                             </option>
@@ -248,12 +248,11 @@ export const SlotsMappingAndFilesSetStep = ({
                                     {/* Rename */}
                                     <input
                                         type="text"
-                                        value={item.dataPath ?? item.filename ?? ""}
+                                        defaultValue={item[0].filename ?? ""}
                                         onChange={(e) =>
                                             addToFilesSet(key, {
-                                                ...item,
-                                                dataPath: e.target.value,
-                                            })
+                                                ...item[0],
+                                            }, e.target.value)
                                         }
                                         placeholder="Rename file..."
                                         className="block w-full sm:w-1/2 px-3 py-2 text-sm border border-eosc-border rounded-md"
