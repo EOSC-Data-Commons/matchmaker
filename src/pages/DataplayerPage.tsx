@@ -41,7 +41,7 @@ export const DataplayerPage = () => {
     const [selectedToolId, setSelectedToolId] = useState<string>(null);
 
     // File management
-    const [filesMapping, setFilesMapping] = useState<Record<string, FileMeta>>({});
+    const [filesMapping, setFilesMapping] = useState<Record<string, [FileMeta, string]>>({});
     const [valueParametersMapping, setValueParametersMapping] = useState<Record<string, TypedValue>>({});
     const [filesError, setFilesError] = useState<string | null>(null);
 
@@ -82,17 +82,11 @@ export const DataplayerPage = () => {
         }
     };
     
-    const addToFilesSet = (name: string, fileMeta: FileMeta) => {
+    const addToFilesSet = (slotName: string, fileMeta: FileMeta, renameTo: string) => {
         setFilesMapping(prev => {
             const newMapping = { ...prev };
 
-            for (const key in newMapping) {
-                if (newMapping[key].dataPath === fileMeta.dataPath) {
-                    delete newMapping[key];
-                }
-            }
-
-            newMapping[name] = fileMeta;
+            newMapping[slotName] = [fileMeta, renameTo];
 
             return newMapping;
         });
@@ -151,8 +145,13 @@ export const DataplayerPage = () => {
 
             // console.warn(slotToValueMapping);
             // console.warn(slotToFileMapping);
+            // TODO: Need to do the checking before launch, pop warning if rename target conflict.
+            const files: Record<string, FileMeta> =
+                Object.fromEntries(
+                    Object.values(filesMapping).map(([fileMeta, key]) => [key, fileMeta])
+                );
 
-            await launch(selectedToolId, datasetHandle, slotToValueMapping, filesMapping, {
+            await launch(selectedToolId, datasetHandle, slotToValueMapping, files, {
                 onState: (data) => {
                     setStatusMessage(data.message);
                     setStatusType(data.state);
@@ -191,13 +190,13 @@ export const DataplayerPage = () => {
     return (
         <div className="min-h-screen flex flex-col bg-eosc-bg font-light items-center">
             <header
-                className="w-full bg-white flex justify-between items-center p-4 sm:p-6 border-b border-eosc-border flex-shrink-0">
+                className="w-full bg-white flex justify-between items-center p-4 sm:p-6 border-b border-eosc-border shrink-0">
                 <img src={dataCommonsIconBlue} alt="EOSC" className="w-16 h-9 cursor-pointer"
                      onClick={() => navigate('/')}/>
                 <p className="text-sm font-light text-eosc-gray">Data Sandbox</p>
             </header>
 
-            <div className="w-full max-w-7xl mx-auto flex-grow flex flex-col px-4 py-8 gap-8">
+            <div className="w-full max-w-7xl mx-auto grow flex flex-col px-4 py-8 gap-8">
                 {/* Top Section */}
                 <div className="flex flex-col gap-4">
                     <button
@@ -253,7 +252,7 @@ export const DataplayerPage = () => {
 
                     {/* Right Panel: Tools / Steps */}
                     <div className="w-full lg:w-2/4 flex flex-col">
-                        <div className="bg-white rounded-xl border border-eosc-border p-6 shadow-sm min-h-[400px]">
+                        <div className="bg-white rounded-xl border border-eosc-border p-6 shadow-sm min-h-100">
                             {currentStep === 'select-analysis' && (
                                 <ToolSelectionStep
                                     toolSearchText={toolSearchText}

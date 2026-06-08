@@ -295,7 +295,7 @@ export async function launchTool(
     toolId: string,
     dataset: string,
     slotMapping: Record<string, TypedValue>,
-    files: FileEntry[],
+    files: Record<string, FileEntry>,
 ): Promise<string> {
     const metadata = makeAuthMetadata(token);
 

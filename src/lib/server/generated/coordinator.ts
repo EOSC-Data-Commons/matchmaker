@@ -417,12 +417,17 @@ export interface LaunchToolRequest {
   toolId: string;
   dataset: string;
   slotsMapping: { [key: string]: TypedValue };
-  files: FileEntry[];
+  files: { [key: string]: FileEntry };
 }
 
 export interface LaunchToolRequest_SlotsMappingEntry {
   key: string;
   value?: TypedValue | undefined;
+}
+
+export interface LaunchToolRequest_FilesEntry {
+  key: string;
+  value?: FileEntry | undefined;
 }
 
 export interface UserId {
@@ -2619,7 +2624,7 @@ export const TypedValue: MessageFns<TypedValue> = {
 };
 
 function createBaseLaunchToolRequest(): LaunchToolRequest {
-  return { toolId: "", dataset: "", slotsMapping: {}, files: [] };
+  return { toolId: "", dataset: "", slotsMapping: {}, files: {} };
 }
 
 export const LaunchToolRequest: MessageFns<LaunchToolRequest> = {
@@ -2633,9 +2638,9 @@ export const LaunchToolRequest: MessageFns<LaunchToolRequest> = {
     globalThis.Object.entries(message.slotsMapping).forEach(([key, value]: [string, TypedValue]) => {
       LaunchToolRequest_SlotsMappingEntry.encode({ key: key as any, value }, writer.uint32(26).fork()).join();
     });
-    for (const v of message.files) {
-      FileEntry.encode(v!, writer.uint32(34).fork()).join();
-    }
+    globalThis.Object.entries(message.files).forEach(([key, value]: [string, FileEntry]) => {
+      LaunchToolRequest_FilesEntry.encode({ key: key as any, value }, writer.uint32(34).fork()).join();
+    });
     return writer;
   },
 
@@ -2678,7 +2683,10 @@ export const LaunchToolRequest: MessageFns<LaunchToolRequest> = {
             break;
           }
 
-          message.files.push(FileEntry.decode(reader, reader.uint32()));
+          const entry4 = LaunchToolRequest_FilesEntry.decode(reader, reader.uint32());
+          if (entry4.value !== undefined) {
+            message.files[entry4.key] = entry4.value;
+          }
           continue;
         }
       }
@@ -2715,7 +2723,15 @@ export const LaunchToolRequest: MessageFns<LaunchToolRequest> = {
           {},
         )
         : {},
-      files: globalThis.Array.isArray(object?.files) ? object.files.map((e: any) => FileEntry.fromJSON(e)) : [],
+      files: isObject(object.files)
+        ? (globalThis.Object.entries(object.files) as [string, any][]).reduce(
+          (acc: { [key: string]: FileEntry }, [key, value]: [string, any]) => {
+            acc[key] = FileEntry.fromJSON(value);
+            return acc;
+          },
+          {},
+        )
+        : {},
     };
   },
 
@@ -2736,8 +2752,14 @@ export const LaunchToolRequest: MessageFns<LaunchToolRequest> = {
         });
       }
     }
-    if (message.files?.length) {
-      obj.files = message.files.map((e) => FileEntry.toJSON(e));
+    if (message.files) {
+      const entries = globalThis.Object.entries(message.files) as [string, FileEntry][];
+      if (entries.length > 0) {
+        obj.files = {};
+        entries.forEach(([k, v]) => {
+          obj.files[k] = FileEntry.toJSON(v);
+        });
+      }
     }
     return obj;
   },
@@ -2758,7 +2780,15 @@ export const LaunchToolRequest: MessageFns<LaunchToolRequest> = {
       },
       {},
     );
-    message.files = object.files?.map((e) => FileEntry.fromPartial(e)) || [];
+    message.files = (globalThis.Object.entries(object.files ?? {}) as [string, FileEntry][]).reduce(
+      (acc: { [key: string]: FileEntry }, [key, value]: [string, FileEntry]) => {
+        if (value !== undefined) {
+          acc[key] = FileEntry.fromPartial(value);
+        }
+        return acc;
+      },
+      {},
+    );
     return message;
   },
 };
@@ -2840,6 +2870,84 @@ export const LaunchToolRequest_SlotsMappingEntry: MessageFns<LaunchToolRequest_S
     message.key = object.key ?? "";
     message.value = (object.value !== undefined && object.value !== null)
       ? TypedValue.fromPartial(object.value)
+      : undefined;
+    return message;
+  },
+};
+
+function createBaseLaunchToolRequest_FilesEntry(): LaunchToolRequest_FilesEntry {
+  return { key: "", value: undefined };
+}
+
+export const LaunchToolRequest_FilesEntry: MessageFns<LaunchToolRequest_FilesEntry> = {
+  encode(message: LaunchToolRequest_FilesEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.key !== "") {
+      writer.uint32(10).string(message.key);
+    }
+    if (message.value !== undefined) {
+      FileEntry.encode(message.value, writer.uint32(18).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): LaunchToolRequest_FilesEntry {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseLaunchToolRequest_FilesEntry();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.key = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.value = FileEntry.decode(reader, reader.uint32());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): LaunchToolRequest_FilesEntry {
+    return {
+      key: isSet(object.key) ? globalThis.String(object.key) : "",
+      value: isSet(object.value) ? FileEntry.fromJSON(object.value) : undefined,
+    };
+  },
+
+  toJSON(message: LaunchToolRequest_FilesEntry): unknown {
+    const obj: any = {};
+    if (message.key !== "") {
+      obj.key = message.key;
+    }
+    if (message.value !== undefined) {
+      obj.value = FileEntry.toJSON(message.value);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<LaunchToolRequest_FilesEntry>, I>>(base?: I): LaunchToolRequest_FilesEntry {
+    return LaunchToolRequest_FilesEntry.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<LaunchToolRequest_FilesEntry>, I>>(object: I): LaunchToolRequest_FilesEntry {
+    const message = createBaseLaunchToolRequest_FilesEntry();
+    message.key = object.key ?? "";
+    message.value = (object.value !== undefined && object.value !== null)
+      ? FileEntry.fromPartial(object.value)
       : undefined;
     return message;
   },

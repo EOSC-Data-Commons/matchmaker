@@ -102,9 +102,9 @@ app.post("/api/coordinator/start-task", async (req, res) => {
         // console.warn(toolId);
         // console.warn("server", slotToValueMapping);
         // console.warn("server", slotToFileMapping);
-        const file_entries = files
-            .filter(f => !f.isDir)
-            .map(f => (fileMetaToFileEntry(f)));
+        const file_entries = Object.fromEntries(
+            Object.entries(files).filter(([, file]) => !file.isDir).map(([key, file]) => [key, fileMetaToFileEntry(file)])
+        );
         const taskId = await launchTool(
             toolId,
             dataset,
