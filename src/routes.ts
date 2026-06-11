@@ -5,5 +5,6 @@ export default [
     route("search", "pages/SearchPage.tsx"),
     route("chat/:id?", "pages/ChatPage.tsx"),
     route("dispatcher/run", "pages/DispatcherRunPage.tsx"),
+    route("privacy-policy", "pages/PrivacyPolicyPage.tsx"),
     route("*", "pages/NotFound.tsx"),
 ] satisfies RouteConfig;
