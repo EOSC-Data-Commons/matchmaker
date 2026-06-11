@@ -1,5 +1,6 @@
 import {Link} from "react-router";
 import {Footer} from "../components/Footer";
+import React from "react";
 
 interface PolicySectionProps {
     title: string;
@@ -84,7 +85,7 @@ const PrivacyPolicyPage = () => {
                             href="https://autoriteitpersoonsgegevens.nl/en/contact-dutch-dpa/contact-us"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[#009FE3] hover:text-[#002337] underline underline-offset-2 transition-colors break-words"
+                            className="text-[#009FE3] hover:text-[#002337] underline underline-offset-2 transition-colors wrap-break-word"
                         >
                             https://autoriteitpersoonsgegevens.nl/en/contact-dutch-dpa/contact-us
                         </a>.
@@ -203,7 +204,7 @@ const PrivacyPolicyPage = () => {
                             href="https://edpb.europa.eu/about-edpb/board/members_en"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[#009FE3] hover:text-[#002337] underline underline-offset-2 transition-colors break-words"
+                            className="text-[#009FE3] hover:text-[#002337] underline underline-offset-2 transition-colors wrap-break-word"
                         >
                             https://edpb.europa.eu/about-edpb/board/members_en
                         </a>.
