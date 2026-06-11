@@ -1,3 +1,4 @@
+import {Link} from 'react-router';
 import {FaLinkedin} from 'react-icons/fa';
 import {FaBluesky} from 'react-icons/fa6';
 import {MdEmail} from 'react-icons/md';
@@ -58,6 +59,22 @@ export const Footer = ({translucent = false, className = ''}: FooterProps) => {
                             >
                                 v{version}
                             </a>
+                        </p>
+                        <p className="text-xs font-light text-eosc-gray mt-1">
+                            <Link
+                                to="/privacy-policy"
+                                className="hover:text-eosc-dark-blue transition-colors"
+                            >
+                                Privacy Policy
+                            </Link>
+                        </p>
+                        <p className="text-xs font-light text-eosc-gray mt-1">
+                            <Link
+                                to="/acceptable-use-policy"
+                                className="hover:text-eosc-dark-blue transition-colors"
+                            >
+                                Acceptable Use Policy
+                            </Link>
                         </p>
                     </div>
 
