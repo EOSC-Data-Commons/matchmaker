@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.4] - 2026-06-11
+
+- Added the EOSC Data Commons Privacy Policy page at `/privacy-policy`.
+- Added the EOSC Data Commons Services AUP page at `/acceptable-use-policy`.
+
 ## [0.7.3] - 2026-06-08
 
 - Updated default model to `cesnet/qwen3-coder` across all entry points.
