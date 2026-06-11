@@ -68,6 +68,14 @@ export const Footer = ({translucent = false, className = ''}: FooterProps) => {
                                 Privacy Policy
                             </Link>
                         </p>
+                        <p className="text-xs font-light text-eosc-gray mt-1">
+                            <Link
+                                to="/acceptable-use-policy"
+                                className="hover:text-eosc-dark-blue transition-colors"
+                            >
+                                Acceptable Use Policy
+                            </Link>
+                        </p>
                     </div>
 
                     {/* Right: Logo and Social Links */}
