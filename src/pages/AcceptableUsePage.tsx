@@ -12,9 +12,12 @@ const AcceptableUsePage = () => {
                     &larr; Back to Home
                 </Link>
 
-                <h1 className="text-3xl font-bold text-[#002337] mt-6 mb-10">
+                <h1 className="text-3xl font-bold text-[#002337] mt-6 mb-2">
                     EOSC Data Commons Services AUP
                 </h1>
+                <p className="text-xs text-[#646363] mb-10">
+                    Version 7 &middot; Approved 10 June 2026
+                </p>
 
                 <section className="mb-8">
                     <h2 className="text-lg font-semibold text-[#002337] mb-3">
