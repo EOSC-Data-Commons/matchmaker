@@ -27,12 +27,9 @@ const PrivacyPolicyPage = () => {
                     &larr; Back to Home
                 </Link>
 
-                <h1 className="text-3xl font-bold text-[#002337] mt-6 mb-2">
+                <h1 className="text-3xl font-bold text-[#002337] mt-6 mb-10">
                     EOSC Data Commons Privacy Policy
                 </h1>
-                <p className="text-xs text-[#646363] mb-10">
-                    Version 7 &middot; Approved 10 June 2026
-                </p>
 
                 <PolicySection title="Name of the Service">
                     <p>EOSC Matchmaker and EOSC Data Player</p>
