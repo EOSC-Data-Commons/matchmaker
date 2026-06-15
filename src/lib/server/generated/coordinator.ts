@@ -252,6 +252,7 @@ export interface Slot {
   id: string;
   typ: string;
   name: string;
+  isOptional: boolean;
 }
 
 export interface ToolMeta {
@@ -1760,7 +1761,7 @@ export const BrowseComplete: MessageFns<BrowseComplete> = {
 };
 
 function createBaseSlot(): Slot {
-  return { id: "", typ: "", name: "" };
+  return { id: "", typ: "", name: "", isOptional: false };
 }
 
 export const Slot: MessageFns<Slot> = {
@@ -1773,6 +1774,9 @@ export const Slot: MessageFns<Slot> = {
     }
     if (message.name !== "") {
       writer.uint32(26).string(message.name);
+    }
+    if (message.isOptional !== false) {
+      writer.uint32(32).bool(message.isOptional);
     }
     return writer;
   },
@@ -1808,6 +1812,14 @@ export const Slot: MessageFns<Slot> = {
           message.name = reader.string();
           continue;
         }
+        case 4: {
+          if (tag !== 32) {
+            break;
+          }
+
+          message.isOptional = reader.bool();
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -1822,6 +1834,11 @@ export const Slot: MessageFns<Slot> = {
       id: isSet(object.id) ? globalThis.String(object.id) : "",
       typ: isSet(object.typ) ? globalThis.String(object.typ) : "",
       name: isSet(object.name) ? globalThis.String(object.name) : "",
+      isOptional: isSet(object.isOptional)
+        ? globalThis.Boolean(object.isOptional)
+        : isSet(object.is_optional)
+        ? globalThis.Boolean(object.is_optional)
+        : false,
     };
   },
 
@@ -1836,6 +1853,9 @@ export const Slot: MessageFns<Slot> = {
     if (message.name !== "") {
       obj.name = message.name;
     }
+    if (message.isOptional !== false) {
+      obj.isOptional = message.isOptional;
+    }
     return obj;
   },
 
@@ -1847,6 +1867,7 @@ export const Slot: MessageFns<Slot> = {
     message.id = object.id ?? "";
     message.typ = object.typ ?? "";
     message.name = object.name ?? "";
+    message.isOptional = object.isOptional ?? false;
     return message;
   },
 };
