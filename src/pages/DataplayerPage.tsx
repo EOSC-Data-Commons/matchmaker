@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useMemo, useState} from 'react';
 import {useSearchParams, useNavigate} from 'react-router';
 import {Footer} from '../components/Footer';
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
@@ -48,6 +48,11 @@ export const DataplayerPage = () => {
     const {isFilesLoading, files, error, resetDataset} = useDataset(datasetHandle);
     const [isAdding, setIsAdding] = useState(false);
     const [fileGroups, setFileGroups] = useState<FileMeta[][]>([]);
+
+    const allFiles = useMemo(
+        () => [...fileGroups.flat(), ...files],
+        [fileGroups, files]
+    );
 
 
     // Submission tracking
@@ -268,7 +273,7 @@ export const DataplayerPage = () => {
                                 <SlotsMappingAndFilesSetStep
                                     selectedToolId={selectedToolId}
                                     toolConfig={toolConfig}
-                                    files={files}
+                                    files={allFiles}
                                     filesMapping={filesMapping}
                                     valueParametersMapping={valueParametersMapping}
                                     addToFilesSet={addToFilesSet}
