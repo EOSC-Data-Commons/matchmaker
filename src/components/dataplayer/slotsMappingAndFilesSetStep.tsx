@@ -1,4 +1,5 @@
 import {FileMeta, ToolConfig, TypedValue} from '@/types/dataplayerTypes';
+import { useState } from 'react';
 
 interface slotsMappingAndFilesSetProps {
     selectedToolId: string | null;
@@ -29,6 +30,15 @@ export const SlotsMappingAndFilesSetStep = ({
                                 }: slotsMappingAndFilesSetProps) => {
     console.warn(selectedToolId);
     console.warn(toolConfig);
+
+    const [promotedOptional, setPromotedOptional] = useState<string[]>([]);
+    const requiredParams = toolConfig?.slots.filter(
+        (p) => !p.isOptional || promotedOptional.includes(p.name)
+    );
+    const optionalParams = toolConfig?.slots.filter(
+        (p) => p.isOptional && !promotedOptional.includes(p.name)
+    );
+
     
     if (!selectedToolId) return null;
 
@@ -80,25 +90,53 @@ export const SlotsMappingAndFilesSetStep = ({
 
             {/* Required Parameters Info */}
             <div className="mb-6 p-4 sm:p-5 bg-white rounded-lg border border-eosc-border">
-                <p className="text-xs font-medium text-eosc-gray uppercase tracking-wider mb-3">Required Parameters
-                    Tracking</p>
+                <p className="text-xs font-medium text-eosc-gray uppercase tracking-wider mb-3">
+                    Required Parameters Tracking</p>
                 <div className="flex flex-wrap gap-2">
-                    {toolConfig ? toolConfig.slots.map(param => {
+                    {toolConfig ? requiredParams?.map(param => {
                         const isMapped = Object.keys(valueParametersMapping).includes(param.name);
+                        const isPromoted = promotedOptional.includes(param.name);
                         return (
                             <span
                                 key={param.name}
+                                onClick={
+                                    isPromoted ? () => setPromotedOptional((prev) =>
+                                        prev.filter((name) => name !== param.name)
+                                    ) : undefined
+                                }
                                 className={`px-3 py-1.5 rounded-md text-xs sm:text-sm font-light border ${
                                     isMapped
                                         ? 'bg-blue-50 text-eosc-light-blue border-blue-200'
                                         : 'bg-eosc-bg text-eosc-gray border-eosc-border'
                                 }`}
                             >
-                                {param.name} <span
-                                className="opacity-75 font-light">({param.typ})</span> {isMapped ? '✓' : '⚠'}
-                            </span>
+                                {param.name} 
+                                <span className="opacity-75 font-light">({param.typ})</span>{""} 
+                                    {isMapped ? '✓' : '⚠'} {isPromoted ? '✗' : ''}
+                                </span>
                         );
                     }) : "Loading tool config"}
+                </div>
+            </div>
+
+            {/* optional parameters panel */}
+            <div className="mb-6 p-4 sm:p-5 bg-white rounded-lg border border-eosc-border">
+                <p className="text-xs font-medium text-eosc-gray uppercase tracking-wider mb-3">
+                    Optional Parameters
+                </p>
+
+                <div className="flex flex-wrap gap-2">
+                    {optionalParams?.map((param) => (
+                        <button
+                            key={param.name}
+                            onClick={() =>
+                                setPromotedOptional((prev) => [...prev, param.name])
+                            }
+                            className="px-3 py-1.5 rounded-md text-xs sm:text-sm font-light border bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100 transition"
+                        >
+                            {param.name} <span className="opacity-75">({param.typ})</span> ➕
+                        </button>
+                    ))}
                 </div>
             </div>
 
@@ -119,7 +157,7 @@ export const SlotsMappingAndFilesSetStep = ({
                             </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-eosc-border">
-                            {toolConfig.slots.map((param) => (
+                            {requiredParams.map((param) => (
                                 <tr className="hover:bg-gray-50 transition-colors" key={param.name}>
                                     <td className="px-4 sm:px-6 py-4 text-sm font-light text-eosc-text wrap-break-word">
                                         {param.name}

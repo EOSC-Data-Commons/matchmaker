@@ -131,6 +131,7 @@ export function GrpcSlotToSlot(slot: Slot): ToolSlot {
         id: slot.id,
         typ: typ,
         name: slot.name,
+        isOptional: slot.isOptional,
     };
 }
 

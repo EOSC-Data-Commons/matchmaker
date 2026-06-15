@@ -97,7 +97,7 @@ export const areAllParametersMapped = (
 
     const valueMapped = new Set(Object.keys(valueParametersMapping));
 
-    return config.slots.every(param => valueMapped.has(param.name));
+    return config.slots.filter((p) => !p.isOptional).every(param => valueMapped.has(param.name));
 };
 
 export function useDataset(datasetHandle: string | null) {

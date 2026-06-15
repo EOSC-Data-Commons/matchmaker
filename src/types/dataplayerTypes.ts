@@ -28,6 +28,7 @@ export interface ToolSlot {
     name: string;
     typ: InputParameterTyp;
     id: string;
+    isOptional: boolean;
 }
 
 export interface FileMeta {
