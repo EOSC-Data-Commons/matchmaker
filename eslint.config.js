@@ -8,23 +8,24 @@ import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
     {ignores: ['dist', 'build', '.react-router']},
-  {
-    extends: [js.configs.recommended, ...tseslint.configs.recommended],
-    files: ['**/*.{ts,tsx}'],
-    languageOptions: {
-      ecmaVersion: 2020,
-      globals: globals.browser,
+    {
+        extends: [js.configs.recommended, ...tseslint.configs.recommended, reactYouMightNotNeedAnEffect.configs.recommended],
+        files: ['**/*.{ts,tsx}'],
+        languageOptions: {
+            ecmaVersion: 2020,
+            globals: globals.browser,
+        },
+        plugins: {
+            'react-hooks': reactHooks,
+            'react-refresh': reactRefresh,
+            'react-you-might-not-need-an-effect': reactYouMightNotNeedAnEffect,
+        },
+        rules: {
+            ...reactHooks.configs.recommended.rules,
+            'react-refresh/only-export-components': [
+                'warn',
+                {allowConstantExport: true},
+            ],
+        },
     },
-    plugins: {
-      'react-hooks': reactHooks,
-      'react-refresh': reactRefresh,
-    },
-    rules: {
-      ...reactHooks.configs.recommended.rules,
-      'react-refresh/only-export-components': [
-        'warn',
-        { allowConstantExport: true },
-      ],
-    },
-  },
 )
