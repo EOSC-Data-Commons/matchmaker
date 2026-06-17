@@ -1,6 +1,8 @@
 import {useMemo, useState} from 'react';
-import {ChevronRight, Download, File as FileIcon, Folder, FolderOpen} from 'lucide-react';
+import {ChevronRight, Download, Eye, File as FileIcon, Folder, FolderOpen} from 'lucide-react';
 import {FileMeta} from '@/types/dataplayerTypes';
+import {isPreviewable} from '@/lib/filePreview';
+import {FilePreviewModal} from '@/components/dataplayer/FilePreviewModal';
 
 interface TreeNode {
     /** the path segment, e.g. "data" or "README.txt" */
@@ -75,9 +77,10 @@ interface TreeRowProps {
     depth: number;
     expanded: Set<string>;
     onToggle: (path: string) => void;
+    onPreview: (file: FileMeta) => void;
 }
 
-const TreeRow = ({node, depth, expanded, onToggle}: TreeRowProps) => {
+const TreeRow = ({node, depth, expanded, onToggle, onPreview}: TreeRowProps) => {
     const isOpen = expanded.has(node.path);
     // indent each level; base padding keeps content off the card edge
     const indentStyle = {paddingLeft: `${depth * 20 + 16}px`};
@@ -108,6 +111,7 @@ const TreeRow = ({node, depth, expanded, onToggle}: TreeRowProps) => {
                         depth={depth + 1}
                         expanded={expanded}
                         onToggle={onToggle}
+                        onPreview={onPreview}
                     />
                 ))}
             </>
@@ -133,6 +137,15 @@ const TreeRow = ({node, depth, expanded, onToggle}: TreeRowProps) => {
                         {file.size}
                     </span>
                 )}
+                {file && isPreviewable(file) && (
+                    <button
+                        type="button"
+                        onClick={() => onPreview(file)}
+                        className="inline-flex items-center gap-1.5 leading-none text-eosc-gray hover:text-eosc-text font-light transition-colors border border-eosc-border hover:border-eosc-gray pl-2.5 pr-3 py-1.5 rounded-md text-sm bg-white hover:bg-gray-50 cursor-pointer"
+                    >
+                        <Eye className="h-3.5 w-3.5 shrink-0"/>
+                    </button>
+                )}
                 {file?.downloadUrl && (
                     <button
                         type="button"
@@ -140,7 +153,6 @@ const TreeRow = ({node, depth, expanded, onToggle}: TreeRowProps) => {
                         className="inline-flex items-center gap-1.5 leading-none text-eosc-light-blue hover:text-blue-500 font-light transition-colors border border-eosc-light-blue hover:border-eosc-dark-blue pl-2.5 pr-3 py-1.5 rounded-md text-sm bg-white hover:bg-gray-50 cursor-pointer"
                     >
                         <Download className="h-3.5 w-3.5 shrink-0"/>
-                        <span>Download</span>
                     </button>
                 )}
             </div>
@@ -155,6 +167,7 @@ interface FileTreeProps {
 export const FileTree = ({files}: FileTreeProps) => {
     const tree = useMemo(() => buildFileTree(files), [files]);
     const [expanded, setExpanded] = useState<Set<string>>(() => collectDirPaths(tree));
+    const [previewFile, setPreviewFile] = useState<FileMeta | null>(null);
 
     const toggle = (path: string) => {
         setExpanded((prev) => {
@@ -178,9 +191,17 @@ export const FileTree = ({files}: FileTreeProps) => {
                         depth={0}
                         expanded={expanded}
                         onToggle={toggle}
+                        onPreview={setPreviewFile}
                     />
                 ))}
             </div>
+            {previewFile && (
+                <FilePreviewModal
+                    key={previewFile.dataPath}
+                    file={previewFile}
+                    onClose={() => setPreviewFile(null)}
+                />
+            )}
         </div>
     );
 };
