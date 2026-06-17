@@ -30,8 +30,7 @@ const PORT = Number.parseInt(
     process.env.PORT || (DEVELOPMENT ? "5173" : "3000"),
 );
 const SEARCH_API_URL = process.env.SEARCH_API_URL || "http://127.0.0.1:8000";
-const COORDINATOR_API_URL = process.env.COORDINATOR_API_URL ||
-    "https://eosc-coordinator.ethz.ch";
+const COORDINATOR_API_URL = process.env.GRPC_TARGET || "https://grpc.eosc-coordinator.ethz.ch";
 
 function getEgiToken(req: express.Request): string {
     const cookieHeader = req.headers.cookie ?? "";
