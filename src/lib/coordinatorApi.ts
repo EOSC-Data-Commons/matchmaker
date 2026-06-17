@@ -35,6 +35,22 @@ export async function fetchFilesMetaByDatasetHandle(handle: string): Promise<Fil
     return files;
 }
 
+/** Same-origin proxy URL for previewing a remote datafile (used by <img>/<iframe> src). */
+export function filePreviewUrl(downloadUrl: string, mode: "text" | "binary" = "binary"): string {
+    return `/api/coordinator/file-preview?mode=${mode}&url=${encodeURIComponent(downloadUrl)}`;
+}
+
+/** Fetch the first chunk of a text/CSV file as a string, flagging if it was truncated. */
+export async function fetchTextPreview(downloadUrl: string): Promise<{ text: string; truncated: boolean }> {
+    const res = await fetch(filePreviewUrl(downloadUrl, "text"));
+    if (!res.ok) {
+        throw new Error(`Failed to fetch preview: ${res.status} ${res.statusText}`);
+    }
+    const text = await res.text();
+    const truncated = res.headers.get("X-Preview-Truncated") === "1";
+    return {text, truncated};
+}
+
 export async function getToolById(toolId: string): Promise<ToolConfig> {
     const res = await fetch(`/api/coordinator/tool/get/${toolId}`);
 

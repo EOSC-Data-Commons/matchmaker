@@ -377,6 +377,77 @@ app.get("/api/coordinator/files", async (req, res) => {
     }
 });
 
+// Streams a (capped) preview of a remote datafile back to the browser so the
+// client never talks to the external repository host directly — this avoids CORS
+// and lets us bound how many bytes we pull. `mode=text` fetches only the first
+// chunk; binary mode (pdf/images) passes bytes through with Range support.
+const PREVIEW_TEXT_MAX_BYTES = 64 * 1024;
+const PREVIEW_BINARY_MAX_BYTES = 25 * 1024 * 1024;
+
+// Basic SSRF guard: only http(s) and never internal/private hosts.
+function resolvePreviewUrl(raw: string): URL | null {
+    let url: URL;
+    try {
+        url = new URL(raw);
+    } catch {
+        return null;
+    }
+    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+
+    const host = url.hostname.toLowerCase();
+    if (host === "localhost" || host === "0.0.0.0" || host.endsWith(".local")) return null;
+    if (/^(127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host)) return null;
+    return url;
+}
+
+app.get("/api/coordinator/file-preview", async (req, res) => {
+    const rawUrl = req.query.url as string | undefined;
+    const mode = (req.query.mode as string) === "text" ? "text" : "binary";
+    const target = rawUrl ? resolvePreviewUrl(rawUrl) : null;
+    if (!target) {
+        return res.status(400).json({error: "Missing or invalid url parameter"});
+    }
+
+    try {
+        const upstreamHeaders: Record<string, string> = {};
+        if (mode === "text") {
+            upstreamHeaders["Range"] = `bytes=0-${PREVIEW_TEXT_MAX_BYTES - 1}`;
+        } else if (req.headers.range) {
+            // let the browser's PDF viewer seek
+            upstreamHeaders["Range"] = req.headers.range as string;
+        }
+
+        const upstream = await fetch(target.toString(), {headers: upstreamHeaders});
+        if (!upstream.ok && upstream.status !== 206) {
+            return res.status(upstream.status).json({error: `Upstream returned ${upstream.status}`});
+        }
+
+        if (mode === "text") {
+            const buf = Buffer.from(await upstream.arrayBuffer());
+            const truncated = buf.length >= PREVIEW_TEXT_MAX_BYTES;
+            res.setHeader("Content-Type", "text/plain; charset=utf-8");
+            res.setHeader("X-Preview-Truncated", truncated ? "1" : "0");
+            return res.send(buf.toString("utf-8"));
+        }
+
+        const contentLength = upstream.headers.get("content-length");
+        if (contentLength && Number(contentLength) > PREVIEW_BINARY_MAX_BYTES) {
+            return res.status(413).json({error: "File too large to preview"});
+        }
+
+        res.status(upstream.status === 206 ? 206 : 200);
+        res.setHeader("Content-Type", upstream.headers.get("content-type") ?? "application/octet-stream");
+        res.setHeader("Accept-Ranges", "bytes");
+        const contentRange = upstream.headers.get("content-range");
+        if (contentRange) res.setHeader("Content-Range", contentRange);
+
+        return res.end(Buffer.from(await upstream.arrayBuffer()));
+    } catch (err) {
+        console.error("Preview proxy error:", err);
+        res.status(500).json({error: "Failed to fetch preview"});
+    }
+});
+
 app.use(
     "/auth",
     createProxyMiddleware({
