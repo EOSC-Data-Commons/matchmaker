@@ -86,10 +86,9 @@ export function mapToolKindToTyp(kind: ToolMeta_ToolKind): ToolTyp {
 
         case ToolMeta_ToolKind.SlotsAndFiles:
             return "FilesAndSlots";
-
-        case ToolMeta_ToolKind.UNRECOGNIZED:
-            return
     }
+
+    return "DatasetOnly"
 }
 
 // ---------------------------------------------------------------------------
@@ -142,8 +141,8 @@ function fileEntryToFileMeta(entry: FileEntry): FileMeta {
         dataPath: entry.path,
         filename: entry.path,
         size: formatBytes(entry.sizeBytes),
-        hash: entry.checksum,
-        hash_type: entry.checksumType,
+        hash: entry.checksum ?? null,
+        hash_type: entry.checksumType ?? "",
         isDir: entry.isDir,
         mimetype: entry.mimeType ?? undefined,
     };
@@ -297,6 +296,7 @@ export async function launchTool(
     dataset: string,
     slotMapping: Record<string, TypedValue>,
     files: Record<string, FileEntry>,
+    token: string,
 ): Promise<string> {
     const metadata = makeAuthMetadata(token);
 
