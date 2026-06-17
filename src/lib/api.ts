@@ -1,9 +1,36 @@
-import {BackendDataset, BackendSearchResponse} from '../types/commons';
+import {BackendDataset, BackendSearchResponse, RepositoryStatsResponse} from '../types/commons';
 import {logError, fetchWithTimeout} from './utils.ts';
 import {Message} from "@/types/chat.ts";
 
 // --- API HELPERS ---
 export const BACKEND_API_URL = '/api/search';
+
+/**
+ * Fetches repository/dataset statistics for the landing page charts.
+ */
+export const fetchRepositoryStats = async (
+    timeoutMs: number = 15000
+): Promise<RepositoryStatsResponse> => {
+    try {
+        const response = await fetchWithTimeout(
+            `${BACKEND_API_URL}/stats`,
+            {
+                method: 'GET',
+                headers: {'Accept': 'application/json'}
+            },
+            timeoutMs
+        );
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        return await response.json() as RepositoryStatsResponse;
+    } catch (error) {
+        logError(error, 'fetchRepositoryStats');
+        throw error;
+    }
+};
 
 export class RateLimitError extends Error {
     constructor(message?: string) {

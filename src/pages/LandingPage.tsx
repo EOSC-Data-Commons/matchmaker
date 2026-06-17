@@ -6,9 +6,9 @@ import {Footer} from "../components/Footer";
 import {EasterEgg} from "../components/EasterEgg";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 import eoscLogo from '@/assets/logo-eosc-data-commons.svg';
-import summaryRepoImage from '@/assets/SummaryRepo_24Nov25.png';
 import {useAuth} from "@/hooks/useAuth.ts";
 import {UserMenu} from "@/components/UserMenu.tsx";
+import {RepositoryStats} from "@/components/RepositoryStats.tsx";
 
 export const LandingPage = () => {
     const navigate = useNavigate();
@@ -194,19 +194,7 @@ export const LandingPage = () => {
                                 Dataset Statistics
                             </h3>
                             <div className="px-4">
-                                <div
-                                    className="bg-white border border-eosc-border rounded-xl p-4 sm:p-8 overflow-x-auto">
-                                    <div className="min-w-[600px] lg:min-w-0">
-                                        <img
-                                            src={summaryRepoImage}
-                                            alt="Sum of Datasets Number by Repository and Subject"
-                                            className="w-full h-auto"
-                                        />
-                                    </div>
-                                    <p className="text-xs text-gray-500 text-center mt-3 sm:hidden">
-                                        ← Scroll to view full chart →
-                                    </p>
-                                </div>
+                                <RepositoryStats/>
                             </div>
                         </div>
 
