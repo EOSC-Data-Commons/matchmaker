@@ -99,6 +99,7 @@ app.post("/api/coordinator/start-task", async (req, res) => {
 
     try {
         const token = getEgiToken(req);
+
         // console.warn(toolId);
         // console.warn("server", slotToValueMapping);
         // console.warn("server", slotToFileMapping);
@@ -110,6 +111,7 @@ app.post("/api/coordinator/start-task", async (req, res) => {
             dataset,
             slotMapping,
             file_entries,
+            token,
         );
 
         if (!taskId) {
