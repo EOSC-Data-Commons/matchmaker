@@ -22,6 +22,19 @@ app.use('/api/search', createProxyMiddleware({
     changeOrigin: true,
     pathRewrite: {'^/api/search': ''},
     on: {
+        proxyRes: (proxyRes) => {
+            // The MCP backend (FastMCP/Starlette) redirects /mcp -> /mcp/ with an
+            // absolute Location pointing at its internal host (e.g. http://mcp:8000/mcp/).
+            // Strip the origin and re-add the /api/search prefix so the redirect stays
+            // behind the proxy and is reachable by the client.
+            const location = proxyRes.headers.location;
+            if (location) {
+                const relative = location.replace(/^https?:\/\/[^/]+/, '');
+                if (relative.startsWith('/')) {
+                    proxyRes.headers.location = '/api/search' + relative;
+                }
+            }
+        },
         error: (err, _req, res) => {
             console.error('Search API proxy error:', err);
             (res as express.Response).status(500).send('Proxy error');
