@@ -358,6 +358,11 @@ app.get("/api/coordinator/tool/get/:toolId", async (req, res) => {
     }
 });
 
+// SSRF guard for the preview proxy: it will only ever fetch a download URL that
+// the server itself produced (from datahugger) and handed to the client below.
+// A user can therefore never steer the proxy at an arbitrary or internal host.
+const PREVIEWABLE_URLS = new Set<string>();
+
 app.get("/api/coordinator/files", async (req, res) => {
     const handle = req.query.handle as string;
     if (!handle) {
@@ -370,6 +375,9 @@ app.get("/api/coordinator/files", async (req, res) => {
         const token = getEgiToken(req);
         // XXX: where error goes if url is invalid?? Should we give this to user??
         const files = await fetchDatasetFilesFromDatahuggerByUrl(handle, token);
+        for (const file of files) {
+            if (file.downloadUrl) PREVIEWABLE_URLS.add(file.downloadUrl);
+        }
         res.json(files);
     } catch (err) {
         console.error("Error fetching files:", err);
@@ -384,28 +392,57 @@ app.get("/api/coordinator/files", async (req, res) => {
 const PREVIEW_TEXT_MAX_BYTES = 64 * 1024;
 const PREVIEW_BINARY_MAX_BYTES = 25 * 1024 * 1024;
 
-// Basic SSRF guard: only http(s) and never internal/private hosts.
-function resolvePreviewUrl(raw: string): URL | null {
+// Defense-in-depth on top of the PREVIEWABLE_URLS allowlist: reject anything
+// that isn't plain http(s) pointing at a public host (blocks an upstream URL
+// that somehow resolves to a loopback/link-local/private literal).
+function isSafePublicUrl(raw: string): boolean {
     let url: URL;
     try {
         url = new URL(raw);
     } catch {
-        return null;
+        return false;
     }
-    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+    if (url.protocol !== "https:" && url.protocol !== "http:") return false;
 
     const host = url.hostname.toLowerCase();
-    if (host === "localhost" || host === "0.0.0.0" || host.endsWith(".local")) return null;
-    if (/^(127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host)) return null;
-    return url;
+    if (host === "localhost" || host === "0.0.0.0" || host.endsWith(".local")) return false;
+    if (/^(127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host)) return false;
+    return true;
+}
+
+// Follow redirects ourselves so each hop's target is re-validated — a repository
+// may legitimately redirect a download to CDN/object storage, but we must never
+// follow a 3xx into an internal host.
+async function fetchPreviewUpstream(
+    startUrl: string,
+    headers: Record<string, string>,
+    maxRedirects = 5,
+): Promise<Response> {
+    let current = startUrl;
+    for (let hop = 0; hop <= maxRedirects; hop++) {
+        const resp = await fetch(current, {headers, redirect: "manual"});
+        if (resp.status < 300 || resp.status >= 400) return resp;
+
+        const location = resp.headers.get("location");
+        if (!location) return resp;
+
+        const next = new URL(location, current).toString();
+        if (!isSafePublicUrl(next)) {
+            throw new Error("Preview redirect blocked: unsafe target");
+        }
+        current = next;
+    }
+    throw new Error("Preview exceeded maximum redirects");
 }
 
 app.get("/api/coordinator/file-preview", async (req, res) => {
     const rawUrl = req.query.url as string | undefined;
     const mode = (req.query.mode as string) === "text" ? "text" : "binary";
-    const target = rawUrl ? resolvePreviewUrl(rawUrl) : null;
-    if (!target) {
-        return res.status(400).json({error: "Missing or invalid url parameter"});
+
+    // Primary control: only fetch URLs the server itself emitted from /files.
+    // This is what prevents request forgery — the URL is not trusted from the user.
+    if (!rawUrl || !PREVIEWABLE_URLS.has(rawUrl) || !isSafePublicUrl(rawUrl)) {
+        return res.status(403).json({error: "URL not permitted for preview"});
     }
 
     try {
@@ -417,7 +454,7 @@ app.get("/api/coordinator/file-preview", async (req, res) => {
             upstreamHeaders["Range"] = req.headers.range as string;
         }
 
-        const upstream = await fetch(target.toString(), {headers: upstreamHeaders});
+        const upstream = await fetchPreviewUpstream(rawUrl, upstreamHeaders);
         if (!upstream.ok && upstream.status !== 206) {
             return res.status(upstream.status).json({error: `Upstream returned ${upstream.status}`});
         }
