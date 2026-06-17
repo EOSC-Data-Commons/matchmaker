@@ -74,3 +74,28 @@ export interface AggregationSection {
 export interface Aggregations {
     [key: string]: AggregationSection;
 }
+
+// Repository statistics (GET /api/search/stats)
+export interface RepositoryStatsSubject {
+    subject: string;
+    count: number;
+}
+
+export interface RepositoryStat {
+    code: string;
+    name: string;
+    record_count: number;
+    datasets: number;
+    endpoints_with_records: number;
+    synced_to_opensearch: number;
+    latest_record_datestamp: string | null;
+    top_subjects: RepositoryStatsSubject[];
+}
+
+export interface RepositoryStatsResponse {
+    api_version: string;
+    generated_at: string;
+    total_records: number;
+    total_datasets: number;
+    repositories: RepositoryStat[];
+}
