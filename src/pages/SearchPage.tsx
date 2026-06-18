@@ -14,9 +14,11 @@ import {useCombinedDatasets} from "../hooks/useCombinedDatasets.ts";
 import {useFilteredDatasets} from "../hooks/useFilteredDatasets.ts";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 import {RateLimitError, ServerError} from "../lib/api.ts";
+import {useAuth} from "@/hooks/useAuth.ts";
 
 export const SearchPage = () => {
     const navigate = useNavigate();
+    const {user} = useAuth();
     const [searchParams, setSearchParams] = useSearchParams();
     const [showInitialResults, setShowInitialResults] = useState(false);
 
@@ -202,6 +204,7 @@ export const SearchPage = () => {
                                                             key={`reranked-${dataset._id}-${index}`}
                                                             hit={dataset}
                                                             isAiRanked={true}
+                                                            isLoggedIn={!!user}
                                                         />
                                                     ))}
                                                 </div>
@@ -228,6 +231,7 @@ export const SearchPage = () => {
                                                                 key={`initial-fallback-${dataset._id}-${index}`}
                                                                 hit={dataset}
                                                                 isAiRanked={false}
+                                                                isLoggedIn={!!user}
                                                             />
                                                         ))}
                                                     </div>
@@ -249,6 +253,7 @@ export const SearchPage = () => {
                                                             key={`initial-${dataset._id}-${index}`}
                                                             hit={dataset}
                                                             isAiRanked={false}
+                                                            isLoggedIn={!!user}
                                                         />
                                                     ))}
                                                 </div>
@@ -283,6 +288,7 @@ export const SearchPage = () => {
                                                                     key={`initial-collapsed-${dataset._id}-${index}`}
                                                                     hit={dataset}
                                                                     isAiRanked={false}
+                                                                    isLoggedIn={!!user}
                                                                 />
                                                             ))}
                                                         </div>

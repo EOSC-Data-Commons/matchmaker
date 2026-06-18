@@ -645,7 +645,8 @@ const ChatPage: FC = () => {
                                                                 {msg.hits.map((hit: unknown, hitIdx: number) => (
                                                                     <SearchResultItem key={hitIdx}
                                                                                       hit={hit as BackendDataset}
-                                                                                      isAiRanked={true}/>
+                                                                                      isAiRanked={true}
+                                                                                      isLoggedIn={!!user}/>
                                                                 ))}
                                                             </div>
                                                         )}

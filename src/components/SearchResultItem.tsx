@@ -10,9 +10,10 @@ import {RepoLogo} from "./RepoLogo.tsx";
 interface SearchResultItemProps {
     hit: BackendDataset;
     isAiRanked?: boolean;
+    isLoggedIn?: boolean;
 }
 
-export const SearchResultItem = ({hit, isAiRanked = false}: SearchResultItemProps) => {
+export const SearchResultItem = ({hit, isAiRanked = false, isLoggedIn = false}: SearchResultItemProps) => {
     const [searchParams] = useSearchParams();
 
     const cleanDescription = (html: string) => {
@@ -23,6 +24,11 @@ export const SearchResultItem = ({hit, isAiRanked = false}: SearchResultItemProp
     const [authorsExpanded, setAuthorsExpanded] = useState(false);
 
     const handleDataplayer = () => {
+        if (!isLoggedIn) {
+            // Gate the data player behind login, just like chat / AI mode
+            window.location.href = '/auth/login';
+            return;
+        }
         // Open the dataplayer page in a new tab with dataset info
         const params = new URLSearchParams();
         params.set('datasetId', hit._id);
@@ -185,13 +191,21 @@ export const SearchResultItem = ({hit, isAiRanked = false}: SearchResultItemProp
             <div
                 className="flex flex-col sm:flex-row items-center justify-between pt-4 border-t border-gray-100 gap-4 sm:gap-0">
                 <div className="flex space-x-4">
-                    <button
-                        onClick={handleDataplayer}
-                        aria-label={`View dataset for ${hit.title}`}
-                        className="inline-flex items-center justify-center gap-1 rounded-md bg-green-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 transition-colors cursor-pointer">
-                        <Rocket className="h-4 w-4"/>
-                        <span className="leading-none">Play</span>
-                    </button>
+                    <div className="relative group flex items-center">
+                        <button
+                            onClick={handleDataplayer}
+                            aria-label={isLoggedIn ? `View dataset for ${hit.title}` : `Sign in to use the data player for ${hit.title}`}
+                            className={`inline-flex items-center justify-center gap-1 rounded-md bg-green-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 transition-colors cursor-pointer ${!isLoggedIn ? 'opacity-60' : ''}`}>
+                            <Rocket className="h-4 w-4"/>
+                            <span className="leading-none">Play</span>
+                        </button>
+                        {!isLoggedIn && (
+                            <div
+                                className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                                Sign in to use the data player
+                            </div>
+                        )}
+                    </div>
                     <a href={hit._id} target="_blank" rel="noopener noreferrer"
                        aria-label={`Redirect to the source of dataset ${hit.title}`}
                        className="inline-flex items-center justify-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-colors cursor-pointer">
