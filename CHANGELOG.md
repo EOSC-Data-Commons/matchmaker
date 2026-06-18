@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0] - 2026-06-18
+
+- Rebuilt the Data Sandbox (data player) end-to-end: launch analysis tools and VREs against a dataset through the gRPC
+  coordinator, with tool-registry/matchmaker search, file mapping, value and free-text parameters, optional parameters
+  surfaced from tool slots, and live task updates streamed over SSE.
+- Added file browsing in the Sandbox: file tree view, a file preview modal for text, CSV, PDF and image files, adding
+  extra files to a run, and file renaming when sending files to a tool.
+- Added a repository statistics feature with API integration and chart visualization (`recharts`).
+- Gated the Data Sandbox behind login: the Play button in `SearchResultItem` is always visible but requires sign-in to
+  use, matching the existing gating on chat and AI mode.
+- Refactored `DataplayerPage` into smaller components and hooks, made gRPC clients singletons, and moved all gRPC calls
+  to the server.
+- Removed the legacy dataplayer POC UI and the old dispatcher run page.
+- Security: added SSRF protection for file previews via URL validation and redirect handling, and applied
+  `noopener,noreferrer` to externally opened windows.
+
 ## [0.7.4] - 2026-06-11
 
 - Added the EOSC Data Commons Privacy Policy page at `/privacy-policy`.
