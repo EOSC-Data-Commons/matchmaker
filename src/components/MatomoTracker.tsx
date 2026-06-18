@@ -3,7 +3,7 @@ import {useLocation} from 'react-router';
 
 declare global {
     interface Window {
-        _paq: (string[] | number[] | ((this: void) => void))[];
+        _paq: Array<Array<string | number> | ((this: void) => void)>;
     }
 }
 
@@ -12,6 +12,7 @@ const MatomoTracker = () => {
 
     useEffect(() => {
         window._paq = window._paq || [];
+        window._paq.push(['enableLinkTracking']);
         (function () {
             const u = "https://egi.matomo.cloud/";
             window._paq.push(['setTrackerUrl', u + 'matomo.php']);
@@ -25,12 +26,10 @@ const MatomoTracker = () => {
         })();
     }, []);
 
-    // This effect runs on every route change to track page views.
     useEffect(() => {
         if (window._paq) {
             window._paq.push(['setCustomUrl', location.pathname + location.search]);
             window._paq.push(['trackPageView']);
-            window._paq.push(['enableLinkTracking']);
         }
     }, [location]);
 

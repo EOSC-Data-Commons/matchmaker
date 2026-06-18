@@ -2,6 +2,7 @@ import React, {useEffect, useRef, useState} from "react";
 import {useNavigate} from "react-router";
 import {ModelSelector} from "./ModelSelector.tsx";
 import {getSearchHistory} from "../lib/history.ts";
+import useMatomo from "../hooks/useMatomo";
 
 
 const SHOW_MODEL_SELECTOR = import.meta.env.VITE_SHOW_MODEL_SELECTOR === 'true';
@@ -53,6 +54,7 @@ export const SearchInput = ({
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
     const [aiMode, setAiMode] = useState(true);
     const searchContainerRef = useRef<HTMLDivElement>(null);
+    const {trackEvent} = useMatomo();
     useNavigate();
 
     const effectiveAiMode = isLoggedIn && aiMode;
@@ -74,6 +76,7 @@ export const SearchInput = ({
         e.preventDefault();
         if (loading) return;
         if (query.trim()) {
+            trackEvent('Search', 'submitted', query.trim());
             onSearch(query.trim(), selectedModel, effectiveAiMode);
             setShowHistory(false);
             if (clearOnSearch) {
@@ -112,6 +115,7 @@ export const SearchInput = ({
     const handleHistoryItemClick = (item: string) => {
         if (loading) return;
         setQuery(item);
+        trackEvent('Search', 'submitted', item);
         onSearch(item, selectedModel, effectiveAiMode);
         setShowHistory(false);
         setHighlightedIndex(-1);
@@ -182,7 +186,12 @@ export const SearchInput = ({
                         <div className="relative group flex items-center justify-center">
                             <button
                                 type="button"
-                                onClick={() => isLoggedIn && setAiMode(v => !v)}
+                                onClick={() => {
+                                    if (!isLoggedIn) return;
+                                    const next = !aiMode;
+                                    setAiMode(next);
+                                    trackEvent('Search', 'ai_mode_toggled', next ? 'on' : 'off');
+                                }}
                                 disabled={!isLoggedIn}
                                 aria-label="Toggle AI mode"
                                 className={`w-11 h-6 rounded-full transition-colors relative focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${effectiveAiMode ? 'bg-blue-600' : 'bg-gray-300'} ${!isLoggedIn ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
