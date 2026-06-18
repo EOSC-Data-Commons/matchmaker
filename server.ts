@@ -92,6 +92,24 @@ app.use(
     }),
 );
 
+// Auth + per-user API keys (EGI Secret Store), e.g. /auth/user, /auth/login, /auth/keys/*.
+// Registered before `express.json()` so request bodies (e.g. PUT /auth/keys/:id) stream
+// through to the backend intact — the body parser would otherwise drain the stream.
+app.use(
+    "/auth",
+    createProxyMiddleware({
+        target: SEARCH_API_URL,
+        changeOrigin: false,
+        pathRewrite: {"^/": "/auth/"},
+        on: {
+            error: (err, _req, res) => {
+                console.error("Auth API proxy error:", err);
+                (res as express.Response).status(500).send("Proxy error");
+            },
+        },
+    }),
+);
+
 // TODO: rename to task/start
 app.use(express.json());
 app.post("/api/coordinator/start-task", async (req, res) => {
@@ -483,21 +501,6 @@ app.get("/api/coordinator/file-preview", async (req, res) => {
         res.status(500).json({error: "Failed to fetch preview"});
     }
 });
-
-app.use(
-    "/auth",
-    createProxyMiddleware({
-        target: SEARCH_API_URL,
-        changeOrigin: false,
-        pathRewrite: {"^/": "/auth/"},
-        on: {
-            error: (err, _req, res) => {
-                console.error("Auth API proxy error:", err);
-                (res as express.Response).status(500).send("Proxy error");
-            },
-        },
-    }),
-);
 
 app.use(compression());
 
