@@ -100,21 +100,21 @@ const ApiKeyCard = ({meta, configured, disabled, onSave, onRemove, onReveal}: Ap
     };
 
     return (
-        <div className="bg-eosc-card border border-eosc-border rounded-xl p-6">
+        <div className="bg-white border border-[#E0E0E0] rounded-xl p-6">
             <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3">
                     <div
-                        className="w-10 h-10 rounded-lg bg-eosc-bg border border-eosc-border flex items-center justify-center shrink-0">
-                        <KeyRound className="w-5 h-5 text-eosc-dark-blue"/>
+                        className="w-10 h-10 rounded-lg bg-[#FAFAFA] border border-[#E0E0E0] flex items-center justify-center shrink-0">
+                        <KeyRound className="w-5 h-5 text-[#002337]"/>
                     </div>
                     <div>
-                        <h3 className="text-base font-medium text-eosc-text">{meta.label}</h3>
-                        <p className="text-sm text-eosc-gray mt-0.5">{meta.description}</p>
+                        <h3 className="text-base font-medium text-[#1A1A1A]">{meta.label}</h3>
+                        <p className="text-sm text-[#646363] mt-0.5">{meta.description}</p>
                         <a
                             href={meta.helpUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-xs text-eosc-light-blue hover:underline mt-1.5"
+                            className="inline-flex items-center gap-1 text-xs text-[#009FE3] hover:underline mt-1.5"
                         >
                             Where do I get this? <ExternalLink className="w-3 h-3"/>
                         </a>
@@ -127,7 +127,7 @@ const ApiKeyCard = ({meta, configured, disabled, onSave, onRemove, onReveal}: Ap
                     </span>
                 ) : (
                     <span
-                        className="inline-flex items-center gap-1.5 text-xs font-medium text-eosc-gray bg-eosc-bg border border-eosc-border rounded-full px-2.5 py-1 shrink-0">
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-[#646363] bg-[#FAFAFA] border border-[#E0E0E0] rounded-full px-2.5 py-1 shrink-0">
                         <span className="w-1.5 h-1.5 rounded-full bg-gray-300"/> Not set
                     </span>
                 )}
@@ -135,19 +135,19 @@ const ApiKeyCard = ({meta, configured, disabled, onSave, onRemove, onReveal}: Ap
 
             {configured && (
                 <div className="mt-5">
-                    <label className="block text-xs font-medium text-eosc-gray mb-1.5">Stored value</label>
+                    <label className="block text-xs font-medium text-[#646363] mb-1.5">Stored value</label>
                     <div className="flex items-center gap-2">
                         <input
                             type="text"
                             readOnly
                             value={revealed ?? '••••••••••••'}
-                            className="flex-1 min-w-0 px-3 py-2 text-sm font-mono bg-eosc-bg border border-eosc-border rounded-lg text-eosc-text focus:outline-none"
+                            className="flex-1 min-w-0 px-3 py-2 text-sm font-mono bg-[#FAFAFA] border border-[#E0E0E0] rounded-lg text-[#1A1A1A] focus:outline-none"
                         />
                         <button
                             type="button"
                             onClick={handleToggleReveal}
                             disabled={disabled || revealing}
-                            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-eosc-text border border-eosc-border rounded-lg hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-[#1A1A1A] border border-[#E0E0E0] rounded-lg hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {revealing ? <Loader2 className="w-4 h-4 animate-spin"/> : revealed !== null ?
                                 <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
@@ -157,7 +157,7 @@ const ApiKeyCard = ({meta, configured, disabled, onSave, onRemove, onReveal}: Ap
                             <button
                                 type="button"
                                 onClick={handleCopy}
-                                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-eosc-text border border-eosc-border rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-[#1A1A1A] border border-[#E0E0E0] rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
                             >
                                 {copied ? <Check className="w-4 h-4 text-green-600"/> : <Copy className="w-4 h-4"/>}
                                 {copied ? 'Copied' : 'Copy'}
@@ -168,7 +168,7 @@ const ApiKeyCard = ({meta, configured, disabled, onSave, onRemove, onReveal}: Ap
             )}
 
             <div className="mt-5">
-                <label className="block text-xs font-medium text-eosc-gray mb-1.5">
+                <label className="block text-xs font-medium text-[#646363] mb-1.5">
                     {configured ? 'Replace key' : 'Set key'}
                 </label>
                 <div className="flex items-center gap-2">
@@ -181,14 +181,14 @@ const ApiKeyCard = ({meta, configured, disabled, onSave, onRemove, onReveal}: Ap
                             disabled={disabled || busy !== 'idle'}
                             autoComplete="off"
                             spellCheck={false}
-                            className="w-full px-3 py-2 pr-10 text-sm bg-white border border-eosc-border rounded-lg text-eosc-text placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-eosc-light-blue focus:border-transparent disabled:opacity-50"
+                            className="w-full px-3 py-2 pr-10 text-sm bg-white border border-[#E0E0E0] rounded-lg text-[#1A1A1A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#009FE3] focus:border-transparent disabled:opacity-50"
                         />
                         <button
                             type="button"
                             onClick={() => setShowInput(s => !s)}
                             tabIndex={-1}
                             aria-label={showInput ? 'Hide input' : 'Show input'}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-eosc-text cursor-pointer"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#1A1A1A] cursor-pointer"
                         >
                             {showInput ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
                         </button>
@@ -197,7 +197,7 @@ const ApiKeyCard = ({meta, configured, disabled, onSave, onRemove, onReveal}: Ap
                         type="button"
                         onClick={handleSave}
                         disabled={disabled || busy !== 'idle' || !value.trim()}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-eosc-dark-blue rounded-lg hover:bg-opacity-90 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-[#002337] rounded-lg hover:bg-opacity-90 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {busy === 'saving' && <Loader2 className="w-4 h-4 animate-spin"/>}
                         Save
@@ -235,7 +235,7 @@ export const ProfilePage = () => {
         useApiKeys(!userLoading && !!user);
 
     return (
-        <div className="min-h-screen bg-eosc-bg flex flex-col">
+        <div className="min-h-screen bg-[#FAFAFA] flex flex-col">
             {!userLoading && !user && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
                     <div
@@ -266,7 +266,7 @@ export const ProfilePage = () => {
                 </div>
             )}
 
-            <header className="bg-white border-b border-eosc-border shrink-0 py-3 px-6 flex items-center">
+            <header className="bg-white border-b border-[#E0E0E0] shrink-0 py-3 px-6 flex items-center">
                 <img
                     src={dataCommonsIconBlue}
                     alt="EOSC Logo"
@@ -278,20 +278,20 @@ export const ProfilePage = () => {
             <main className="flex-1 w-full max-w-2xl mx-auto px-4 py-10">
                 <button
                     onClick={() => navigate('/')}
-                    className="inline-flex items-center gap-1.5 text-sm text-eosc-gray hover:text-eosc-text mb-6 cursor-pointer"
+                    className="inline-flex items-center gap-1.5 text-sm text-[#646363] hover:text-[#1A1A1A] mb-6 cursor-pointer"
                 >
                     <ArrowLeft className="w-4 h-4"/> Back to home
                 </button>
 
-                <h1 className="text-2xl font-light text-eosc-text">API Keys</h1>
-                <p className="text-eosc-gray mt-1">
+                <h1 className="text-2xl font-light text-[#1A1A1A]">API Keys</h1>
+                <p className="text-[#646363] mt-1">
                     Provide your own keys so the platform can act on your behalf. They are stored securely in the
                     EGI Secret Store and are only accessible to you.
                 </p>
 
                 <div
-                    className="flex items-start gap-2 text-xs text-eosc-gray bg-eosc-bg border border-eosc-border rounded-lg px-3 py-2 mt-4">
-                    <ShieldCheck className="w-4 h-4 mt-0.5 shrink-0 text-eosc-light-blue"/>
+                    className="flex items-start gap-2 text-xs text-[#646363] bg-[#FAFAFA] border border-[#E0E0E0] rounded-lg px-3 py-2 mt-4">
+                    <ShieldCheck className="w-4 h-4 mt-0.5 shrink-0 text-[#009FE3]"/>
                     <span>Keys are write-only by default — reveal a stored value only when you need it.</span>
                 </div>
 
@@ -322,7 +322,7 @@ export const ProfilePage = () => {
                 )}
 
                 {keysLoading && !unavailable ? (
-                    <div className="flex items-center justify-center gap-2 text-eosc-gray py-16">
+                    <div className="flex items-center justify-center gap-2 text-[#646363] py-16">
                         <Loader2 className="w-5 h-5 animate-spin"/> Loading…
                     </div>
                 ) : (
