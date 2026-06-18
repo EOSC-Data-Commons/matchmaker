@@ -7,5 +7,6 @@ export default [
     route("privacy-policy", "pages/PrivacyPolicyPage.tsx"),
     route("acceptable-use-policy", "pages/AcceptableUsePage.tsx"),
     route("dataplayer", "pages/DataplayerPage.tsx"),
+    route("profile", "pages/ProfilePage.tsx"),
     route("*", "pages/NotFound.tsx"),
 ] satisfies RouteConfig;
