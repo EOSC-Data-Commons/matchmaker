@@ -11,6 +11,7 @@ import {SearchResultItem} from "@/components/SearchResultItem.tsx";
 import {SearchInput} from "@/components/SearchInput.tsx";
 import {DeleteConversationDialog} from "@/components/DeleteConversationDialog.tsx";
 import {ConversationSidebarItem} from "@/components/ConversationSidebarItem.tsx";
+import {SearchFeedback} from "@/components/SearchFeedback.tsx";
 
 type ChatLocationState = {
     initialQuery?: string;
@@ -680,6 +681,16 @@ const ChatPage: FC = () => {
                                     </div>
                                 </div>
                             )}
+                            {!isSending &&
+                                selectedConversation &&
+                                selectedConversation.messages[selectedConversation.messages.length - 1]?.sender === 'bot' && (
+                                    <div className="pl-11">
+                                        <SearchFeedback
+                                            key={`${selectedConversation.id}-${selectedConversation.messages.length}`}
+                                            query={[...selectedConversation.messages].reverse().find(m => m.sender === 'user')?.content ?? selectedConversation.title}
+                                        />
+                                    </div>
+                                )}
                             <div ref={messagesEndRef}/>
                         </div>
                     </div>
