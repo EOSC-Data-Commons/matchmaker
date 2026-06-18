@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.2] - 2026-06-18
+
+- Fixed the production server failing to start in the container (`ERR_MODULE_NOT_FOUND` for the gRPC client): the server
+  entry is now bundled with `esbuild` into a single self-contained `build/server.js` instead of being emitted by `tsc`,
+  which left native-ESM relative imports without the required `.js` extensions. Added `esbuild` as a dev dependency.
+
 ## [0.8.1] - 2026-06-18
 
 - Added Matomo custom event tracking for key user actions: search submissions, AI mode toggles, dataset play/source
