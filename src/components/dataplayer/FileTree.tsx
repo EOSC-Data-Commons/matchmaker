@@ -131,13 +131,17 @@ const TreeRow = ({node, depth, expanded, onToggle, onPreview}: TreeRowProps) => 
                 {node.name}
             </span>
             <div className="flex items-center gap-3 shrink-0">
-                {file?.size && (
+                {file?.size ? (
                     <span
                         className="text-[#646363] px-2 py-1 bg-gray-50 border border-eosc-border rounded text-xs font-light">
                         {file.size}
                     </span>
+                ) : (
+                    <span className="text-gray-400 px-2 py-1 text-xs font-light italic">
+                        Unknown size
+                    </span>
                 )}
-                {file && isPreviewable(file) && (
+                {file && file.size && isPreviewable(file) && (
                     <button
                         type="button"
                         onClick={() => onPreview(file)}

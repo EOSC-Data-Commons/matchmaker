@@ -140,7 +140,7 @@ function fileEntryToFileMeta(entry: FileEntry): FileMeta {
         downloadUrl: entry.downloadUrl ?? undefined,
         dataPath: entry.path,
         filename: entry.path,
-        size: formatBytes(entry.sizeBytes),
+        size: entry.sizeBytes > 0 ? formatBytes(entry.sizeBytes) : "",
         hash: entry.checksum ?? null,
         hash_type: entry.checksumType ?? "",
         isDir: entry.isDir,
