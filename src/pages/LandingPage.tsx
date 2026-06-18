@@ -109,7 +109,7 @@ export const LandingPage = () => {
                     )}
                     {!loading && (
                         user ? (
-                            <UserMenu user={user} onLogout={logout}/>
+                            <UserMenu user={user} onLogout={logout} onProfile={() => navigate('/profile')}/>
                         ) : (
                             <button
                                 onClick={handleLogin}

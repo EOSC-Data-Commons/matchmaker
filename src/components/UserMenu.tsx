@@ -1,13 +1,15 @@
 import {useState, useRef, useEffect} from 'react';
 import {UserInfo} from '@/types/user.ts';
 import {getUserInitials} from '@/lib/userUtils.ts';
+import {API_KEYS_ENABLED} from '@/lib/apiKeys.ts';
 
 interface UserMenuProps {
     user: UserInfo;
     onLogout: () => void;
+    onProfile?: () => void;
 }
 
-export const UserMenu = ({user, onLogout}: UserMenuProps) => {
+export const UserMenu = ({user, onLogout, onProfile}: UserMenuProps) => {
     const [isOpen, setIsOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
 
@@ -52,6 +54,27 @@ export const UserMenu = ({user, onLogout}: UserMenuProps) => {
                         </p>
                     </div>
                     <div className="py-1">
+                        {API_KEYS_ENABLED && onProfile && (
+                            <button
+                                onClick={() => {
+                                    setIsOpen(false);
+                                    onProfile();
+                                }}
+                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer flex items-center gap-2"
+                                role="menuitem"
+                            >
+                                <svg
+                                    className="w-4 h-4 text-gray-500"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                          d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                                </svg>
+                                API Keys
+                            </button>
+                        )}
                         <button
                             onClick={onLogout}
                             className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer flex items-center gap-2"
