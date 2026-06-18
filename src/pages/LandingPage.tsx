@@ -6,9 +6,9 @@ import {Footer} from "../components/Footer";
 import {EasterEgg} from "../components/EasterEgg";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 import eoscLogo from '@/assets/logo-eosc-data-commons.svg';
-import summaryRepoImage from '@/assets/SummaryRepo_24Nov25.png';
 import {useAuth} from "@/hooks/useAuth.ts";
 import {UserMenu} from "@/components/UserMenu.tsx";
+import {RepositoryStats} from "@/components/RepositoryStats.tsx";
 
 export const LandingPage = () => {
     const navigate = useNavigate();
@@ -38,6 +38,21 @@ export const LandingPage = () => {
     const handleChat = () => {
         navigate('/chat');
     };
+
+    // const handlePlay = (datasetHandle: string) => {
+    //     const params = new URLSearchParams();
+    //     params.set('datasetId', datasetHandle);
+    //     let title = "";
+    //     try {
+    //         const url = new URL(datasetHandle);
+    //         title = `A dataset from source: ${url}`;
+    //     } catch {
+    //         console.warn("Invalid URL:", datasetHandle);
+    //     }
+    //
+    //     params.set('title', title);
+    //     window.open(`/dataplayer?${params.toString()}`, '_blank');
+    // };
 
     const handleAbout = () => {
         window.open('https://www.eosc-data-commons.eu/service/eosc-matchmaker', '_blank', 'noopener,noreferrer');
@@ -130,13 +145,19 @@ export const LandingPage = () => {
                     </div>
 
                     {/* Search Input */}
-                    <div className="flex justify-center px-4">
+                    <div className="flex flex-col items-center px-4 space-y-4">
                         <SearchInput
                             onSearch={handleSearch}
                             className="w-full max-w-2xl"
                             isLoggedIn={!!user}
                             showAiToggle={true}
                         />
+
+                        {/*<DataplayInput*/}
+                        {/*    label="Play (tdb)"*/}
+                        {/*    onPlay={handlePlay}*/}
+                        {/*    className="w-full max-w-2xl"*/}
+                        {/*/>*/}
                     </div>
                 </div>
 
@@ -173,19 +194,7 @@ export const LandingPage = () => {
                                 Dataset Statistics
                             </h3>
                             <div className="px-4">
-                                <div
-                                    className="bg-white border border-eosc-border rounded-xl p-4 sm:p-8 overflow-x-auto">
-                                    <div className="min-w-[600px] lg:min-w-0">
-                                        <img
-                                            src={summaryRepoImage}
-                                            alt="Sum of Datasets Number by Repository and Subject"
-                                            className="w-full h-auto"
-                                        />
-                                    </div>
-                                    <p className="text-xs text-gray-500 text-center mt-3 sm:hidden">
-                                        ← Scroll to view full chart →
-                                    </p>
-                                </div>
+                                <RepositoryStats/>
                             </div>
                         </div>
 
@@ -198,7 +207,7 @@ export const LandingPage = () => {
                                 {toolCards.map((card, index) => (
                                     <div
                                         key={index}
-                                        onClick={() => window.open(card.url, '_blank')}
+                                        onClick={() => window.open(card.url, '_blank', 'noopener,noreferrer')}
                                         className="bg-white border border-eosc-border rounded-xl p-6 min-h-[75px] flex items-center justify-center cursor-pointer hover:bg-gray-50 hover:border-eosc-light-blue transition-colors"
                                     >
                                         <p className="text-sm font-light text-black text-center">

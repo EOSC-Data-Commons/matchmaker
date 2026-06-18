@@ -64,7 +64,8 @@ npm install
 
 > [!NOTE]
 > This repository uses a project-level npm config in `.npmrc`: `in-release-age=3`.
-> It tells npm to avoid package versions newer than 3 days at install time, to reduce exposure to very recent malicious
+> It tells npm to avoid package versions newer than 3 days at installation time, to reduce exposure to very recent
+> malicious
 > package publishes.
 > If your npm version does not support this config, npm may warn and ignore it.
 
@@ -130,6 +131,75 @@ docker run -p 5173:80 ghcr.io/eosc-data-commons/matchmaker-frontend:latest
 >
 > If running backend and frontend in separate containers, you may need to adjust CORS or network settings for them to communicate.
 
+<<<<<<< HEAD
+## Coordinator server
+
+The matchmaker talks to backend services such as data-player, tool registry and file fetcher through the coordinator
+server.
+The messages in between follow the same protobuf as the contract.
+Matchmaker implements the client side of grpc in TypeScript by `grpc-js`.
+To synchronous the protobuf with the coordinator code base so to avaid contract out of sync in the local development, the coordinator code base (called `req-packager` for historical reason) is set as a submodule in the repo.
+
+For a developer, clone the repo by:
+
+```console
+git clone --recurse-submodules https://github.com/EOSC-Data-Commons/matchmaker.git
+```
+
+If you already cloned the project and forgot `--recurse-submodules`, you can combine the `git submodule init` and `git submodule update` steps by running `git submodule update --init`. 
+To also initialize, fetch and checkout any nested submodules, you can use the foolproof `git submodule update --init --recursive`.
+
+Check https://git-scm.com/book/en/v2/Git-Tools-Submodules for more information for submodule management.
+
+### grpc codegen
+
+Generate the TypeScript code that whic grpc related types and functions by:
+=======
+
+## grpc codegen
+
+> > > > > > > ce2b3b9 (grpc client codegen from protobuf)
+
+```console
+npx protoc \
+  --plugin=./node_modules/.bin/protoc-gen-ts_proto \
+<<<<<<< HEAD
+  --ts_proto_out=./src/lib/server/generated \
+  --ts_proto_opt=outputServices=grpc-js,esModuleInterop=true,env=node,useOptionals=messages \
+  --proto_path=./req-packager/proto \
+  ./req-packager/proto/coordinator.proto
+```
+
+This will generate a `./src/lib/server/generated/coordinator.ts` file contains all types to be implemented for a client.
+
+### data flow
+
+UI frontend `pages/FooPage.tsx` -\- `lib/coordinatorApi.ts` (implement wrapper of request call of `/api/foobar...`)  
+
+Majorly maintained by @ritwikshanker.
+
+<----> 
+
+UI server `server.ts` -\- `lib/server/grpcClient.ts` (grpc client run on the UI server talk to grpc server deployed by req-packager).
+
+Majorly maintained by @unkcpz
+
+<--HTTP/2--> 
+
+a coordinator server runs as a binary (as grpc server) which hides the backend services from UI.
+
+Majorly maintained by @unkcpz as [request packager](https://github.com/EOSC-Data-Commons/req-packager) (a.k.a.
+coordinator under matchmaker context)
+=======
+--ts_proto_out=./src/generated \
+--ts_proto_opt=outputServices=grpc-js,esModuleInterop=true,env=node,useOptionals=messages \
+--proto_path=./proto \
+./proto/service.proto
+
+```
+
+This will generate a `./src/generated/service.ts` file contains all types to be implemented for client.
+>>>>>>> ce2b3b9 (grpc client codegen from protobuf)
 
 ## How to Search
 

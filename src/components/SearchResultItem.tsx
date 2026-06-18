@@ -10,9 +10,10 @@ import {RepoLogo} from "./RepoLogo.tsx";
 interface SearchResultItemProps {
     hit: BackendDataset;
     isAiRanked?: boolean;
+    isLoggedIn?: boolean;
 }
 
-export const SearchResultItem = ({hit, isAiRanked = false}: SearchResultItemProps) => {
+export const SearchResultItem = ({hit, isAiRanked = false, isLoggedIn = false}: SearchResultItemProps) => {
     const [searchParams] = useSearchParams();
 
     const cleanDescription = (html: string) => {
@@ -22,8 +23,13 @@ export const SearchResultItem = ({hit, isAiRanked = false}: SearchResultItemProp
     const [descExpanded, setDescExpanded] = useState(false);
     const [authorsExpanded, setAuthorsExpanded] = useState(false);
 
-    const handleRunDispatcher = () => {
-        // Open the dispatcher run page in a new tab with dataset info
+    const handleDataplayer = () => {
+        if (!isLoggedIn) {
+            // Gate the data player behind login, just like chat / AI mode
+            window.location.href = '/auth/login';
+            return;
+        }
+        // Open the dataplayer page in a new tab with dataset info
         const params = new URLSearchParams();
         params.set('datasetId', hit._id);
         if (hit.title) {
@@ -34,7 +40,7 @@ export const SearchResultItem = ({hit, isAiRanked = false}: SearchResultItemProp
         if (currentQuery) {
             params.set('q', currentQuery);
         }
-        window.open(`/dispatcher/run?${params.toString()}`, '_blank');
+        window.open(`/dataplayer?${params.toString()}`, '_blank', 'noopener,noreferrer');
     };
 
     const scorePercent = (hit.score || 0) * 100;
@@ -91,7 +97,7 @@ export const SearchResultItem = ({hit, isAiRanked = false}: SearchResultItemProp
                 </h3>
                 {isAiRanked && hit.score !== undefined && (
                     <div
-                        className="flex-shrink-0 flex items-center space-x-1 bg-yellow-50 px-2 py-1 rounded-full cursor-help"
+                        className="shrink-0 flex items-center space-x-1 bg-yellow-50 px-2 py-1 rounded-full cursor-help"
                         title="AI-powered relevance score: Ranked by LLM based on semantic understanding of your query. Scores range from 0% (low relevance) to 100% (high relevance)."
                     >
                         <ProportionalStar percent={scorePercent} className="h-4 w-4"/>
@@ -102,7 +108,7 @@ export const SearchResultItem = ({hit, isAiRanked = false}: SearchResultItemProp
                 )}
                 {!isAiRanked && typeof hit._score === 'number' && !Number.isNaN(hit._score) && (
                     <div
-                        className="flex-shrink-0 flex items-center space-x-1 bg-blue-50 px-2 py-1 rounded-full cursor-help"
+                        className="shrink-0 flex items-center space-x-1 bg-blue-50 px-2 py-1 rounded-full cursor-help"
                         title="OpenSearch relevance score: Based on keyword matching and text analysis. Scores range from 0% (low match) to 100% (high match)."
                     >
                         <ProportionalStar percent={(hit._score || 0) * 100} className="h-4 w-4" color="#005EB8"/>
@@ -132,7 +138,7 @@ export const SearchResultItem = ({hit, isAiRanked = false}: SearchResultItemProp
             <div className="space-y-2 mb-4">
                 {creators.length > 0 && (
                     <div className="flex items-start space-x-2">
-                        <UserIcon className="h-4 w-4 text-gray-500 flex-shrink-0 mt-0.5"/>
+                        <UserIcon className="h-4 w-4 text-gray-500 shrink-0 mt-0.5"/>
                         <div>
                             <span className="text-sm text-gray-600">
                                 {visibleCreators.map(c => c.creatorName).join(', ')}
@@ -155,7 +161,7 @@ export const SearchResultItem = ({hit, isAiRanked = false}: SearchResultItemProp
 
                 {publicationDate && (
                     <div className="flex items-center space-x-2">
-                        <CalendarIcon className="h-4 w-4 text-gray-500 flex-shrink-0"/>
+                        <CalendarIcon className="h-4 w-4 text-gray-500 shrink-0"/>
                         <span className="text-sm text-gray-600">
                             {formatDate(publicationDate)}
                         </span>
@@ -164,7 +170,7 @@ export const SearchResultItem = ({hit, isAiRanked = false}: SearchResultItemProp
 
                 {hit._source.subjects && hit._source.subjects.length > 0 && (
                     <div className="flex items-start space-x-2">
-                        <TagIcon className="h-4 w-4 text-gray-500 flex-shrink-0 mt-0.5"/>
+                        <TagIcon className="h-4 w-4 text-gray-500 shrink-0 mt-0.5"/>
                         <div className="flex flex-wrap gap-1">
                             {hit._source.subjects.slice(0, 5).map((subj, index) => (
                                 <span key={index}
@@ -185,18 +191,26 @@ export const SearchResultItem = ({hit, isAiRanked = false}: SearchResultItemProp
             <div
                 className="flex flex-col sm:flex-row items-center justify-between pt-4 border-t border-gray-100 gap-4 sm:gap-0">
                 <div className="flex space-x-4">
-                    <button
-                        onClick={handleRunDispatcher}
-                        aria-label={`Run dispatcher for ${hit.title}`}
-                        className="inline-flex items-center justify-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-colors cursor-pointer">
-                        <Rocket className="h-4 w-4"/>
-                        <span className="leading-none">Run</span>
-                    </button>
+                    <div className="relative group flex items-center">
+                        <button
+                            onClick={handleDataplayer}
+                            aria-label={isLoggedIn ? `View dataset for ${hit.title}` : `Sign in to use the data player for ${hit.title}`}
+                            className={`inline-flex items-center justify-center gap-1 rounded-md bg-green-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 transition-colors cursor-pointer ${!isLoggedIn ? 'opacity-60' : ''}`}>
+                            <Rocket className="h-4 w-4"/>
+                            <span className="leading-none">Play</span>
+                        </button>
+                        {!isLoggedIn && (
+                            <div
+                                className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                                Sign in to use the data player
+                            </div>
+                        )}
+                    </div>
                     <a href={hit._id} target="_blank" rel="noopener noreferrer"
-                       aria-label={`View dataset ${hit.title}`}
-                       className="inline-flex items-center justify-center gap-1 rounded-md bg-green-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 transition-colors">
+                       aria-label={`Redirect to the source of dataset ${hit.title}`}
+                       className="inline-flex items-center justify-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-colors cursor-pointer">
                         <ExternalLinkIcon className="h-4 w-4"/>
-                        <span className="leading-none">View</span>
+                        <span className="leading-none">Source</span>
                     </a>
                     <CitationExport dataset={hit}/>
                 </div>
