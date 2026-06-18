@@ -1,7 +1,6 @@
 import {useState, useRef, useEffect} from 'react';
 import {UserInfo} from '@/types/user.ts';
 import {getUserInitials} from '@/lib/userUtils.ts';
-import {API_KEYS_ENABLED} from '@/lib/apiKeys.ts';
 
 interface UserMenuProps {
     user: UserInfo;
@@ -54,7 +53,7 @@ export const UserMenu = ({user, onLogout, onProfile}: UserMenuProps) => {
                         </p>
                     </div>
                     <div className="py-1">
-                        {API_KEYS_ENABLED && onProfile && (
+                        {onProfile && (
                             <button
                                 onClick={() => {
                                     setIsOpen(false);

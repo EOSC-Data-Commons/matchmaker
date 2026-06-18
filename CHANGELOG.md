@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.3] - 2026-06-19
+
+- Added a user profile page at `/profile` for managing per-user API keys, stored in the EGI Secret Store and reached
+  through the cookie-authenticated `/auth/keys` API. Keys can be set, replaced, revealed, and removed, with per-key
+  configured status. Surfaced via an "API Keys" entry in the user menu.
+- Fixed the Sandbox file list to show "Unknown size" instead of "0 B" for files with no reported size, and to hide the
+  preview action for those files.
+
 ## [0.8.2] - 2026-06-18
 
 - Fixed the production server failing to start in the container (`ERR_MODULE_NOT_FOUND` for the gRPC client): the server
@@ -182,6 +190,7 @@ All notable changes to this project will be documented in this file.
 - Improved changelog update check workflow in CI.
 
 ## [0.1.0] - 17-10-2025
+
 - Improved search experience with keyboard navigation and history dropdown.
 - Dismissed disclaimers now stay hidden for your session.
 - Updated landing page subtitle for clarity.

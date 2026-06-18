@@ -8,10 +8,6 @@ import {fetchWithTimeout, logError} from './utils.ts';
 const KEYS_API_URL = '/auth/keys';
 const REQUEST_TIMEOUT_MS = 15000;
 
-// Feature flag: gates the entry point in the UI. Mirrors the `VITE_SHOW_MODEL_SELECTOR`
-// pattern in `SearchInput.tsx`.
-export const API_KEYS_ENABLED = import.meta.env.VITE_ENABLE_API_KEYS === 'true';
-
 export interface ApiKeyMeta {
     id: string;
     label: string;
