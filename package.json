@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx server.ts",
     "clean": "rm -rf build",
-    "build": "npm run clean && react-router build && tsc -p tsconfig.node.json --outDir build",
+    "build": "npm run clean && react-router build && esbuild server.ts --bundle --platform=node --format=esm --outfile=build/server.js --packages=external",
     "start": "NODE_ENV=production node build/server.js",
     "prod": "NODE_ENV=production pm2-runtime start build/server.js --name matchmaker -i max",
     "stop": "pm2 stop matchmaker",
@@ -62,6 +62,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.0",
     "eslint-plugin-react-you-might-not-need-an-effect": "^0.10.1",
+    "esbuild": "^0.28.1",
     "globals": "^17.3.0",
     "grpc-tools": "^1.13.1",
     "tailwindcss": "^4.3.0",
