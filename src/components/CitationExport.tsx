@@ -2,6 +2,7 @@ import {useState, useCallback, useRef, useEffect} from 'react';
 import type {BackendDataset} from '../types/commons';
 import {generateBibTeX, generateRIS, generateCSLJSON, extractDOI, fetchDOICitation} from '../lib/citation';
 import {BookOpenIcon, ClipboardIcon, CheckIcon, DownloadIcon, Loader2Icon} from 'lucide-react';
+import useMatomo from '../hooks/useMatomo';
 
 interface CitationExportProps {
     dataset: BackendDataset;
@@ -29,6 +30,7 @@ export const CitationExport = ({dataset}: CitationExportProps) => {
     const [citation, setCitation] = useState<string>('');
     const [usingDOI, setUsingDOI] = useState(false);
     const panelRef = useRef<HTMLDivElement | null>(null);
+    const {trackEvent} = useMatomo();
 
 
     const closeOnOutside = useCallback((e: MouseEvent) => {
@@ -78,6 +80,7 @@ export const CitationExport = ({dataset}: CitationExportProps) => {
     const handleCopy = async () => {
         try {
             await navigator.clipboard.writeText(citation);
+            trackEvent('Citation', 'copied', format);
             setCopied(true);
             setTimeout(() => setCopied(false), 1500);
         } catch (err) {
@@ -88,6 +91,7 @@ export const CitationExport = ({dataset}: CitationExportProps) => {
     };
 
     const handleDownload = () => {
+        trackEvent('Citation', 'downloaded', format);
         const {ext, mime} = LABELS[format];
         const blob = new Blob([citation], {type: `${mime};charset=utf-8`});
         const a = document.createElement('a');
@@ -104,7 +108,11 @@ export const CitationExport = ({dataset}: CitationExportProps) => {
         <div className="relative" ref={panelRef}>
             <button
                 type="button"
-                onClick={() => setOpen(o => !o)}
+                onClick={() => {
+                    const next = !open;
+                    setOpen(next);
+                    if (next) trackEvent('Citation', 'opened', dataset.title);
+                }}
                 aria-haspopup="true"
                 aria-expanded={open}
                 className="inline-flex items-center justify-center gap-1 rounded-md bg-gray-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-gray-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-600 transition-colors cursor-pointer"

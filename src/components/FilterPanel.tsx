@@ -1,5 +1,6 @@
 import {FilterSection} from "./FilterSection.tsx";
 import type {Aggregations} from "../types/commons";
+import useMatomo from "../hooks/useMatomo";
 
 
 interface FilterPanelProps {
@@ -9,18 +10,20 @@ interface FilterPanelProps {
 }
 
 export const FilterPanel = ({aggregations, onFilterChange, activeFilters}: FilterPanelProps) => {
+    const {trackEvent} = useMatomo();
+
     if (!aggregations) return null;
 
     const handleFilter = (key: string, value: string) => {
         const currentValues = activeFilters.getAll(key);
+        const isRemoving = currentValues.includes(value);
+        trackEvent('Filter', isRemoving ? 'removed' : 'applied', `${key}:${value}`);
         const newParams = new URLSearchParams(activeFilters);
 
-        if (currentValues.includes(value)) {
-            // Unchecking - remove this value
+        if (isRemoving) {
             newParams.delete(key);
             currentValues.filter(v => v !== value).forEach(v => newParams.append(key, v));
         } else {
-            // Checking - add this value
             newParams.append(key, value);
         }
 

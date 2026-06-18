@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.1] - 2026-06-18
+
+- Added Matomo custom event tracking for key user actions: search submissions, AI mode toggles, dataset play/source
+  clicks, citation open/copy/download, and filter apply/remove.
+- Added a "Were these results helpful?" thumbs-up/down feedback widget to the search results page, submitting responses
+  as Matomo events.
+
 ## [0.8.0] - 2026-06-18
 
 - Rebuilt the Data Sandbox (data player) end-to-end: launch analysis tools and VREs against a dataset through the gRPC

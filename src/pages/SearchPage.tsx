@@ -15,6 +15,7 @@ import {useFilteredDatasets} from "../hooks/useFilteredDatasets.ts";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 import {RateLimitError, ServerError} from "../lib/api.ts";
 import {useAuth} from "@/hooks/useAuth.ts";
+import {SearchFeedback} from "../components/SearchFeedback.tsx";
 
 export const SearchPage = () => {
     const navigate = useNavigate();
@@ -295,6 +296,7 @@ export const SearchPage = () => {
                                                     )}
                                                 </div>
                                             )}
+                                        <SearchFeedback key={query} query={query}/>
                                     </>
                                 )
                             )}
