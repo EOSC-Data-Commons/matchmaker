@@ -49,8 +49,6 @@ import { UserInfo } from "@/hooks/useAuth.ts";
 const GRPC_TARGET =
   process.env.GRPC_TARGET ?? "grpc.eosc-coordinator.ethz.ch:443";
 
-console.warn(GRPC_TARGET);
-
 // tls, used when coordinator is not with matchmaker in same private network.
 // creds,
 const creds = grpc.credentials.createSsl();
@@ -296,8 +294,8 @@ export async function fetchDatasetFilesFromDatahuggerByUrl(
 export async function launchTool(
     userInfo: UserInfo,
     toolId: string,
-    dataset_url: string,
-    dataset_title: string,
+    datasetUrl: string,
+    datasetTitle: string,
     slotMapping: Record<string, TypedValue>,
     files: Record<string, FileEntry>,
     token: string,
@@ -317,8 +315,8 @@ export async function launchTool(
     }
 
     const hdataset: DatasetHandle = {
-        url: dataset_url,
-        title: dataset_title,
+        url: datasetUrl,
+        title: datasetTitle,
         description: "", // XXX: (jyu) not yet passing the description from search result to dataplayer
     };
     const request: LaunchToolRequest = {
@@ -328,8 +326,6 @@ export async function launchTool(
         slotsMapping: msgSlotsMapping,
         files,
     };
-
-    console.warn(request);
 
     return new Promise((resolve, reject) => {
         client.launchTool(request, metadata, (error, response) => {

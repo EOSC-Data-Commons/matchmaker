@@ -76,16 +76,16 @@ export async function searchToolsByText(text: string): Promise<Record<string, To
 export async function startLaunchTask(
     userInfo: UserInfo,
     toolId: string,
-    dataset_url: string,
-    dataset_title: string,
+    datasetUrl: string,
+    datasetTitle: string,
     slotMapping: Record<string, TypedValue>,
     files: Record<string, FileMeta>,
 ): Promise<TaskId> {
     const payload: TypLaunchToolRequest = {
         userInfo,
         toolId,
-        dataset_url,
-        dataset_title,
+        datasetUrl,
+        datasetTitle,
         slotMapping,
         files,
     };

@@ -42,8 +42,8 @@ export function useTaskLauncher() {
 
     const launch = async (
         toolId: string,
-        dataset_url: string,
-        dataset_title: string,
+        datasetUrl: string,
+        datasetTitle: string,
         value_mapping: Record<string, TypedValue>,
         files: Record<string, FileMeta>,
         callbacks: {
@@ -55,7 +55,7 @@ export function useTaskLauncher() {
         try {
             esRef.current?.close();
 
-            const id = await startLaunchTask(userInfo, toolId, dataset_url, dataset_title, value_mapping, files);
+            const id = await startLaunchTask(userInfo, toolId, datasetUrl, datasetTitle, value_mapping, files);
             setTaskId(id);
 
             const es = taskStatusAsEventSource(id);

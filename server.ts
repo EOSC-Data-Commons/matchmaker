@@ -122,8 +122,8 @@ app.post("/api/coordinator/start-task", async (req, res) => {
     const {
         userInfo,
         toolId,
-        dataset_url,
-        dataset_title,
+        datasetUrl,
+        datasetTitle,
         slotMapping,
         files,
     } = req.body as TypLaunchToolRequest;
@@ -140,8 +140,8 @@ app.post("/api/coordinator/start-task", async (req, res) => {
         const taskId = await launchTool(
             userInfo,
             toolId,
-            dataset_url,
-            dataset_title,
+            datasetUrl,
+            datasetTitle,
             slotMapping,
             file_entries,
             raw_token,

@@ -57,8 +57,8 @@ export interface DispatchResult {
 export type TypLaunchToolRequest = {
     userInfo: UserInfo;
     toolId: string;
-    dataset_url: string;
-    dataset_title: string;
+    datasetUrl: string;
+    datasetTitle: string;
     slotMapping: Record<string, TypedValue>,
     files: Record<string, FileMeta>,
 };
