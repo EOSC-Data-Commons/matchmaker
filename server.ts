@@ -120,14 +120,16 @@ app.post("/api/coordinator/start-task", async (req, res) => {
     //
     // XXX: @reggie can I assume the unique id of tool in the tool registry is a valid UUID?
     const {
+        userInfo,
         toolId,
-        dataset,
+        dataset_url,
+        dataset_title,
         slotMapping,
         files,
     } = req.body as TypLaunchToolRequest;
 
     try {
-        const token = getEgiToken(req);
+        const raw_token = getEgiToken(req);
 
         // console.warn(toolId);
         // console.warn("server", slotToValueMapping);
@@ -136,11 +138,13 @@ app.post("/api/coordinator/start-task", async (req, res) => {
             Object.entries(files).filter(([, file]) => !file.isDir).map(([key, file]) => [key, fileMetaToFileEntry(file)])
         );
         const taskId = await launchTool(
+            userInfo,
             toolId,
-            dataset,
+            dataset_url,
+            dataset_title,
             slotMapping,
             file_entries,
-            token,
+            raw_token,
         );
 
         if (!taskId) {

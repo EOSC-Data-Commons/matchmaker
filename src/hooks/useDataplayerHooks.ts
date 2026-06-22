@@ -9,6 +9,7 @@ import {
     startLaunchTask,
     taskStatusAsEventSource
 } from '@/lib/coordinatorApi';
+import { useAuth } from './useAuth';
 
 export function buildSlotToFileMapping(
     mapping: Record<string, number>,
@@ -37,10 +38,12 @@ export function useTaskLauncher() {
             esRef.current?.close(); // cleanup on unmount
         };
     }, []);
+    const { user: userInfo } = useAuth();
 
     const launch = async (
         toolId: string,
-        dataset: string,
+        dataset_url: string,
+        dataset_title: string,
         value_mapping: Record<string, TypedValue>,
         files: Record<string, FileMeta>,
         callbacks: {
@@ -52,7 +55,7 @@ export function useTaskLauncher() {
         try {
             esRef.current?.close();
 
-            const id = await startLaunchTask(toolId, dataset, value_mapping, files);
+            const id = await startLaunchTask(userInfo, toolId, dataset_url, dataset_title, value_mapping, files);
             setTaskId(id);
 
             const es = taskStatusAsEventSource(id);

@@ -1,3 +1,5 @@
+import { UserInfo } from "@/hooks/useAuth";
+
 export type ToolTyp = 
     | "FilesOnly"
     | "SlotsOnly"
@@ -53,8 +55,10 @@ export interface DispatchResult {
 }
 
 export type TypLaunchToolRequest = {
+    userInfo: UserInfo;
     toolId: string;
-    dataset: string;
+    dataset_url: string;
+    dataset_title: string;
     slotMapping: Record<string, TypedValue>,
     files: Record<string, FileMeta>,
 };
