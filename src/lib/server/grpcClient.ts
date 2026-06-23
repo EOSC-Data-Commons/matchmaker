@@ -30,6 +30,7 @@ import {
     TypedValue as GrpcTypedValue,
     ToolMeta_ToolKind,
     DatasetHandle,
+    UserInfo as GrpcUserInfo,
 } from "./generated/coordinator";
 
 // re-export so it can be access from server.rs
@@ -319,8 +320,17 @@ export async function launchTool(
         title: datasetTitle,
         description: "", // XXX: (jyu) not yet passing the description from search result to dataplayer
     };
+    // Map the frontend UserInfo to the gRPC shape explicitly: the proto uses
+    // `preferredUsername` while the frontend type uses `preferred_username`, so
+    // passing the object through would silently drop that field on the wire.
+    const requestUser: GrpcUserInfo = {
+        sub: userInfo.sub,
+        email: userInfo.email,
+        name: userInfo.name,
+        preferredUsername: userInfo.preferred_username,
+    };
     const request: LaunchToolRequest = {
-        userInfo,
+        userInfo: requestUser,
         toolId,
         dataset: hdataset,
         slotsMapping: msgSlotsMapping,
