@@ -32,7 +32,7 @@ export const DataplayerPage = () => {
     const [searchParams] = useSearchParams();
 
     const datasetTitle = searchParams.get('title');
-    const datasetHandle = searchParams.get('datasetId');
+    const datasetUrl = searchParams.get('datasetId');
     const navigate = useNavigate();
 
     // Step management
@@ -45,7 +45,7 @@ export const DataplayerPage = () => {
     const [valueParametersMapping, setValueParametersMapping] = useState<Record<string, TypedValue>>({});
     const [filesError, setFilesError] = useState<string | null>(null);
 
-    const {isFilesLoading, files, error, resetDataset} = useDataset(datasetHandle);
+    const {isFilesLoading, files, error, resetDataset} = useDataset(datasetUrl);
     const [isAdding, setIsAdding] = useState(false);
     const [fileGroups, setFileGroups] = useState<FileMeta[][]>([]);
 
@@ -156,7 +156,7 @@ export const DataplayerPage = () => {
                     Object.values(filesMapping).map(([fileMeta, key]) => [key, fileMeta])
                 );
 
-            await launch(selectedToolId, datasetHandle, slotToValueMapping, files, {
+            await launch(selectedToolId, datasetUrl, datasetTitle, slotToValueMapping, files, {
                 onState: (data) => {
                     setStatusMessage(data.message);
                     setStatusType(data.state);

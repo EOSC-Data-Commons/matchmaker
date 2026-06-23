@@ -29,6 +29,8 @@ import {
     ToolServiceClient,
     TypedValue as GrpcTypedValue,
     ToolMeta_ToolKind,
+    DatasetHandle,
+    UserInfo as GrpcUserInfo,
 } from "./generated/coordinator";
 
 // re-export so it can be access from server.rs
@@ -43,11 +45,10 @@ export {
 } from "./generated/coordinator";
 
 import type {FileMeta, InputParameterTyp, ToolSlot, TypedValue, ToolTyp} from "../../types/dataplayerTypes.ts";
+import { UserInfo } from "@/hooks/useAuth.ts";
 
 const GRPC_TARGET =
   process.env.GRPC_TARGET ?? "grpc.eosc-coordinator.ethz.ch:443";
-
-console.warn(GRPC_TARGET);
 
 // tls, used when coordinator is not with matchmaker in same private network.
 // creds,
@@ -292,8 +293,10 @@ export async function fetchDatasetFilesFromDatahuggerByUrl(
 // data player service
 // TODO: string as id is not a good type, use TaskId and ToolId to distinguish them can be more clear.
 export async function launchTool(
+    userInfo: UserInfo,
     toolId: string,
-    dataset: string,
+    datasetUrl: string,
+    datasetTitle: string,
     slotMapping: Record<string, TypedValue>,
     files: Record<string, FileEntry>,
     token: string,
@@ -312,12 +315,27 @@ export async function launchTool(
         msgSlotsMapping[k] = valueToGrpcValue(slotMapping[k]);
     }
 
+    const hdataset: DatasetHandle = {
+        url: datasetUrl,
+        title: datasetTitle,
+        description: "", // XXX: (jyu) not yet passing the description from search result to dataplayer
+    };
+    // Map the frontend UserInfo to the gRPC shape explicitly: the proto uses
+    // `preferredUsername` while the frontend type uses `preferred_username`, so
+    // passing the object through would silently drop that field on the wire.
+    const requestUser: GrpcUserInfo = {
+        sub: userInfo.sub,
+        email: userInfo.email,
+        name: userInfo.name,
+        preferredUsername: userInfo.preferred_username,
+    };
     const request: LaunchToolRequest = {
+        userInfo: requestUser,
         toolId,
-        dataset,
+        dataset: hdataset,
         slotsMapping: msgSlotsMapping,
         files,
-    }
+    };
 
     return new Promise((resolve, reject) => {
         client.launchTool(request, metadata, (error, response) => {

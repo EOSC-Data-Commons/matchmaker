@@ -1,5 +1,6 @@
 // This file serve the purpose to hide the grpc calls in a wrapped typed function for frontend to call
 
+import { UserInfo } from "@/hooks/useAuth";
 import {DispatchResult, FileMeta, TaskId, ToolConfig, TypedValue, TypLaunchToolRequest} from "../types/dataplayerTypes";
 
 export async function matchToolsByFiles(
@@ -73,18 +74,21 @@ export async function searchToolsByText(text: string): Promise<Record<string, To
 }
 
 export async function startLaunchTask(
+    userInfo: UserInfo,
     toolId: string,
-    dataset: string,
+    datasetUrl: string,
+    datasetTitle: string,
     slotMapping: Record<string, TypedValue>,
     files: Record<string, FileMeta>,
 ): Promise<TaskId> {
     const payload: TypLaunchToolRequest = {
+        userInfo,
         toolId,
-        dataset,
+        datasetUrl,
+        datasetTitle,
         slotMapping,
         files,
     };
-    console.warn(payload);
     const res = await fetch("/api/coordinator/start-task", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
