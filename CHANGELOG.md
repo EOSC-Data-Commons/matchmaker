@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.4] - 2026-06-23
+
+- Data Sandbox tool/VRE launches now pass richer context to the coordinator
+
 ## [0.8.3] - 2026-06-19
 
 - Added a user profile page at `/profile` for managing per-user API keys, stored in the EGI Secret Store and reached
