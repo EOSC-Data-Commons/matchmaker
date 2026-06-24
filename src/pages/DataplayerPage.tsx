@@ -1,6 +1,9 @@
 import {useMemo, useState} from 'react';
 import {useSearchParams, useNavigate} from 'react-router';
+import {User} from 'lucide-react';
 import {Footer} from '../components/Footer';
+import {useAuth} from '@/hooks/useAuth.ts';
+import {loginWithReturn} from '@/lib/authRedirect.ts';
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 import {DispatchResult, FileMeta, TaskState, TaskStatus, TypedValue} from '@/types/dataplayerTypes';
 import {fetchFilesMetaByDatasetHandle} from '@/lib/coordinatorApi';
@@ -35,6 +38,8 @@ export const DataplayerPage = () => {
     const datasetUrl = searchParams.get('datasetId');
     const navigate = useNavigate();
 
+    const {user, loading: userLoading} = useAuth();
+
     // Step management
     const [currentStep, setCurrentStep] = useState<StepType>('select-analysis');
     // tool uuid
@@ -45,7 +50,8 @@ export const DataplayerPage = () => {
     const [valueParametersMapping, setValueParametersMapping] = useState<Record<string, TypedValue>>({});
     const [filesError, setFilesError] = useState<string | null>(null);
 
-    const {isFilesLoading, files, error, resetDataset} = useDataset(datasetUrl);
+    const isAuthenticated = !userLoading && !!user;
+    const {isFilesLoading, files, error, resetDataset} = useDataset(datasetUrl, isAuthenticated);
     const [isAdding, setIsAdding] = useState(false);
     const [fileGroups, setFileGroups] = useState<FileMeta[][]>([]);
 
@@ -194,6 +200,36 @@ export const DataplayerPage = () => {
 
     return (
         <div className="min-h-screen flex flex-col bg-eosc-bg font-light items-center">
+            {!userLoading && !user && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div
+                        className="bg-white rounded-xl shadow-xl max-w-md w-full p-8 text-center border border-gray-100">
+                        <div
+                            className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-sm">
+                            <User className="h-8 w-8"/>
+                        </div>
+                        <h2 className="text-2xl font-semibold text-gray-900 mb-3">Authentication Required</h2>
+                        <p className="text-gray-600 mb-8 leading-relaxed">
+                            Please log in to your account to load this dataset's files and run analysis tools in the
+                            Data Sandbox.
+                        </p>
+                        <div className="flex flex-col gap-3">
+                            <button
+                                onClick={loginWithReturn}
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors shadow-sm cursor-pointer"
+                            >
+                                Log In to Continue
+                            </button>
+                            <button
+                                onClick={() => navigate('/')}
+                                className="w-full bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 font-medium py-3 px-4 rounded-lg transition-colors cursor-pointer"
+                            >
+                                Return to Home
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             <header
                 className="w-full bg-white flex justify-between items-center p-4 sm:p-6 border-b border-eosc-border shrink-0">
                 <img src={dataCommonsIconBlue} alt="EOSC" className="w-16 h-9 cursor-pointer"

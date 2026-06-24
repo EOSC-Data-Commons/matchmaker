@@ -15,6 +15,7 @@ import {
     User,
 } from "lucide-react";
 import {useAuth} from "@/hooks/useAuth.ts";
+import {loginWithReturn} from "@/lib/authRedirect.ts";
 import {useApiKeys} from "@/hooks/useApiKeys.ts";
 import {API_KEYS, type ApiKeyMeta} from "@/lib/apiKeys.ts";
 import {getUserErrorMessage} from "@/lib/utils.ts";
@@ -250,7 +251,7 @@ export const ProfilePage = () => {
                         </p>
                         <div className="flex flex-col gap-3">
                             <button
-                                onClick={() => window.location.href = '/auth/login'}
+                                onClick={loginWithReturn}
                                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors shadow-sm cursor-pointer"
                             >
                                 Log In to Continue

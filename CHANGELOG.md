@@ -2,11 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.8.4] - 2026-06-23
+## [0.8.5] - 24/06/2026
+
+- Fixed the Data Sandbox showing a usable page with misleading "failed to fetch files" / "no tools found" errors when
+  opened while logged out (e.g. via a shared dataset link)
+- Added return-to-page after login: signing in from a gated page (Sandbox, chat, or profile) now returns the user to
+  the page they came from instead of dropping them on the landing page.
+
+## [0.8.4] - 23/06/2026
 
 - Data Sandbox tool/VRE launches now pass richer context to the coordinator
 
-## [0.8.3] - 2026-06-19
+## [0.8.3] - 19/06/2026
 
 - Added a user profile page at `/profile` for managing per-user API keys, stored in the EGI Secret Store and reached
   through the cookie-authenticated `/auth/keys` API. Keys can be set, replaced, revealed, and removed, with per-key
@@ -14,20 +21,20 @@ All notable changes to this project will be documented in this file.
 - Fixed the Sandbox file list to show "Unknown size" instead of "0 B" for files with no reported size, and to hide the
   preview action for those files.
 
-## [0.8.2] - 2026-06-18
+## [0.8.2] - 18/06/2026
 
 - Fixed the production server failing to start in the container (`ERR_MODULE_NOT_FOUND` for the gRPC client): the server
   entry is now bundled with `esbuild` into a single self-contained `build/server.js` instead of being emitted by `tsc`,
   which left native-ESM relative imports without the required `.js` extensions. Added `esbuild` as a dev dependency.
 
-## [0.8.1] - 2026-06-18
+## [0.8.1] - 18/06/2026
 
 - Added Matomo custom event tracking for key user actions: search submissions, AI mode toggles, dataset play/source
   clicks, citation open/copy/download, and filter apply/remove.
 - Added a "Were these results helpful?" thumbs-up/down feedback widget to the search results page, submitting responses
   as Matomo events.
 
-## [0.8.0] - 2026-06-18
+## [0.8.0] - 18/06/2026
 
 - Rebuilt the Data Sandbox (data player) end-to-end: launch analysis tools and VREs against a dataset through the gRPC
   coordinator, with tool-registry/matchmaker search, file mapping, value and free-text parameters, optional parameters
@@ -43,12 +50,12 @@ All notable changes to this project will be documented in this file.
 - Security: added SSRF protection for file previews via URL validation and redirect handling, and applied
   `noopener,noreferrer` to externally opened windows.
 
-## [0.7.4] - 2026-06-11
+## [0.7.4] - 11/06/2026
 
 - Added the EOSC Data Commons Privacy Policy page at `/privacy-policy`.
 - Added the EOSC Data Commons Services AUP page at `/acceptable-use-policy`.
 
-## [0.7.3] - 2026-06-08
+## [0.7.3] - 08/06/2026
 
 - Updated default model to `cesnet/qwen3-coder` across all entry points.
 - Improved chat message summary logic to avoid truncation.
@@ -61,13 +68,13 @@ All notable changes to this project will be documented in this file.
 - Security: updated `pm2` to 7.0.1 (resolves ReDoS) and overrode `ws` to `^8.21.0` (resolves uninitialized memory
   disclosure in pm2's bundled `ws`).
 
-## [0.7.2] - 2026-06-01
+## [0.7.2] - 01/06/2026
 
 - Added an option to delete a chat conversation in the ChatPage, with a confirmation prompt to prevent accidental
   deletions.
 - Refactored user initials logic into the shared `getUserInitials` utility and updated all usages for consistency
 
-## [0.7.0] - 2026-05-22
+## [0.7.0] - 22/05/2026
 
 - Enhanced `SearchInput` with an AI mode toggle (available to authenticated users), sign-in prompt for locked AI mode
 - Added ChatPage with chat-style interaction support, including message history
@@ -76,91 +83,91 @@ All notable changes to this project will be documented in this file.
 - Added `.npmrc` policy `in-release-age=3` to prefer package versions at least 3 days old, and documented this behavior
   in `README.md`.
 
-## [0.6.1 -> 0.6.4] - 2026-04 -> 2026-05
+## [0.6.1 -> 0.6.4] - 04/2026 -> 05/2026
 
 - Updated project dependencies and dev dependencies as maintenance updates.
 
-## [0.6.0] - 2026-03-17
+## [0.6.0] - 17/03/2026
 
 - Introduced user authentication with login/logout functionality and user profile menu.
 - Updated default search model to `einfracz/qwen3-coder` and added `einfracz/deepseek-v3.2-thinking`.
 - Improved error handling for search, including specific UI for rate limiting and server errors.
 
-## [0.5.3] - 2026-02-23
+## [0.5.3] - 23/02/2026
 
 - Updated deployment workflow to only run on `main` branch
 - Removed changelog and version bump check on every PR for `main` branch
 
-## [0.5.1] - 2026-02-23
+## [0.5.1] - 23/02/2026
 
 - Updated Docker build and deployment workflow to trigger on version tags and improve image tagging strategy.
 - Updated `docker-compose.yml` to use `npm run prod` for the frontend service.
 
-## [0.5.0] - 2026-02-12
+## [0.5.0] - 12/02/2026
 
 - Moved the project from Client Side Rendering (CSR) to Server Side Rendering (SSR) using React Router.
 
-## [0.4.2] - 2025-12-22
+## [0.4.2] - 22/12/2025
 
 - Enhanced search result score badges with informative tooltips
 
-## [0.4.1] - 2025-12-18
+## [0.4.1] - 18/12/2025
 
 - Refactored filter management: filter options now update dynamically based on currently selected filters for more
   accurate and responsive filtering
 
-## [0.4.0] - 2025-12-17
+## [0.4.0] - 17/12/2025
 
 - Added local filtering and aggregation utilities for faster, client-side dataset filtering
 - Refactored SearchPage to use new hooks and components, with filter state synced to URL
 
-## [0.3.10] - 2025-12-11
+## [0.3.10] - 11/12/2025
 
 - Updated react-dom and related libraries due to security vulnerabilities
   found. [See details](https://www.heise.de/en/news/Patch-Now-Critical-Malware-Vulnerability-Threatens-React-11102482.html)
 
-## [0.3.9] - 2025-12-05
+## [0.3.9] - 05/12/2025
 
 - Integrated DOI.org API for citation fetching: citations are now retrieved from official DOI metadata when available,
   with local fallback
 
-## [0.3.8] - 2025-12-03
+## [0.3.8] - 03/12/2025
 
 - Updated Dispatcher API endpoint: switched from dev3 to dev1.
 
-## [0.3.7] - 2025-12-01
+## [0.3.7] - 01/12/2025
 
 - Fixed the issue where the "AI is analyzing" message would persist when no search results were found.
 
-## [0.3.6] - 2025-11-28
+## [0.3.6] - 28/11/2025
 
 - Improved favicon handling: ensured favicon is copied to the correct output directory and referenced with a non-hashed
   path for consistent browser support (including Firefox and direct /favicon.ico access).
 
-## [0.3.5] - 2025-11-27
+## [0.3.5] - 27/11/2025
 
 - Fixed favicon not displaying across all browsers and platforms
 
-## [0.3.4] - 2025-11-27
+## [0.3.4] - 27/11/2025
 
 - Minor UI enhancements and interaction improvements on the landing page.
 
-## [0.3.3] - 2025-11-26
+## [0.3.3] - 26/11/2025
 
 - Implemented a standardized timeout mechanism for all backend API calls to improve application reliability and provide
   clearer error messages when services are unresponsive.
 
-## [0.3.2] - 2025-11-25
+## [0.3.2] - 25/11/2025
 
 - Updated terminology throughout the application: replaced "analysis" references with "Virtual Research Environment (
   VRE)" to accurately reflect that the VRE is being prepared to run analyses, not running them directly.
 
-## [0.3.1] - 2025-11-24
+## [0.3.1] - 24/11/2025
 
 - Renamed repository to `EOSC-Data-Commons/matchmaker` and updated all in-app links, Docker image names, and
   documentation to use the new GitHub and GHCR locations.
 
-## [0.3.0] - 2025-11-24
+## [0.3.0] - 24/11/2025
 
 - Integrated EOSC Player Dispatcher, allowing users to run analyses on datasets directly from search results.
 - Added `RepoLogo` component to display repository logos in search results for better dataset origin identification.
@@ -169,7 +176,7 @@ All notable changes to this project will be documented in this file.
 - Fixed the homepage link in the footer to use HTTPS.
 - Added API functions, utility helpers, and proxy configuration for dispatcher integration.
 
-## [0.2.1] - 2025-11-13
+## [0.2.1] - 13/11/2025
 
 - Enhanced search results UI: descriptions and author lists are now expandable, and OpenSearch scores for non-AI-ranked
   results are shown with proportional stars and percentages.
@@ -178,7 +185,7 @@ All notable changes to this project will be documented in this file.
 - GitHub issue template configuration updated: blank issues are disabled, and a contact link to Discussions is added for
   questions/help.
 
-## [0.2.0] - 2025-11-07
+## [0.2.0] - 07/11/2025
 
 - Refactored backend search to support SSE streaming and improved error handling.
 - Added new search model `einfracz/gpt-oss-120b`.
@@ -186,14 +193,14 @@ All notable changes to this project will be documented in this file.
 - Enhanced dataset search result rendering for accuracy and consistency.
 - Upgraded dependencies, including Vite.
 
-## [0.1.1] - 03-11-2025
+## [0.1.1] - 03/11/2025
 
 - Added Matomo analytics tracking for page views and route changes.
 - Improved UI throughout the website for better responsiveness and visual clarity.
 - Upgraded Vite to version 7.1.12.
 - Improved changelog update check workflow in CI.
 
-## [0.1.0] - 17-10-2025
+## [0.1.0] - 17/10/2025
 
 - Improved search experience with keyboard navigation and history dropdown.
 - Dismissed disclaimers now stay hidden for your session.
