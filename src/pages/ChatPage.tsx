@@ -1,6 +1,7 @@
 import {FC, Fragment, JSX, useCallback, useEffect, useRef, useState} from "react";
 import {useLocation, useNavigate, useParams} from "react-router";
 import {useAuth} from "@/hooks/useAuth.ts";
+import {loginWithReturn} from "@/lib/authRedirect.ts";
 import {Conversation, Message} from "@/types/chat.ts";
 import {BackendDataset} from "@/types/commons.ts";
 import {sendChatMessage} from "@/lib/api.ts";
@@ -483,7 +484,7 @@ const ChatPage: FC = () => {
                         </p>
                         <div className="flex flex-col gap-3">
                             <button
-                                onClick={() => window.location.href = '/auth/login'}
+                                onClick={loginWithReturn}
                                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors shadow-sm cursor-pointer"
                             >
                                 Log In to Continue

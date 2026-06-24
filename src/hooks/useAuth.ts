@@ -1,5 +1,6 @@
 import {useState, useEffect} from 'react';
 import {UserInfo} from '@/types/user.ts';
+import {consumePostLoginRedirect} from '@/lib/authRedirect.ts';
 
 export type {UserInfo};
 
@@ -14,6 +15,14 @@ export function useAuth() {
                 if (response.ok) {
                     const userData = await response.json();
                     setUser(userData);
+
+                    // If the user just came back from an interactive login that
+                    // was triggered on another page, return them to it.
+                    const target = consumePostLoginRedirect();
+                    const current = window.location.pathname + window.location.search;
+                    if (target && target !== current) {
+                        window.location.replace(target);
+                    }
                 } else {
                     setUser(null);
                 }
