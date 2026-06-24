@@ -103,7 +103,7 @@ export const areAllParametersMapped = (
     return config.slots.filter((p) => !p.isOptional).every(param => valueMapped.has(param.name));
 };
 
-export function useDataset(datasetHandle: string | null) {
+export function useDataset(datasetHandle: string | null, enabled: boolean = true) {
     const [isFilesLoading, setIsFilesLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [files, setFiles] = useState<FileMeta[]>([]);
@@ -114,6 +114,11 @@ export function useDataset(datasetHandle: string | null) {
     };
 
     useEffect(() => {
+        // Wait until enabled (e.g. the user is authenticated) before hitting the
+        // coordinator API — otherwise the call fails and surfaces a misleading
+        // "failed to fetch files" error while the login prompt is shown.
+        if (!enabled) return;
+
         const load = async () => {
             if (!datasetHandle) {
                 setIsFilesLoading(false);
@@ -135,7 +140,7 @@ export function useDataset(datasetHandle: string | null) {
         };
 
         load();
-    }, [datasetHandle]);
+    }, [datasetHandle, enabled]);
 
     return {isFilesLoading, files, error, resetDataset};
 }
