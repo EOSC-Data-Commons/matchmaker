@@ -3,6 +3,7 @@ import {useSearchParams, useNavigate} from 'react-router';
 import {User} from 'lucide-react';
 import {Footer} from '../components/Footer';
 import {useAuth} from '@/hooks/useAuth.ts';
+import {loginWithReturn} from '@/lib/authRedirect.ts';
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 import {DispatchResult, FileMeta, TaskState, TaskStatus, TypedValue} from '@/types/dataplayerTypes';
 import {fetchFilesMetaByDatasetHandle} from '@/lib/coordinatorApi';
@@ -49,7 +50,8 @@ export const DataplayerPage = () => {
     const [valueParametersMapping, setValueParametersMapping] = useState<Record<string, TypedValue>>({});
     const [filesError, setFilesError] = useState<string | null>(null);
 
-    const {isFilesLoading, files, error, resetDataset} = useDataset(datasetUrl);
+    const isAuthenticated = !userLoading && !!user;
+    const {isFilesLoading, files, error, resetDataset} = useDataset(datasetUrl, isAuthenticated);
     const [isAdding, setIsAdding] = useState(false);
     const [fileGroups, setFileGroups] = useState<FileMeta[][]>([]);
 
@@ -213,7 +215,7 @@ export const DataplayerPage = () => {
                         </p>
                         <div className="flex flex-col gap-3">
                             <button
-                                onClick={() => window.location.href = '/auth/login'}
+                                onClick={loginWithReturn}
                                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors shadow-sm cursor-pointer"
                             >
                                 Log In to Continue
