@@ -6,6 +6,15 @@ import {DispatchResult, FileMeta, TaskId, ToolConfig, TypedValue, TypLaunchToolR
 export async function matchToolsByFiles(
     files: FileMeta[],
 ): Promise<Record<string, ToolConfig>> {
+    // NOTE: (jyu) if there are too many files, this will reach the payload size limit.
+    // We don't yet have good matching mechanism thus we don't know what to pass to the tool-registry. 
+    // This function need rework after there are viable matching mechanism from T5.3 Packaging hub
+    let files_pass: FileMeta[] = [];
+    if (files.length > 10) {
+        files_pass = files.slice(0, 10);
+    } else {
+        files_pass = files;
+    }
     const res = await fetch(`/api/coordinator/tool/match`, {
         method: "POST",
         headers: {
@@ -13,7 +22,7 @@ export async function matchToolsByFiles(
             "Accept": "application/json",
         },
         body: JSON.stringify({
-            files: files,
+            files: files_pass,
         }),
     });
 
