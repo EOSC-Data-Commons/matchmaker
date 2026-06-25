@@ -22,7 +22,7 @@ import {
     mapToolKindToTyp,
 } from "./src/lib/server/grpcClient";
 
-import type {FileMeta, TaskState, TaskStatus, ToolConfig, TypLaunchToolRequest} from "./src/types/dataplayerTypes";
+import type {ApiKeyEntry, ApiKeyListResponse, FileMeta, TaskState, TaskStatus, ToolConfig, TypLaunchToolRequest} from "./src/types/dataplayerTypes";
 
 // Constants
 const DEVELOPMENT = process.env.NODE_ENV !== "production";
@@ -130,10 +130,40 @@ app.post("/api/coordinator/start-task", async (req, res) => {
 
     try {
         const raw_token = getEgiToken(req);
+        const response = await fetch(`${SEARCH_API_URL}/auth/keys`, {
+            method: "GET",
+            headers: {
+                Authorization: `Bearer ${raw_token}`,
+                "Content-Type": "application/json",
+            },
+        });
 
-        // console.warn(toolId);
-        // console.warn("server", slotToValueMapping);
-        // console.warn("server", slotToFileMapping);
+        const data: ApiKeyListResponse = await response.json();
+        const keyIds = data.key_ids ?? [];
+
+        const keys: ApiKeyEntry[] = await Promise.all(
+            keyIds.map(async (id: string) => {
+                const res = await fetch(
+                    `${SEARCH_API_URL}/auth/keys/${encodeURIComponent(id)}`,
+                    {
+                        headers: {
+                            Authorization: `Bearer ${raw_token}`,
+                        },
+                    }
+                );
+
+                if (!res.ok) {
+                    throw new Error(`Failed to fetch key ${id}`);
+                }
+
+                const data = await res.json();
+                return {
+                    id,
+                    value: data.value ?? data.key_value,
+                };
+            })
+        );
+
         const file_entries = Object.fromEntries(
             Object.entries(files).filter(([, file]) => !file.isDir).map(([key, file]) => [key, fileMetaToFileEntry(file)])
         );
@@ -144,6 +174,7 @@ app.post("/api/coordinator/start-task", async (req, res) => {
             datasetTitle,
             slotMapping,
             file_entries,
+            keys,
             raw_token,
         );
 
