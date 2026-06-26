@@ -23,8 +23,8 @@ export function ToolSearchInput({
 
 // component: list all found tools
 export function ToolResultSelect({
-                                     isFilesLoading, results, handleToolSelect
-                                 }: {
+    isFilesLoading, results, handleToolSelect
+}: {
     isFilesLoading: boolean;
     results: Record<string, ToolConfig>;
     handleToolSelect: (key: string) => Promise<void>;
