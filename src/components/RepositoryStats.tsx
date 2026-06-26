@@ -19,7 +19,12 @@ const ACCENT_BLUE = "#009FE3";
 const MID_BLUE = "#3b7dd8";
 const GRAY = "#646363";
 
-const MAX_SUBJECTS = 8;
+// Floor for how many subjects to show; the actual count scales up to fill the
+// height of the repository chart (see subjectData) so the two columns stay
+// balanced as repositories are added.
+const MIN_SUBJECTS = 8;
+const REPO_ROW_HEIGHT = 48;
+const SUBJECT_ROW_HEIGHT = 36;
 
 const formatNumber = (n: number) => n.toLocaleString();
 
@@ -140,12 +145,23 @@ export const RepositoryStats = () => {
     const effectiveCode = selectedCode ?? activeRepos[0]?.code ?? null;
     const selectedRepo = activeRepos.find((r) => r.code === effectiveCode) ?? null;
 
+    // Height of the repository chart drives the layout; the subjects chart
+    // matches it so the right column fills the same vertical space.
+    const repoChartHeight = Math.max(repoData.length * REPO_ROW_HEIGHT, 240);
+
     const subjectData: SubjectBarDatum[] = useMemo(() => {
         if (!selectedRepo) return [];
+        // Show as many subjects as fit the repo chart's height, but never fewer
+        // than MIN_SUBJECTS and never more than the API actually returns.
+        const fitCount = Math.round(repoChartHeight / SUBJECT_ROW_HEIGHT);
+        const maxSubjects = Math.min(
+            selectedRepo.top_subjects.length,
+            Math.max(fitCount, MIN_SUBJECTS)
+        );
         return selectedRepo.top_subjects
-            .slice(0, MAX_SUBJECTS)
+            .slice(0, maxSubjects)
             .map((s) => ({subject: s.subject, count: s.count}));
-    }, [selectedRepo]);
+    }, [selectedRepo, repoChartHeight]);
 
     if (loading) {
         return (
@@ -192,7 +208,7 @@ export const RepositoryStats = () => {
                     <p className="text-xs font-light text-[#646363] mb-4">
                         Select a repository to explore its top subjects
                     </p>
-                    <ResponsiveContainer width="100%" height={Math.max(repoData.length * 48, 240)}>
+                    <ResponsiveContainer width="100%" height={repoChartHeight}>
                         <BarChart
                             layout="vertical"
                             data={repoData}
@@ -203,7 +219,7 @@ export const RepositoryStats = () => {
                             <YAxis
                                 type="category"
                                 dataKey="code"
-                                width={70}
+                                width={96}
                                 tick={<ClickableTick selectedCode={effectiveCode} onSelect={setSelectedCode}/>}
                                 axisLine={false}
                                 tickLine={false}
@@ -244,7 +260,8 @@ export const RepositoryStats = () => {
                         {selectedRepo?.name ?? ""}
                     </p>
                     {subjectData.length > 0 ? (
-                        <ResponsiveContainer width="100%" height={Math.max(subjectData.length * 36, 240)}>
+                        <ResponsiveContainer width="100%"
+                                             height={Math.max(subjectData.length * SUBJECT_ROW_HEIGHT, 240)}>
                             <BarChart
                                 layout="vertical"
                                 data={subjectData}
