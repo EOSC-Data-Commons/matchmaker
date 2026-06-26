@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.6] - 26/06/2026
+
+- Fixed a bug where starting a new chat from the landing page did not update the conversation sidebar or chat title
+  until a hard refresh.
+- Capped the number of files sent to the tool-registry match API at 10 and added a warning log when the list is
+  truncated, preventing oversized payloads.
+
 ## [0.8.5] - 24/06/2026
 
 - Fixed the Data Sandbox showing a usable page with misleading "failed to fetch files" / "no tools found" errors when
