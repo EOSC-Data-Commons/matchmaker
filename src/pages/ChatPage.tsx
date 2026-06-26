@@ -92,6 +92,12 @@ const ChatPage: FC = () => {
         }
     }, [user?.sub]);
 
+    // Keep a ref to the latest fetchConversations so async flows (e.g. a chat
+    // started from the landing page before `user` has loaded) refresh the
+    // sidebar using the current closure instead of a stale one.
+    const fetchConversationsRef = useRef(fetchConversations);
+    fetchConversationsRef.current = fetchConversations;
+
     useEffect(() => {
         fetchConversations();
     }, [fetchConversations]);
@@ -361,7 +367,7 @@ const ChatPage: FC = () => {
             console.error("Failed to send message", e);
             setIsSending(false);
         } finally {
-            fetchConversations();
+            fetchConversationsRef.current();
         }
     };
 
