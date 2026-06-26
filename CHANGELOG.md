@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.7] - 26/06/2026
+
+- Added updated more in-depth stats on the landing page.
+
 ## [0.8.6] - 26/06/2026
 
 - Fixed a bug where starting a new chat from the landing page did not update the conversation sidebar or chat title
