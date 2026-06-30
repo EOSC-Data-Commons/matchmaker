@@ -13,7 +13,7 @@ import {useSearchResults} from "../hooks/useSearchResults.ts";
 import {useCombinedDatasets} from "../hooks/useCombinedDatasets.ts";
 import {useFilteredDatasets} from "../hooks/useFilteredDatasets.ts";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
-import {RateLimitError, ServerError} from "../lib/api.ts";
+import {RateLimitError, ServerError, NoResultsError} from "../lib/api.ts";
 import {useAuth} from "@/hooks/useAuth.ts";
 import {SearchFeedback} from "../components/SearchFeedback.tsx";
 
@@ -87,6 +87,11 @@ export const SearchPage = () => {
     const hasInitialResults = initialResults !== null;
     const isRateLimit = error instanceof RateLimitError;
     const isServerError = error instanceof ServerError;
+    // An empty result set is not a failure — show the friendly no-results view,
+    // not the red error panel.
+    const isNoResults = error instanceof NoResultsError;
+    // "Real" errors that warrant the red error panel (rate limit, server, run error).
+    const hasError = !!error && !isNoResults;
 
     // Helper to determine error UI properties
     const getErrorState = () => {
@@ -133,7 +138,7 @@ export const SearchPage = () => {
 
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {/* Summary - show reranked summary if available */}
-                {!loading && !error && hasRerankedResults && rerankedResults.summary && (
+                {!loading && !hasError && hasRerankedResults && rerankedResults.summary && (
                     <div className="mb-6 p-4 bg-white rounded-lg shadow-sm border border-blue-200">
                         <h3 className="text-lg font-semibold text-gray-900 mb-2">AI-Generated Summary</h3>
                         <p className="text-gray-700">{rerankedResults.summary}</p>
@@ -142,7 +147,7 @@ export const SearchPage = () => {
 
                 <div className="flex flex-col lg:flex-row gap-8">
                     {/* Filter Panel - Only show when AI results are ready */}
-                    {!loading && !error && hasRerankedResults && Object.keys(aggregations).length > 0 && (
+                    {!loading && !hasError && hasRerankedResults && Object.keys(aggregations).length > 0 && (
                         <FilterPanel
                             aggregations={aggregations}
                             onFilterChange={handleFilterChange}
@@ -155,7 +160,7 @@ export const SearchPage = () => {
                         <LoadingOverlay show={loading}/>
 
                         {/* Error state inline */}
-                        {!loading && error && (
+                        {!loading && hasError && (
                             <div
                                 className={`p-6 bg-white rounded-lg shadow-sm border border-${errorState.color}-200 text-center space-y-4`}>
                                 <ErrorIcon className={`h-12 w-12 text-${errorState.color}-500 mx-auto`}/>
@@ -175,13 +180,13 @@ export const SearchPage = () => {
                         )}
 
                         {/* Processing indicator - shows when initial results exist but reranking is in progress */}
-                        <ProcessingIndicator show={!loading && !error && hasInitialResults && isProcessing}/>
+                        <ProcessingIndicator show={!loading && !hasError && hasInitialResults && isProcessing}/>
 
                         {/* Results section */}
                         <div
                             className={loading ? 'opacity-0 pointer-events-none select-none' : 'opacity-100 transition-opacity'}
                             aria-hidden={loading}>
-                            {!loading && !error && (
+                            {!loading && !hasError && (
                                 datasets.length === 0 ? (
                                     <NoResultsMessage/>
                                 ) : (

@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.8] - 30/06/2026
+
+- Fixed the search results page showing a red "Search Error / No search results received" panel when a query returned no
+  datasets (e.g. when the backend answered conversationally instead of returning results).
+
 ## [0.8.7] - 26/06/2026
 
 - Added updated more in-depth stats on the landing page.

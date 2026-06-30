@@ -46,6 +46,19 @@ export class ServerError extends Error {
     }
 }
 
+/**
+ * Thrown when the stream completes without any dataset results (e.g. the agent
+ * answered conversationally via TEXT_MESSAGE_CHUNK events instead of calling a
+ * search tool). This is not a failure — it should surface as a friendly
+ * "no results" view, not a red error.
+ */
+export class NoResultsError extends Error {
+    constructor(message?: string) {
+        super(message || "No search results received");
+        this.name = "NoResultsError";
+    }
+}
+
 export interface SearchRequest {
     items: Array<{
         type: string;
@@ -217,7 +230,7 @@ export const handleStream = async (
         // If we encountered a RUN_ERROR, throw it
         if (runError) throw runError;
 
-        if (!latestResults) throw new Error('No search results received');
+        if (!latestResults) throw new NoResultsError();
         return latestResults;
     } finally {
         reader.releaseLock();
