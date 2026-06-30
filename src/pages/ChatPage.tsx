@@ -596,7 +596,7 @@ const ChatPage: FC = () => {
                                     <div key={index}
                                          className={`w-full flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                                         <div
-                                            className={`group flex gap-3 max-w-[85%] ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
+                                            className={`group flex gap-3 max-w-[85%] min-w-0 ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
                                             {/* Avatar */}
                                             <div
                                                 className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center shadow-sm mt-1 overflow-hidden ${msg.sender === 'user' ? 'bg-[#002337] text-white text-sm font-medium' : 'bg-white border border-gray-100 p-1'}`}>
@@ -608,7 +608,7 @@ const ChatPage: FC = () => {
                                                 )}
                                             </div>
                                             <div
-                                                className={`rounded-2xl px-5 py-3 shadow-sm text-[15px] ${
+                                                className={`rounded-2xl px-5 py-3 shadow-sm text-[15px] min-w-0 break-words ${
                                                     msg.sender === 'user'
                                                         ? 'bg-blue-600 text-white rounded-tr-sm'
                                                         : 'bg-white border border-gray-200 text-gray-800 rounded-tl-sm whitespace-pre-wrap'
