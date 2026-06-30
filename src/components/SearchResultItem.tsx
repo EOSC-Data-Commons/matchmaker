@@ -94,7 +94,7 @@ export const SearchResultItem = ({hit, isAiRanked = false, isLoggedIn = false}: 
                 : 'bg-gray-100 border-gray-300'
         }`}>
             <div className="flex flex-col sm:flex-row justify-between items-start mb-3">
-                <h3 className="text-lg font-semibold text-gray-900 pr-4 mb-2 sm:mb-0">
+                <h3 className="text-lg font-semibold text-gray-900 pr-4 mb-2 sm:mb-0 min-w-0 break-words">
                     {hit.title}
                 </h3>
                 {isAiRanked && hit.score !== undefined && (
@@ -122,7 +122,7 @@ export const SearchResultItem = ({hit, isAiRanked = false, isLoggedIn = false}: 
             </div>
 
             <div className="mb-4">
-                <p className="text-gray-700 leading-relaxed inline">
+                <p className="text-gray-700 leading-relaxed inline break-words">
                     {visibleDescription}
                 </p>
                 {isDescTruncated && (
