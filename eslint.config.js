@@ -7,7 +7,7 @@ import reactYouMightNotNeedAnEffect from "eslint-plugin-react-you-might-not-need
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-    {ignores: ['dist', 'build', '.react-router']},
+    {ignores: ['dist', 'build', '.react-router', 'coverage', '.claude']},
     {
         extends: [js.configs.recommended, ...tseslint.configs.recommended, reactYouMightNotNeedAnEffect.configs.recommended],
         files: ['**/*.{ts,tsx}'],
