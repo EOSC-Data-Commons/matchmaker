@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.2] - 02/07/2026
+
+- Fixed the whole site returning HTTP 500 in deployments (v0.9.0 and v0.9.1) on Node runtimes without the `sessionStorage`
+  global (e.g. the `node:24-alpine` container image): the alpha disclaimer read `sessionStorage` in its `useState`
+  initializer, which runs during server-side rendering and crashed every request with
+  `ReferenceError: sessionStorage is not defined`. The read is back in a client-only effect.
+- Reverted the recent-searches panel to reading search history after hydration, avoiding a server/client hydration
+  mismatch when history exists.
+
 ## [0.9.1] - 02/07/2026
 
 - Added explicit least-privilege `permissions: contents: read` blocks to the Test, Build, and Dependency Audit GitHub

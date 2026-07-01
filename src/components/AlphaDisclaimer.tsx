@@ -62,7 +62,18 @@ export const AlphaDisclaimer = () => {
     const [mounted, setMounted] = useState(true);  // controls actual render removal after exit
     const [animReady, setAnimReady] = useState(false); // ensures initial off-screen state applied before animating in
     const [countdown, setCountdown] = useState(8);
-    const [dismissed, setDismissed] = useState(() => !!sessionStorage.getItem('alphaDisclaimerDismissed'));
+    const [dismissed, setDismissed] = useState(false);
+
+    // sessionStorage must be read in an effect, not the useState initializer:
+    // initializers run during SSR, where the global doesn't exist (crashes the
+    // server with a 500) and where a stored dismissal couldn't be seen anyway.
+    useEffect(() => {
+        const stored = sessionStorage.getItem('alphaDisclaimerDismissed');
+        if (stored) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect, react-you-might-not-need-an-effect/no-initialize-state -- moving this into the initializer crashes SSR
+            setDismissed(true);
+        }
+    }, []);
 
     useLayoutEffect(() => {
         // Two-phase mount: the off-screen state must be committed before flipping,

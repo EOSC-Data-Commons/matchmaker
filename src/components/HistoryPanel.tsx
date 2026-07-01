@@ -1,4 +1,4 @@
-import {useState} from "react";
+import {useEffect, useState} from "react";
 import {getSearchHistory} from "../lib/history.ts";
 import {HistoryIcon} from "lucide-react";
 
@@ -7,7 +7,14 @@ interface HistoryPanelProps {
 }
 
 export const HistoryPanel = ({onHistoryClick}: HistoryPanelProps) => {
-    const [history] = useState<string[]>(() => getSearchHistory());
+    const [history, setHistory] = useState<string[]>([]);
+
+    // Read after hydration: the server always renders the empty state, so a
+    // render-time read would cause a hydration mismatch whenever history exists.
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect, react-you-might-not-need-an-effect/no-initialize-state -- render-time read differs between server and client
+        setHistory(getSearchHistory());
+    }, []);
 
     if (history.length === 0) {
         return null;
