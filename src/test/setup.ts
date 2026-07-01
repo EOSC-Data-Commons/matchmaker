@@ -1,6 +1,12 @@
 import "@testing-library/jest-dom/vitest";
 import {beforeAll, afterEach, afterAll} from "vitest";
+import {cleanup} from "@testing-library/react";
 import {server} from "./msw/server";
+
+// RTL only auto-registers its cleanup when the runner exposes a global
+// afterEach; with Vitest globals disabled we must unmount explicitly, or
+// components leak across tests (still fetching, still re-rendering).
+afterEach(cleanup);
 
 // Node >= 22 defines its own experimental localStorage/sessionStorage globals
 // which shadow happy-dom's (localStorage is undefined without a CLI flag).

@@ -2,6 +2,7 @@ import {describe, it, expect, vi, beforeEach, afterEach} from "vitest";
 import {http, HttpResponse} from "msw";
 import {server} from "@/test/msw/server";
 import {makeDataset} from "@/test/fixtures/datasets";
+import {sse, sseResponse} from "@/test/sse";
 import type {BackendSearchResponse} from "@/types/commons";
 import type {Message} from "@/types/chat";
 import {
@@ -14,13 +15,6 @@ import {
     NoResultsError,
     type SSEEvent,
 } from "./api";
-
-// Serialize events the way the backend does: one `data:` line per event,
-// events separated by a blank line.
-const sse = (events: object[]) => events.map(e => `data: ${JSON.stringify(e)}\n\n`).join("");
-
-const sseResponse = (body: string) =>
-    HttpResponse.text(body, {headers: {"Content-Type": "text/event-stream"}});
 
 const streamResponse = (chunks: string[]): Response => {
     const encoder = new TextEncoder();
