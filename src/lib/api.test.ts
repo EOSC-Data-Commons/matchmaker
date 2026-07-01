@@ -306,15 +306,14 @@ describe("sendChatMessage", () => {
         expect(onError.mock.calls[0][0].message).toContain("500");
     });
 
-    it("calls onError with NoResultsError even after a successful stream (current behavior)", async () => {
-        // sendChatMessage's stream callback always returns null, so handleStream
-        // ends every chat — including successful ones — with NoResultsError.
-        // ChatPage merely logs it, but it masks real errors. Documented here so
-        // a fix shows up as a test change, not a silent behavior shift.
+    it("does not call onError after a successful stream", async () => {
+        // Chat streams never produce a BackendSearchResponse, so handleStream's
+        // NoResultsError fires on every completed chat; sendChatMessage must
+        // swallow it rather than report success as a failure.
         server.use(http.post("/api/search/chat", () => sseResponse(chatRun)));
         const onError = vi.fn();
         await sendChatMessage([{sender: "user", content: "hi"}], "m", undefined, () => {
         }, onError);
-        expect(onError.mock.calls[0][0]).toBeInstanceOf(NoResultsError);
+        expect(onError).not.toHaveBeenCalled();
     });
 });
