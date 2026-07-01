@@ -1,14 +1,7 @@
 import { UserInfo } from "@/hooks/useAuth";
 
-export interface ApiKeyListResponse {
-    key_ids: string[];
-}
-
-export interface ApiKeyEntry {
-    id?: string;
-    value?: string;
-    key_id?: string;
-    key_value?: string;
+export interface ApiKeysResponse {
+    keys: Record<string, string>;
 }
 
 export type ToolTyp = 

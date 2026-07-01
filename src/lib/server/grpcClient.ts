@@ -44,7 +44,7 @@ export {
     ToolState_State,
 } from "./generated/coordinator";
 
-import type {FileMeta, InputParameterTyp, ToolSlot, TypedValue, ToolTyp, ApiKeyEntry} from "../../types/dataplayerTypes.ts";
+import type {FileMeta, InputParameterTyp, ToolSlot, TypedValue, ToolTyp} from "../../types/dataplayerTypes.ts";
 import { UserInfo } from "@/hooks/useAuth.ts";
 
 const GRPC_TARGET =
@@ -290,20 +290,6 @@ export async function fetchDatasetFilesFromDatahuggerByUrl(
     });
 }
 
-function convertApiKeys(apikeys: ApiKeyEntry[]): Record<string, string> {
-    return Object.fromEntries(
-        apikeys
-            .map(k => {
-                const id = k.id ?? k.key_id;
-                const value = k.value ?? k.key_value;
-
-                if (!id || !value) return null;
-                return [id, value];
-            })
-            .filter((x): x is [string, string] => x !== null)
-    );
-}
-
 // data player service
 // TODO: string as id is not a good type, use TaskId and ToolId to distinguish them can be more clear.
 export async function launchTool(
@@ -313,7 +299,7 @@ export async function launchTool(
     datasetTitle: string,
     slotMapping: Record<string, TypedValue>,
     files: Record<string, FileEntry>,
-    apikeys: ApiKeyEntry[],
+    apikeys: Record<string, string>,
     token: string,
 ): Promise<string> {
     const metadata = makeAuthMetadata(token);
@@ -350,7 +336,7 @@ export async function launchTool(
         dataset: hdataset,
         slotsMapping: msgSlotsMapping,
         files,
-        apiKeys: convertApiKeys(apikeys),
+        apiKeys: apikeys,
     };
 
     return new Promise((resolve, reject) => {

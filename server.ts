@@ -22,7 +22,14 @@ import {
     mapToolKindToTyp,
 } from "./src/lib/server/grpcClient";
 
-import type {ApiKeyEntry, ApiKeyListResponse, FileMeta, TaskState, TaskStatus, ToolConfig, TypLaunchToolRequest} from "./src/types/dataplayerTypes";
+import type {
+    ApiKeysResponse,
+    FileMeta,
+    TaskState,
+    TaskStatus,
+    ToolConfig,
+    TypLaunchToolRequest
+} from "./src/types/dataplayerTypes";
 
 // Constants
 const DEVELOPMENT = process.env.NODE_ENV !== "production";
@@ -142,17 +149,8 @@ app.post("/api/coordinator/start-task", async (req, res) => {
             throw new Error(`Failed to fetch API keys (${response.status})`);
         }
 
-                if (!res.ok) {
-                    throw new Error(`Failed to fetch key ${id}`);
-                }
-
-                const data = await res.json();
-                return {
-                    id,
-                    value: data.value ?? data.key_value,
-                };
-            })
-        );
+        const data: ApiKeysResponse = await response.json();
+        const keys = data.keys ?? {};
 
         const file_entries = Object.fromEntries(
             Object.entries(files).filter(([, file]) => !file.isDir).map(([key, file]) => [key, fileMetaToFileEntry(file)])
