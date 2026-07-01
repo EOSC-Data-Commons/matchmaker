@@ -1,4 +1,4 @@
-import {useEffect, useState} from "react";
+import {useState} from "react";
 import {getSearchHistory} from "../lib/history.ts";
 import {HistoryIcon} from "lucide-react";
 
@@ -7,11 +7,7 @@ interface HistoryPanelProps {
 }
 
 export const HistoryPanel = ({onHistoryClick}: HistoryPanelProps) => {
-    const [history, setHistory] = useState<string[]>([]);
-
-    useEffect(() => {
-        setHistory(getSearchHistory());
-    }, []);
+    const [history] = useState<string[]>(() => getSearchHistory());
 
     if (history.length === 0) {
         return null;
