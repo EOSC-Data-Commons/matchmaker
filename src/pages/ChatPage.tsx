@@ -205,9 +205,11 @@ const ChatPage: FC = () => {
     }, [location, navigate]);
 
     // Reset collapsed state when switching conversations
-    useEffect(() => {
+    const [prevConversationId, setPrevConversationId] = useState(selectedConversation?.id);
+    if (prevConversationId !== selectedConversation?.id) {
+        setPrevConversationId(selectedConversation?.id);
         setCollapsedMessages(new Set());
-    }, [selectedConversation?.id]);
+    }
 
     useEffect(() => {
         const handleClickOutside = () => setMenuOpenId(null);

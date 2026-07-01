@@ -62,16 +62,12 @@ export const AlphaDisclaimer = () => {
     const [mounted, setMounted] = useState(true);  // controls actual render removal after exit
     const [animReady, setAnimReady] = useState(false); // ensures initial off-screen state applied before animating in
     const [countdown, setCountdown] = useState(8);
-    const [dismissed, setDismissed] = useState(false);
-
-    useEffect(() => {
-        const stored = sessionStorage.getItem('alphaDisclaimerDismissed');
-        if (stored) {
-            setDismissed(true);
-        }
-    }, []);
+    const [dismissed, setDismissed] = useState(() => !!sessionStorage.getItem('alphaDisclaimerDismissed'));
 
     useLayoutEffect(() => {
+        // Two-phase mount: the off-screen state must be committed before flipping,
+        // otherwise the CSS enter transition never triggers
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setAnimReady(true);
     }, []);
 
@@ -89,6 +85,7 @@ export const AlphaDisclaimer = () => {
 
     useEffect(() => {
         if (visible) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setCountdown(8);
             const closeTimer = setTimeout(() => {
                 handleClose();

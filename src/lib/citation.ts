@@ -89,8 +89,9 @@ export const fetchDOICitation = async (doi: string, format: keyof typeof DOI_CON
 };
 export const generateBibTeX = (ds: BackendDataset): string => {
     const year = extractYear(ds.publication_date);
-    const keyBase = `${firstCreatorLastName(ds._source.creators.map(creator => creator.creatorName))}_${year}_${ds._id}`.replace(/[^A-Za-z0-9_]/g, "");
-    const authors = formatAuthorsBibTeX(ds._source.creators.map(creator => creator.creatorName));
+    const creatorNames = (ds._source.creators ?? []).map(creator => creator.creatorName);
+    const keyBase = `${firstCreatorLastName(creatorNames)}_${year}_${ds._id}`.replace(/[^A-Za-z0-9_]/g, "");
+    const authors = formatAuthorsBibTeX(creatorNames);
     const doi = extractDOI(ds._id);
     const fields: Record<string, string | undefined> = {
         title: sanitize(ds.title || ''),
@@ -118,7 +119,7 @@ export const generateRIS = (ds: BackendDataset): string => {
     const lines: string[] = [];
     lines.push('TY  - DATA');
     lines.push(`TI  - ${sanitize(ds.title)}`);
-    ds._source.creators.forEach(c => lines.push(`AU  - ${c.creatorName}`));
+    ds._source.creators?.forEach(c => lines.push(`AU  - ${c.creatorName}`));
     if (year !== 'n.d.') lines.push(`PY  - ${year}`);
     if (datePart) lines.push(`DA  - ${datePart}`);
     if (doi) lines.push(`DO  - ${doi}`);
@@ -145,7 +146,7 @@ export const generateCSLJSON = (ds: BackendDataset): string => {
     const year = extractYear(ds.publication_date);
     const date = new Date(ds.publication_date);
     const dateParts = isNaN(date.getTime()) ? undefined : [[date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate()]];
-    const authors = ds._source.creators?.map(c => ({literal: c.creatorName.trim()})).filter(a => a.literal.length);
+    const authors = (ds._source.creators ?? []).map(c => ({literal: c.creatorName.trim()})).filter(a => a.literal.length);
     const obj: Record<string, unknown> = {
         type: 'dataset',
         id: ds._id,

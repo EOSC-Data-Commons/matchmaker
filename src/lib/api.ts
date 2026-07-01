@@ -289,6 +289,12 @@ export const sendChatMessage = async (
         });
 
     } catch (error) {
+        // Chat streams deliver everything through onEvent and never produce a
+        // BackendSearchResponse, so handleStream's no-results check always fires.
+        // A completed stream is success here, not an error.
+        if (error instanceof NoResultsError) {
+            return;
+        }
         if (error instanceof Error) {
             onError(error);
         } else {

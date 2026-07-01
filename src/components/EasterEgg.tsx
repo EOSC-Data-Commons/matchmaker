@@ -1,4 +1,4 @@
-import {useEffect, useState} from 'react';
+import {useEffect, useMemo} from 'react';
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 
 interface Particle {
@@ -73,7 +73,7 @@ const shuffleArray = <T, >(array: T[]): T[] => {
     return shuffled;
 };
 
-// Helper function to generate particles (called outside of render)
+// Helper function to generate particles
 const generateParticles = (count: number): Particle[] => {
     // Shuffle emojis to ensure variety
     const shuffledEmojis = shuffleArray(scientificIcons);
@@ -129,17 +129,12 @@ const generateLogoParticles = (count: number): LogoParticle[] => {
 };
 
 export const EasterEgg = ({active, onComplete}: EasterEggProps) => {
-    const [particles, setParticles] = useState<Particle[]>([]);
-    const [logoParticles, setLogoParticles] = useState<LogoParticle[]>([]);
+    // Regenerated each time the animation is (re)activated
+    const particles = useMemo<Particle[]>(() => active ? generateParticles(100) : [], [active]);
+    const logoParticles = useMemo<LogoParticle[]>(() => active ? generateLogoParticles(5) : [], [active]);
 
     useEffect(() => {
         if (!active) return;
-
-        // Generate new particles when activated
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setParticles(generateParticles(100));
-
-        setLogoParticles(generateLogoParticles(5));
 
         // Clear after animation
         const timer = setTimeout(() => {
@@ -151,16 +146,7 @@ export const EasterEgg = ({active, onComplete}: EasterEggProps) => {
         };
     }, [active, onComplete]);
 
-    useEffect(() => {
-        if (!active) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setParticles([]);
-
-            setLogoParticles([]);
-        }
-    }, [active]);
-
-    if (!active || particles.length === 0) return null;
+    if (!active) return null;
 
     return (
         <div className="fixed inset-0 pointer-events-none z-[9999] overflow-hidden">

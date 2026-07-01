@@ -20,7 +20,7 @@ export const LandingPage = () => {
         const newCount = logoClickCount + 1;
         setLogoClickCount(newCount);
 
-        if (newCount === 7) {
+        if (newCount === 5) {
             setShowEasterEgg(true);
             setLogoClickCount(0); // Reset counter
         }

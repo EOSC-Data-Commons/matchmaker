@@ -7,7 +7,7 @@ import reactYouMightNotNeedAnEffect from "eslint-plugin-react-you-might-not-need
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-    {ignores: ['dist', 'build', '.react-router']},
+    {ignores: ['dist', 'build', '.react-router', 'coverage', '.claude', 'req-packager']},
     {
         extends: [js.configs.recommended, ...tseslint.configs.recommended, reactYouMightNotNeedAnEffect.configs.recommended],
         files: ['**/*.{ts,tsx}'],
@@ -18,7 +18,6 @@ export default tseslint.config(
         plugins: {
             'react-hooks': reactHooks,
             'react-refresh': reactRefresh,
-            'react-you-might-not-need-an-effect': reactYouMightNotNeedAnEffect,
         },
         rules: {
             ...reactHooks.configs.recommended.rules,
