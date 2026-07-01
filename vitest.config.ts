@@ -20,11 +20,10 @@ export default defineConfig({
             include: ["src/lib/**", "src/hooks/**"],
             // Server-side gRPC client is exercised via the express server, not the browser bundle
             exclude: ["src/lib/server/**"],
-            // Thresholds cover only modules that already have suites; broaden
-            // to src/lib/** once api.ts, apiKeys.ts and coordinatorApi.ts are
-            // tested (phase 2). Ratchet up, never down.
+            // Ratchet up, never down. Add "src/hooks/**": {lines: 70} once the
+            // hook suites land (phase 3).
             thresholds: {
-                "src/lib/{authRedirect,citation,filePreview,history,localFilters,userUtils,utils}.ts": {
+                "src/lib/**": {
                     lines: 80,
                 },
             },
