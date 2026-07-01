@@ -41,7 +41,7 @@ export const FilterSection = ({
                             />
                             <label htmlFor={`${filterKey}-${bucket.key}`}
                                    className="ml-3 text-sm text-gray-600 flex-grow">
-                                {bucket.label} ({bucket.doc_count.toLocaleString()})
+                                {bucket.label} ({bucket.doc_count.toLocaleString("en-GB")})
                             </label>
                         </div>
                     ))}

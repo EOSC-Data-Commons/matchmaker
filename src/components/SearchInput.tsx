@@ -7,15 +7,16 @@ import useMatomo from "../hooks/useMatomo";
 
 const SHOW_MODEL_SELECTOR = import.meta.env.VITE_SHOW_MODEL_SELECTOR === 'true';
 
-const DEFAULT_MODEL = "cesnet/qwen3-coder";
+const DEFAULT_MODEL = "cesnet/agentic";
 
 const models = [
     "openai/gpt-4.1",
     "mistralai/mistral-large-latest",
     "groq/moonshotai/kimi-k2-instruct",
-    "cesnet/qwen3-coder",
-    "cesnet/gpt-oss-120b",
-    "cesnet/deepseek-v3.2-thinking"
+    "cesnet/agentic",
+    "cesnet/coder",
+    "cesnet/mini",
+    "cesnet/thinker"
 ];
 
 interface SearchInputProps {

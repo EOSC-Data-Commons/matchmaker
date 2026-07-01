@@ -26,7 +26,7 @@ const MIN_SUBJECTS = 8;
 const REPO_ROW_HEIGHT = 48;
 const SUBJECT_ROW_HEIGHT = 36;
 
-const formatNumber = (n: number) => n.toLocaleString();
+const formatNumber = (n: number) => n.toLocaleString("en-GB");
 
 const truncate = (text: string, max = 28) =>
     text.length > max ? `${text.slice(0, max - 1)}…` : text;

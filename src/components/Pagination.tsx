@@ -23,7 +23,7 @@ export const Pagination = ({page, size, total, onPageChange}: {
                 Previous
             </button>
             <span className="text-sm text-gray-600">
-                Page {page} of {totalPages.toLocaleString()}
+                Page {page} of {totalPages.toLocaleString("en-GB")}
             </span>
             <button
                 onClick={() => handlePageClick(page + 1)}
