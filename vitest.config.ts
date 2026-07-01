@@ -20,11 +20,13 @@ export default defineConfig({
             include: ["src/lib/**", "src/hooks/**"],
             // Server-side gRPC client is exercised via the express server, not the browser bundle
             exclude: ["src/lib/server/**"],
-            // Ratchet up, never down. Add "src/hooks/**": {lines: 70} once the
-            // hook suites land (phase 3).
+            // Ratchet up, never down.
             thresholds: {
                 "src/lib/**": {
                     lines: 80,
+                },
+                "src/hooks/**": {
+                    lines: 70,
                 },
             },
         },
