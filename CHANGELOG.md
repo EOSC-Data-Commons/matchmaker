@@ -11,7 +11,7 @@ All notable changes to this project will be documented in this file.
 - Removed the tests for the post-play dataplayer flow (coordinator API, dataplayer hooks, and file preview parsing),
   as everything downstream of the Play button is owned by the coordinator backend.
 
-## [0.9.0] - 06/07/2026
+## [0.9.0] - 02/07/2026
 
 - Added an automated test suite (Vitest + React Testing Library + MSW): 221 tests covering the citation generators,
   local filters and shared utilities, the SSE search/chat API layer, the Secret Store API-key client, the coordinator
