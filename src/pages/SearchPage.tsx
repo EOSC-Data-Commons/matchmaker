@@ -24,7 +24,7 @@ export const SearchPage = () => {
     const [showInitialResults, setShowInitialResults] = useState(false);
 
     const query = searchParams.get('q') || '';
-    const model = searchParams.get('model') || 'cesnet/qwen3-coder';
+    const model = searchParams.get('model') || 'cesnet/agentic';
 
     // Custom hooks for data management
     const {
