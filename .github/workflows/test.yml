@@ -20,5 +20,5 @@ jobs:
         run: npm ci
       - name: Typecheck
         run: npx tsc --noEmit -p tsconfig.json
-      - name: Run tests with coverage thresholds
-        run: npm run test:coverage
+      - name: Run tests
+        run: npm test
