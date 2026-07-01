@@ -18,7 +18,6 @@ export default tseslint.config(
         plugins: {
             'react-hooks': reactHooks,
             'react-refresh': reactRefresh,
-            'react-you-might-not-need-an-effect': reactYouMightNotNeedAnEffect,
         },
         rules: {
             ...reactHooks.configs.recommended.rules,
