@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.9] - 01/07/2026
+
+- Updated the default model to `cesnet/agentic` across components and API calls.
+- Switched to the `en-GB` locale for consistent number formatting across components.
+
 ## [0.8.8] - 30/06/2026
 
 - Fixed the search results page showing a red "Search Error / No search results received" panel when a query returned no
