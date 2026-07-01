@@ -130,27 +130,17 @@ app.post("/api/coordinator/start-task", async (req, res) => {
 
     try {
         const raw_token = getEgiToken(req);
-        const response = await fetch(`${SEARCH_API_URL}/auth/keys`, {
+        const response = await fetch(`${SEARCH_API_URL}/auth/keys/all`, {
             method: "GET",
             headers: {
-                Authorization: `Bearer ${raw_token}`,
+                Cookie: `access_token=${raw_token}`,
                 "Content-Type": "application/json",
             },
         });
 
-        const data: ApiKeyListResponse = await response.json();
-        const keyIds = data.key_ids ?? [];
-
-        const keys: ApiKeyEntry[] = await Promise.all(
-            keyIds.map(async (id: string) => {
-                const res = await fetch(
-                    `${SEARCH_API_URL}/auth/keys/${encodeURIComponent(id)}`,
-                    {
-                        headers: {
-                            Authorization: `Bearer ${raw_token}`,
-                        },
-                    }
-                );
+        if (!response.ok) {
+            throw new Error(`Failed to fetch API keys (${response.status})`);
+        }
 
                 if (!res.ok) {
                     throw new Error(`Failed to fetch key ${id}`);
