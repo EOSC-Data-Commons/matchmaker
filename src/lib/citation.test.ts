@@ -120,6 +120,11 @@ describe("generateCSLJSON", () => {
         expect(csl.keyword).toBe("climate, oceanography");
     });
 
+    it("handles null creators without throwing and omits author", () => {
+        const csl = JSON.parse(generateCSLJSON(makeDataset({_source: {creators: null}})));
+        expect(csl.author).toBeUndefined();
+    });
+
     it("omits issued and keyword when date is invalid and subjects are absent", () => {
         const csl = JSON.parse(
             generateCSLJSON(makeDataset({publication_date: "unknown", _source: {subjects: null}})),
@@ -146,6 +151,11 @@ describe("generateCitations", () => {
         const bundle = generateCitations(makeDataset());
         expect(Object.keys(bundle).sort()).toEqual(["bibtex", "csljson", "endnote", "refworks", "ris"]);
         expect(bundle.bibtex).toContain("@misc{");
+    });
+
+    it("generates all formats for a dataset with null creators", () => {
+        const bundle = generateCitations(makeDataset({_source: {creators: null}}));
+        expect(Object.keys(bundle).sort()).toEqual(["bibtex", "csljson", "endnote", "refworks", "ris"]);
     });
 });
 
