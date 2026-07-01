@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.0] - 06/07/2026
+
+- Added an automated test suite (Vitest + React Testing Library + MSW): 221 tests covering the citation generators,
+  local filters and shared utilities, the SSE search/chat API layer, the Secret Store API-key client, the coordinator
+  API, the data/auth/search hooks, and interaction tests for the search input, filter panel, citation export,
+  pagination, and user menus. Coverage gates enforce 80% line coverage on `src/lib` and 70% on `src/hooks`.
+- Added a blocking "Test" GitHub Actions workflow for PRs to main, running typechecking and the test suite with
+  coverage thresholds.
+- Fixed citation generation crashing for datasets that list no creators — BibTeX, RIS, and CSL-JSON exports now omit
+  the author field instead of throwing.
+- Fixed every successful chat message being internally reported as a "No search results received" error, which
+  cluttered the console and made real chat failures indistinguishable from the false alarm.
+
 ## [0.8.9] - 01/07/2026
 
 - Updated the default model to `cesnet/agentic` across components and API calls.
