@@ -299,6 +299,7 @@ export async function launchTool(
     datasetTitle: string,
     slotMapping: Record<string, TypedValue>,
     files: Record<string, FileEntry>,
+    apikeys: Record<string, string>,
     token: string,
 ): Promise<string> {
     const metadata = makeAuthMetadata(token);
@@ -335,6 +336,7 @@ export async function launchTool(
         dataset: hdataset,
         slotsMapping: msgSlotsMapping,
         files,
+        apiKeys: apikeys,
     };
 
     return new Promise((resolve, reject) => {

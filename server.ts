@@ -22,7 +22,14 @@ import {
     mapToolKindToTyp,
 } from "./src/lib/server/grpcClient";
 
-import type {FileMeta, TaskState, TaskStatus, ToolConfig, TypLaunchToolRequest} from "./src/types/dataplayerTypes";
+import type {
+    ApiKeysResponse,
+    FileMeta,
+    TaskState,
+    TaskStatus,
+    ToolConfig,
+    TypLaunchToolRequest
+} from "./src/types/dataplayerTypes";
 
 // Constants
 const DEVELOPMENT = process.env.NODE_ENV !== "production";
@@ -130,10 +137,21 @@ app.post("/api/coordinator/start-task", async (req, res) => {
 
     try {
         const raw_token = getEgiToken(req);
+        const response = await fetch(`${SEARCH_API_URL}/auth/keys/all`, {
+            method: "GET",
+            headers: {
+                Cookie: `access_token=${raw_token}`,
+                "Content-Type": "application/json",
+            },
+        });
 
-        // console.warn(toolId);
-        // console.warn("server", slotToValueMapping);
-        // console.warn("server", slotToFileMapping);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch API keys (${response.status})`);
+        }
+
+        const data: ApiKeysResponse = await response.json();
+        const keys = data.keys ?? {};
+
         const file_entries = Object.fromEntries(
             Object.entries(files).filter(([, file]) => !file.isDir).map(([key, file]) => [key, fileMetaToFileEntry(file)])
         );
@@ -144,6 +162,7 @@ app.post("/api/coordinator/start-task", async (req, res) => {
             datasetTitle,
             slotMapping,
             file_entries,
+            keys,
             raw_token,
         );
 

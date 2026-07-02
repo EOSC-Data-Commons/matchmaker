@@ -1,5 +1,9 @@
 import { UserInfo } from "@/hooks/useAuth";
 
+export interface ApiKeysResponse {
+    keys: Record<string, string>;
+}
+
 export type ToolTyp = 
     | "FilesOnly"
     | "SlotsOnly"

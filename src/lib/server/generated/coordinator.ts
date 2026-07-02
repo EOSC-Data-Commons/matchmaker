@@ -431,6 +431,7 @@ export interface LaunchToolRequest {
   dataset?: DatasetHandle | undefined;
   slotsMapping: { [key: string]: TypedValue };
   files: { [key: string]: FileEntry };
+  apiKeys: { [key: string]: string };
 }
 
 export interface LaunchToolRequest_SlotsMappingEntry {
@@ -441,6 +442,11 @@ export interface LaunchToolRequest_SlotsMappingEntry {
 export interface LaunchToolRequest_FilesEntry {
   key: string;
   value?: FileEntry | undefined;
+}
+
+export interface LaunchToolRequest_ApiKeysEntry {
+  key: string;
+  value: string;
 }
 
 export interface UserId {
@@ -2861,7 +2867,7 @@ export const UserInfo: MessageFns<UserInfo> = {
 };
 
 function createBaseLaunchToolRequest(): LaunchToolRequest {
-  return { userInfo: undefined, toolId: "", dataset: undefined, slotsMapping: {}, files: {} };
+  return { userInfo: undefined, toolId: "", dataset: undefined, slotsMapping: {}, files: {}, apiKeys: {} };
 }
 
 export const LaunchToolRequest: MessageFns<LaunchToolRequest> = {
@@ -2880,6 +2886,9 @@ export const LaunchToolRequest: MessageFns<LaunchToolRequest> = {
     });
     globalThis.Object.entries(message.files).forEach(([key, value]: [string, FileEntry]) => {
       LaunchToolRequest_FilesEntry.encode({ key: key as any, value }, writer.uint32(42).fork()).join();
+    });
+    globalThis.Object.entries(message.apiKeys).forEach(([key, value]: [string, string]) => {
+      LaunchToolRequest_ApiKeysEntry.encode({ key: key as any, value }, writer.uint32(50).fork()).join();
     });
     return writer;
   },
@@ -2937,6 +2946,17 @@ export const LaunchToolRequest: MessageFns<LaunchToolRequest> = {
           }
           continue;
         }
+        case 6: {
+          if (tag !== 50) {
+            break;
+          }
+
+          const entry6 = LaunchToolRequest_ApiKeysEntry.decode(reader, reader.uint32());
+          if (entry6.value !== undefined) {
+            message.apiKeys[entry6.key] = entry6.value;
+          }
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -2985,6 +3005,23 @@ export const LaunchToolRequest: MessageFns<LaunchToolRequest> = {
           {},
         )
         : {},
+      apiKeys: isObject(object.apiKeys)
+        ? (globalThis.Object.entries(object.apiKeys) as [string, any][]).reduce(
+          (acc: { [key: string]: string }, [key, value]: [string, any]) => {
+            acc[key] = globalThis.String(value);
+            return acc;
+          },
+          {},
+        )
+        : isObject(object.api_keys)
+        ? (globalThis.Object.entries(object.api_keys) as [string, any][]).reduce(
+          (acc: { [key: string]: string }, [key, value]: [string, any]) => {
+            acc[key] = globalThis.String(value);
+            return acc;
+          },
+          {},
+        )
+        : {},
     };
   },
 
@@ -3017,6 +3054,15 @@ export const LaunchToolRequest: MessageFns<LaunchToolRequest> = {
         });
       }
     }
+    if (message.apiKeys) {
+      const entries = globalThis.Object.entries(message.apiKeys) as [string, string][];
+      if (entries.length > 0) {
+        obj.apiKeys = {};
+        entries.forEach(([k, v]) => {
+          obj.apiKeys[k] = v;
+        });
+      }
+    }
     return obj;
   },
 
@@ -3045,6 +3091,15 @@ export const LaunchToolRequest: MessageFns<LaunchToolRequest> = {
       (acc: { [key: string]: FileEntry }, [key, value]: [string, FileEntry]) => {
         if (value !== undefined) {
           acc[key] = FileEntry.fromPartial(value);
+        }
+        return acc;
+      },
+      {},
+    );
+    message.apiKeys = (globalThis.Object.entries(object.apiKeys ?? {}) as [string, string][]).reduce(
+      (acc: { [key: string]: string }, [key, value]: [string, string]) => {
+        if (value !== undefined) {
+          acc[key] = globalThis.String(value);
         }
         return acc;
       },
@@ -3210,6 +3265,84 @@ export const LaunchToolRequest_FilesEntry: MessageFns<LaunchToolRequest_FilesEnt
     message.value = (object.value !== undefined && object.value !== null)
       ? FileEntry.fromPartial(object.value)
       : undefined;
+    return message;
+  },
+};
+
+function createBaseLaunchToolRequest_ApiKeysEntry(): LaunchToolRequest_ApiKeysEntry {
+  return { key: "", value: "" };
+}
+
+export const LaunchToolRequest_ApiKeysEntry: MessageFns<LaunchToolRequest_ApiKeysEntry> = {
+  encode(message: LaunchToolRequest_ApiKeysEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.key !== "") {
+      writer.uint32(10).string(message.key);
+    }
+    if (message.value !== "") {
+      writer.uint32(18).string(message.value);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): LaunchToolRequest_ApiKeysEntry {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseLaunchToolRequest_ApiKeysEntry();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.key = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.value = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): LaunchToolRequest_ApiKeysEntry {
+    return {
+      key: isSet(object.key) ? globalThis.String(object.key) : "",
+      value: isSet(object.value) ? globalThis.String(object.value) : "",
+    };
+  },
+
+  toJSON(message: LaunchToolRequest_ApiKeysEntry): unknown {
+    const obj: any = {};
+    if (message.key !== "") {
+      obj.key = message.key;
+    }
+    if (message.value !== "") {
+      obj.value = message.value;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<LaunchToolRequest_ApiKeysEntry>, I>>(base?: I): LaunchToolRequest_ApiKeysEntry {
+    return LaunchToolRequest_ApiKeysEntry.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<LaunchToolRequest_ApiKeysEntry>, I>>(
+    object: I,
+  ): LaunchToolRequest_ApiKeysEntry {
+    const message = createBaseLaunchToolRequest_ApiKeysEntry();
+    message.key = object.key ?? "";
+    message.value = object.value ?? "";
     return message;
   },
 };
