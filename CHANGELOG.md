@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.4] - 02/07/2026
+
+- Task launches no longer fail when the EGI Secret Store is unreachable (e.g. dev environments, which only have the
+  Secret Store provisioned in production) — the API-key lookup now degrades gracefully and launches the task without
+  keys instead of returning a 500.
+
+## [0.9.3] - 02/07/2026
+
+- Added per-user API key support for tool launches: matchmaker now reads a user's stored VIP and GitHub keys from the
+  EGI Secret Store and forwards them to the coordinator so tools can authenticate on the user's behalf.
+
 ## [0.9.2] - 02/07/2026
 
 - Fixed the whole site returning HTTP 500 in deployments (v0.9.0 and v0.9.1) on Node runtimes without the `sessionStorage`

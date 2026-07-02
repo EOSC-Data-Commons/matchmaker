@@ -63,18 +63,18 @@ app.use(
         pathRewrite: {"^/api/search": ""},
         on: {
             proxyRes: (proxyRes) => {
-            // The MCP backend (FastMCP/Starlette) redirects /mcp -> /mcp/ with an
-            // absolute Location pointing at its internal host (e.g. http://mcp:8000/mcp/).
-            // Strip the origin and re-add the /api/search prefix so the redirect stays
-            // behind the proxy and is reachable by the client.
-            const location = proxyRes.headers.location;
-            if (location) {
-                const relative = location.replace(/^https?:\/\/[^/]+/, '');
-                if (relative.startsWith('/')) {
-                    proxyRes.headers.location = '/api/search' + relative;
+                // The MCP backend (FastMCP/Starlette) redirects /mcp -> /mcp/ with an
+                // absolute Location pointing at its internal host (e.g. http://mcp:8000/mcp/).
+                // Strip the origin and re-add the /api/search prefix so the redirect stays
+                // behind the proxy and is reachable by the client.
+                const location = proxyRes.headers.location;
+                if (location) {
+                    const relative = location.replace(/^https?:\/\/[^/]+/, '');
+                    if (relative.startsWith('/')) {
+                        proxyRes.headers.location = '/api/search' + relative;
+                    }
                 }
-            }
-        },error: (err, _req, res) => {
+            }, error: (err, _req, res) => {
                 console.error("Search API proxy error:", err);
                 (res as express.Response).status(500).send("Proxy error");
             },
@@ -137,20 +137,28 @@ app.post("/api/coordinator/start-task", async (req, res) => {
 
     try {
         const raw_token = getEgiToken(req);
-        const response = await fetch(`${SEARCH_API_URL}/auth/keys/all`, {
-            method: "GET",
-            headers: {
-                Cookie: `access_token=${raw_token}`,
-                "Content-Type": "application/json",
-            },
-        });
 
-        if (!response.ok) {
-            throw new Error(`Failed to fetch API keys (${response.status})`);
+        // if the secret store is unreachable or the route isn't deployed yet, launch the task
+        // without keys instead of failing the whole request.
+        let keys: Record<string, string> = {};
+        try {
+            const response = await fetch(`${SEARCH_API_URL}/auth/keys/all`, {
+                method: "GET",
+                headers: {
+                    Cookie: `access_token=${raw_token}`,
+                    "Content-Type": "application/json",
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch API keys (${response.status})`);
+            }
+
+            const data: ApiKeysResponse = await response.json();
+            keys = data.keys ?? {};
+        } catch (err) {
+            console.warn("Skipping API keys for this task - secret store unavailable:", err instanceof Error ? err.message : err);
         }
-
-        const data: ApiKeysResponse = await response.json();
-        const keys = data.keys ?? {};
 
         const file_entries = Object.fromEntries(
             Object.entries(files).filter(([, file]) => !file.isDir).map(([key, file]) => [key, fileMetaToFileEntry(file)])
