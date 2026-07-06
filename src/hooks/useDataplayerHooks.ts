@@ -9,7 +9,7 @@ import {
     startLaunchTask,
     taskStatusAsEventSource
 } from '@/lib/coordinatorApi';
-import { useAuth } from './useAuth';
+import {useAuth} from './useAuth';
 
 export function buildSlotToFileMapping(
     mapping: Record<string, number>,
@@ -38,7 +38,7 @@ export function useTaskLauncher() {
             esRef.current?.close(); // cleanup on unmount
         };
     }, []);
-    const { user: userInfo } = useAuth();
+    const {user: userInfo} = useAuth();
 
     const launch = async (
         toolId: string,
@@ -167,16 +167,33 @@ export function useFilesToQueryTool(files: FileMeta[]) {
 export function useSearchTextToQueryTool(toolSearchText: string) {
     const [debouncedSearch, setDebouncedSearch] = useState("");
     const [queryToolResults, setQueryToolResults] = useState<Record<string, ToolConfig>>({});
+    const [searchStatus, setSearchStatus] = useState<ToolConfigStatus>('idle');
+    const [searchError, setSearchError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (debouncedSearch.trim().length < 2) return;
+        if (debouncedSearch.trim().length < 2) {
+            setSearchStatus('idle');
+            setSearchError(null);
+            return;
+        }
 
         let cancelled = false;
+        setSearchStatus('loading');
+        setSearchError(null);
 
         async function load() {
-            const tools = await searchToolsByText(debouncedSearch);
-            if (!cancelled) {
-                setQueryToolResults(tools);
+            try {
+                const tools = await searchToolsByText(debouncedSearch);
+                if (!cancelled) {
+                    setQueryToolResults(tools);
+                    setSearchStatus('loaded');
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    setQueryToolResults({});
+                    setSearchError(err instanceof Error ? err.message : String(err));
+                    setSearchStatus('error');
+                }
             }
         }
 
@@ -195,24 +212,72 @@ export function useSearchTextToQueryTool(toolSearchText: string) {
         return () => clearTimeout(timeout);
     }, [toolSearchText]);
 
-    return {debouncedSearch, queryToolResults};
+    return {debouncedSearch, queryToolResults, searchStatus, searchError};
 }
 
-export function useSelectedToolId(selectedToolId: string | null): { toolConfig: ToolConfig | null } {
+export type ToolConfigStatus = 'idle' | 'loading' | 'loaded' | 'error';
+
+/** how long to wait for the coordinator's tool config before giving up so the
+ * map-files step never dead-ends on "Loading tool config…". */
+const TOOL_CONFIG_TIMEOUT_MS = 15_000;
+
+export function useSelectedToolId(selectedToolId: string | null): {
+    toolConfig: ToolConfig | null;
+    status: ToolConfigStatus;
+    error: string | null;
+    retry: () => void;
+} {
     const [toolConfig, setToolConfig] = useState<ToolConfig | null>(null);
+    const [status, setStatus] = useState<ToolConfigStatus>('idle');
+    const [error, setError] = useState<string | null>(null);
+    const [reloadKey, setReloadKey] = useState(0);
 
     useEffect(() => {
-        async function load() {
-            if (selectedToolId != null) {
-                console.warn("here??", selectedToolId);
-                const config = await getToolById(selectedToolId);
-                setToolConfig(config);
+        if (selectedToolId == null) return;
+
+        let cancelled = false;
+        let timer: ReturnType<typeof setTimeout>;
+
+        const load = async () => {
+            setStatus('loading');
+            setError(null);
+            setToolConfig(null);
+
+            // Race the request against a timeout so a hung/never-returning
+            // coordinator call surfaces an error (with a retry path) instead of
+            // spinning on "Loading tool config…" forever.
+            const timeout = new Promise<never>((_, reject) => {
+                timer = setTimeout(() => reject(new Error('timeout')), TOOL_CONFIG_TIMEOUT_MS);
+            });
+
+            try {
+                const config = await Promise.race([getToolById(selectedToolId), timeout]);
+                if (cancelled) return;
+                setToolConfig(config as ToolConfig);
+                setStatus('loaded');
+            } catch (err) {
+                if (cancelled) return;
+                console.error('Failed to load tool config', err);
+                setStatus('error');
+                setError(
+                    err instanceof Error && err.message === 'timeout'
+                        ? 'Loading the tool configuration timed out. The service may be unavailable.'
+                        : 'Failed to load the tool configuration.'
+                );
+            } finally {
+                clearTimeout(timer);
             }
-        }
+        };
 
         load();
-    }, [selectedToolId]);
 
-    return {toolConfig};
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+        };
+    }, [selectedToolId, reloadKey]);
+
+    const retry = () => setReloadKey((k) => k + 1);
+
+    return {toolConfig, status, error, retry};
 }
-
