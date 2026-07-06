@@ -47,6 +47,43 @@ export {
 import type {FileMeta, InputParameterTyp, ToolSlot, TypedValue, ToolTyp} from "../../types/dataplayerTypes.ts";
 import { UserInfo } from "@/hooks/useAuth.ts";
 
+/**
+ * Map a gRPC error onto the HTTP status the coordinator proxy should return, so
+ * the FE/BE contract is driven by status code rather than string-matching the
+ * message. Upstream faults (e.g. the tool-registry `rp` service crashing, which
+ * surfaces as CANCELLED/UNAVAILABLE) become 5xx the client can treat as retryable,
+ * while caller mistakes (INVALID_ARGUMENT, NOT_FOUND) become 4xx.
+ */
+export function grpcErrorToHttpStatus(err: grpc.ServiceError): number {
+    switch (err.code) {
+        case grpc.status.INVALID_ARGUMENT:
+        case grpc.status.FAILED_PRECONDITION:
+        case grpc.status.OUT_OF_RANGE:
+            return 400;
+        case grpc.status.UNAUTHENTICATED:
+            return 401;
+        case grpc.status.PERMISSION_DENIED:
+            return 403;
+        case grpc.status.NOT_FOUND:
+            return 404;
+        case grpc.status.ALREADY_EXISTS:
+        case grpc.status.ABORTED:
+            return 409;
+        case grpc.status.RESOURCE_EXHAUSTED:
+            return 429;
+        case grpc.status.UNIMPLEMENTED:
+            return 501;
+        case grpc.status.UNAVAILABLE:
+        case grpc.status.CANCELLED:
+            return 503;
+        case grpc.status.DEADLINE_EXCEEDED:
+            return 504;
+        default:
+            // INTERNAL, UNKNOWN, DATA_LOSS, and anything unmapped
+            return 500;
+    }
+}
+
 const GRPC_TARGET =
   process.env.GRPC_TARGET ?? "grpc.eosc-coordinator.ethz.ch:443";
 

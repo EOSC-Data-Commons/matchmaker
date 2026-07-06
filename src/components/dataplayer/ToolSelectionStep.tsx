@@ -59,6 +59,7 @@ interface ToolSelectionStepProps {
     queryToolResults: Record<string, ToolConfig>;
     handleToolSelect: (key: string) => Promise<void>;
     filesError: string | null;
+    searchError: string | null;
     selectedToolId: string | null;
 }
 
@@ -69,6 +70,7 @@ export const ToolSelectionStep = ({
                                       queryToolResults,
                                       handleToolSelect,
                                       filesError,
+                                      searchError,
                                       selectedToolId
                                   }: ToolSelectionStepProps) => {
     return (
@@ -86,11 +88,23 @@ export const ToolSelectionStep = ({
                 />
             </div>
 
-            <ToolResultSelect
-                isFilesLoading={isFilesLoading}
-                results={queryToolResults}
-                handleToolSelect={handleToolSelect}
-            />
+            {searchError ? (
+                <div className="p-3 sm:p-4 bg-red-50 rounded-lg border border-red-200">
+                    <p className="text-sm sm:text-base text-red-900 font-light wrap-break-word">{searchError}</p>
+                    <button
+                        onClick={() => setToolSearchText(toolSearchText + " ")}
+                        className="mt-2 sm:mt-3 text-xs sm:text-sm text-red-700 underline font-light"
+                    >
+                        Try again
+                    </button>
+                </div>
+            ) : (
+                <ToolResultSelect
+                    isFilesLoading={isFilesLoading}
+                    results={queryToolResults}
+                    handleToolSelect={handleToolSelect}
+                />
+            )}
 
             {filesError && (
                 <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-red-50 rounded-lg border border-red-200">

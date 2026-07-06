@@ -71,10 +71,36 @@ export async function getToolById(toolId: string): Promise<ToolConfig> {
     return config;
 }
 
+/**
+ * Turn a coordinator/tool-registry failure into a message we can show a user.
+ * The server relays the raw gRPC error in the JSON body (e.g. "1 CANCELLED: Call
+ * cancelled" when the upstream tool-registry service crashes mid-request), which
+ * is meaningless to an end user — so map the known cases to plain language.
+ */
+async function coordinatorErrorMessage(res: Response, fallback: string): Promise<string> {
+    let detail = "";
+    try {
+        const body = await res.json();
+        detail = typeof body?.error === "string" ? body.error : "";
+    } catch {
+        // non-JSON body (e.g. proxy "Proxy error" text); ignore and use fallback
+    }
+
+    const lower = detail.toLowerCase();
+    if (res.status === 502 || res.status === 503 || res.status === 504 ||
+        lower.includes("cancelled") || lower.includes("unavailable")) {
+        return "The tool registry service is currently unavailable. Please try again in a moment.";
+    }
+    if (detail) {
+        return `${fallback}: ${detail}`;
+    }
+    return `${fallback} (${res.status} ${res.statusText})`;
+}
+
 export async function searchToolsByText(text: string): Promise<Record<string, ToolConfig>> {
     const res = await fetch(`/api/coordinator/tool/search?q=${encodeURIComponent(text)}`);
     if (!res.ok) {
-        throw new Error(`Failed to search tool by text: ${res.status} ${res.statusText}`)
+        throw new Error(await coordinatorErrorMessage(res, "Failed to search tools"));
     }
 
     const tools: Record<string, ToolConfig> = await res.json();

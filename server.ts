@@ -10,6 +10,7 @@ import {
     fileMetaToFileEntry,
     getDataplayerClient,
     getToolSrcClient,
+    grpcErrorToHttpStatus,
     launchTool,
     GetArtifactRequest,
     GetToolRequest,
@@ -270,7 +271,7 @@ app.get("/api/coordinator/tasks-result/:taskId", async (req, res) => {
         client.getArtifact(grpc_req, (err, response) => {
             if (err) {
                 console.error(err);
-                res.status(500).json({error: err.message || String(err)});
+                res.status(grpcErrorToHttpStatus(err)).json({error: err.message || String(err)});
                 return;
             }
             let callbackUrl: string | undefined;
@@ -308,7 +309,7 @@ app.post("/api/coordinator/tool/match", async (req, res) => {
         client.matchToolsByData(grpc_req, (err, response) => {
             if (err) {
                 console.error(err);
-                res.status(500).json({error: err.message || String(err)});
+                res.status(grpcErrorToHttpStatus(err)).json({error: err.message || String(err)});
                 return;
             }
 
@@ -343,7 +344,7 @@ app.get("/api/coordinator/tool/search", async (req, res) => {
         client.searchToolsByText(grpc_req, (err, response) => {
             if (err) {
                 console.error(err);
-                res.status(500).json({error: err.message || String(err)});
+                res.status(grpcErrorToHttpStatus(err)).json({error: err.message || String(err)});
                 return;
             }
 
@@ -379,7 +380,7 @@ app.get("/api/coordinator/tool/get/:toolId", async (req, res) => {
         client.getTool(grpc_req, (err, response) => {
             if (err) {
                 console.error(err);
-                res.status(500).json({error: err.message || String(err)});
+                res.status(grpcErrorToHttpStatus(err)).json({error: err.message || String(err)});
                 return;
             }
 
