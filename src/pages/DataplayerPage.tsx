@@ -103,7 +103,7 @@ export const DataplayerPage = () => {
 
     const addToFilesSet = (slotName: string, fileMeta: FileMeta, renameTo: string) => {
         setFilesMapping(prev => {
-            const newMapping = { ...prev };
+            const newMapping = {...prev};
 
             newMapping[slotName] = [fileMeta, renameTo];
 
@@ -113,7 +113,7 @@ export const DataplayerPage = () => {
 
     const removeFromFilesSet = (slotName: string) => {
         setFilesMapping(prev => {
-            const newMapping = { ...prev };
+            const newMapping = {...prev};
             delete newMapping[slotName];
             return newMapping;
         });
@@ -248,12 +248,6 @@ export const DataplayerPage = () => {
             <div className="w-full max-w-7xl mx-auto grow flex flex-col px-4 py-8 gap-8">
                 {/* Top Section */}
                 <div className="flex flex-col gap-4">
-                    <button
-                        onClick={() => navigate('/search?q=' + (searchParams.get('q') || ''))}
-                        className="self-start text-sm text-eosc-gray hover:text-eosc-light-blue font-light flex items-center transition-colors"
-                    >
-                        ← Back to Search Results
-                    </button>
                     {datasetTitle && (
                         <div className="bg-white rounded-xl border border-eosc-border p-6 shadow-sm">
                             <p className="text-sm text-eosc-gray mb-1">Dataset</p>
