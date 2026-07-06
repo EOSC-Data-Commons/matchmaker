@@ -1,4 +1,5 @@
 import {ToolConfig} from '@/types/dataplayerTypes';
+import {stripMarkdown} from '@/lib/utils';
 
 // component: textbox to input text to search tool
 export function ToolSearchInput({
@@ -23,8 +24,8 @@ export function ToolSearchInput({
 
 // component: list all found tools
 export function ToolResultSelect({
-    isFilesLoading, results, handleToolSelect
-}: {
+                                     isFilesLoading, results, handleToolSelect
+                                 }: {
     isFilesLoading: boolean;
     results: Record<string, ToolConfig>;
     handleToolSelect: (key: string) => Promise<void>;
@@ -45,7 +46,17 @@ export function ToolResultSelect({
                         className="p-5 bg-white border border-eosc-border flex flex-col items-start rounded-xl hover:bg-gray-50 hover:border-eosc-light-blue transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed h-full w-full overflow-hidden cursor-pointer"
                     >
                         <h3 className="text-base sm:text-lg font-light text-eosc-text mb-2 wrap-break-word w-full">{config.name}</h3>
-                        <p className="text-sm font-light text-eosc-gray wrap-break-word w-full grow">{config.description}</p>
+                        {(() => {
+                            const description = stripMarkdown(config.description);
+                            return (
+                                <p
+                                    className="text-sm font-light text-eosc-gray wrap-break-word w-full grow line-clamp-3"
+                                    title={description}
+                                >
+                                    {description}
+                                </p>
+                            );
+                        })()}
                     </button>
                 ))}
         </div>
@@ -59,7 +70,6 @@ interface ToolSelectionStepProps {
     queryToolResults: Record<string, ToolConfig>;
     handleToolSelect: (key: string) => Promise<void>;
     filesError: string | null;
-    searchError: string | null;
     selectedToolId: string | null;
 }
 
@@ -70,7 +80,6 @@ export const ToolSelectionStep = ({
                                       queryToolResults,
                                       handleToolSelect,
                                       filesError,
-                                      searchError,
                                       selectedToolId
                                   }: ToolSelectionStepProps) => {
     return (
@@ -88,23 +97,11 @@ export const ToolSelectionStep = ({
                 />
             </div>
 
-            {searchError ? (
-                <div className="p-3 sm:p-4 bg-red-50 rounded-lg border border-red-200">
-                    <p className="text-sm sm:text-base text-red-900 font-light wrap-break-word">{searchError}</p>
-                    <button
-                        onClick={() => setToolSearchText(toolSearchText + " ")}
-                        className="mt-2 sm:mt-3 text-xs sm:text-sm text-red-700 underline font-light"
-                    >
-                        Try again
-                    </button>
-                </div>
-            ) : (
-                <ToolResultSelect
-                    isFilesLoading={isFilesLoading}
-                    results={queryToolResults}
-                    handleToolSelect={handleToolSelect}
-                />
-            )}
+            <ToolResultSelect
+                isFilesLoading={isFilesLoading}
+                results={queryToolResults}
+                handleToolSelect={handleToolSelect}
+            />
 
             {filesError && (
                 <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-red-50 rounded-lg border border-red-200">

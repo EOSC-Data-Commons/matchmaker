@@ -1,5 +1,5 @@
 import {describe, it, expect, vi, afterEach} from "vitest";
-import {getUserErrorMessage, stripHtml, fetchWithTimeout} from "./utils";
+import {getUserErrorMessage, stripHtml, stripMarkdown, fetchWithTimeout} from "./utils";
 
 describe("getUserErrorMessage", () => {
     // Vitest runs with MODE=test, so the non-dev branches apply.
@@ -11,6 +11,29 @@ describe("getUserErrorMessage", () => {
         expect(getUserErrorMessage("string error")).toBe("An unexpected error occurred.");
         expect(getUserErrorMessage(undefined)).toBe("An unexpected error occurred.");
         expect(getUserErrorMessage({code: 500})).toBe("An unexpected error occurred.");
+    });
+});
+
+describe("stripMarkdown", () => {
+    it("returns empty string for empty input", () => {
+        expect(stripMarkdown("")).toBe("");
+    });
+
+    it("strips headings, bold and inline code", () => {
+        expect(stripMarkdown("## Title\nThis is **bold** and `code`."))
+            .toBe("Title\nThis is bold and code.");
+    });
+
+    it("keeps link text but drops the url", () => {
+        expect(stripMarkdown("See [the docs](https://example.com) now")).toBe("See the docs now");
+    });
+
+    it("drops image markdown entirely", () => {
+        expect(stripMarkdown("![a logo](https://example.com/logo.png)Jupyter")).toBe("Jupyter");
+    });
+
+    it("removes list markers and blockquotes", () => {
+        expect(stripMarkdown("- one\n- two\n> quoted")).toBe("one\ntwo\nquoted");
     });
 });
 
