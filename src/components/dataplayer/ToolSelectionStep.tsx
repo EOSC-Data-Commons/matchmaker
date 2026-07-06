@@ -22,21 +22,48 @@ export function ToolSearchInput({
     );
 }
 
+const TOOL_SUGGESTIONS = ['jupyter', 'notebook', 'python'];
+
 // component: list all found tools
 export function ToolResultSelect({
-                                     isFilesLoading, results, handleToolSelect
+                                     isFilesLoading, results, handleToolSelect, onPickSuggestion
                                  }: {
     isFilesLoading: boolean;
     results: Record<string, ToolConfig>;
     handleToolSelect: (key: string) => Promise<void>;
+    onPickSuggestion: (text: string) => void;
 }) {
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {Object.entries(results).length === 0 ? (
-                    <div
-                        className="col-span-full text-center py-8 text-eosc-gray font-light bg-white rounded-lg border border-eosc-border flex items-center justify-center min-h-[75px]">
-                        No tools found.
-                    </div>
+                    isFilesLoading ? (
+                        <div
+                            className="col-span-full text-center py-8 text-eosc-gray font-light bg-white rounded-lg border border-eosc-border flex items-center justify-center gap-3 min-h-[75px]">
+                            <div
+                                className="w-5 h-5 border-2 border-gray-300 border-t-eosc-light-blue rounded-full animate-spin"/>
+                            Finding tools for your files…
+                        </div>
+                    ) : (
+                        <div
+                            className="col-span-full text-center py-8 px-4 text-eosc-gray font-light bg-white rounded-lg border border-eosc-border flex flex-col items-center justify-center gap-4 min-h-[75px]">
+                            <div>
+                                <p className="text-eosc-text">No tools found.</p>
+                                <p className="text-sm mt-1">Search by tool name, or start with a suggestion:</p>
+                            </div>
+                            <div className="flex flex-wrap gap-2 justify-center">
+                                {TOOL_SUGGESTIONS.map((suggestion) => (
+                                    <button
+                                        key={suggestion}
+                                        type="button"
+                                        onClick={() => onPickSuggestion(suggestion)}
+                                        className="px-3 py-1.5 rounded-full text-sm font-light border border-eosc-border bg-eosc-bg text-eosc-text hover:border-eosc-light-blue hover:text-eosc-light-blue transition-colors cursor-pointer"
+                                    >
+                                        {suggestion}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )
                 ) :
                 (Object.entries(results) as [string, ToolConfig][]).map(([key, config]) => (
                     <button
@@ -101,6 +128,7 @@ export const ToolSelectionStep = ({
                 isFilesLoading={isFilesLoading}
                 results={queryToolResults}
                 handleToolSelect={handleToolSelect}
+                onPickSuggestion={setToolSearchText}
             />
 
             {filesError && (
