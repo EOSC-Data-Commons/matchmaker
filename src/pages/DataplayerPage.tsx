@@ -1,4 +1,4 @@
-import {useEffect, useMemo, useState} from 'react';
+import {useMemo, useState} from 'react';
 import {useSearchParams, useNavigate} from 'react-router';
 import {User} from 'lucide-react';
 import {Footer} from '../components/Footer';
@@ -50,15 +50,6 @@ export const DataplayerPage = () => {
     const [valueParametersMapping, setValueParametersMapping] = useState<Record<string, TypedValue>>({});
     const [filesError, setFilesError] = useState<string | null>(null);
 
-    // The dataplayer is normally opened in a new tab (window.open with
-    // noopener), so there is no opener and no prior history to return to —
-    // "Back to Search Results" would just navigate this tab to a fresh, empty
-    // search. Only show Back when this page is part of an existing in-tab
-    // navigation history. Resolved after mount to stay SSR-safe.
-    const [showBack, setShowBack] = useState(false);
-    useEffect(() => {
-        setShowBack(window.history.length > 1);
-    }, []);
 
     const isAuthenticated = !userLoading && !!user;
     const {isFilesLoading, files, error, resetDataset} = useDataset(datasetUrl, isAuthenticated);
@@ -267,14 +258,6 @@ export const DataplayerPage = () => {
             <div className="w-full max-w-7xl mx-auto grow flex flex-col px-4 py-8 gap-8">
                 {/* Top Section */}
                 <div className="flex flex-col gap-4">
-                    {showBack && (
-                        <button
-                            onClick={() => navigate(-1)}
-                            className="self-start text-sm text-eosc-gray hover:text-eosc-light-blue font-light flex items-center transition-colors"
-                        >
-                            ← Back to Search Results
-                        </button>
-                    )}
                     {datasetTitle && (
                         <div className="bg-white rounded-xl border border-eosc-border p-6 shadow-sm">
                             <p className="text-sm text-eosc-gray mb-1">Dataset</p>

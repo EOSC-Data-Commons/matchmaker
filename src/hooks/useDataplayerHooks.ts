@@ -171,17 +171,22 @@ export function useSearchTextToQueryTool(toolSearchText: string) {
     const [searchError, setSearchError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (debouncedSearch.trim().length < 2) {
-            setSearchStatus('idle');
-            setSearchError(null);
-            return;
-        }
-
         let cancelled = false;
-        setSearchStatus('loading');
-        setSearchError(null);
 
         async function load() {
+            if (debouncedSearch.trim().length < 2) {
+                if (!cancelled) {
+                    setSearchStatus('idle');
+                    setSearchError(null);
+                }
+                return;
+            }
+
+            if (!cancelled) {
+                setSearchStatus('loading');
+                setSearchError(null);
+            }
+
             try {
                 const tools = await searchToolsByText(debouncedSearch);
                 if (!cancelled) {
