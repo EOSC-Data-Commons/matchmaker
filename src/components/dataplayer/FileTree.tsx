@@ -61,16 +61,22 @@ const buildFileTree = (files: FileMeta[]): TreeNode[] => {
     return roots;
 };
 
-/** collect every directory path so the tree can start fully expanded */
-const collectDirPaths = (nodes: TreeNode[], acc: Set<string> = new Set()): Set<string> => {
+/** collect only the top-level directory paths so the tree starts with the
+ * first level expanded but everything deeper collapsed — keeps large listings
+ * from filling the whole screen at once. */
+const collectTopLevelDirPaths = (nodes: TreeNode[]): Set<string> => {
+    const acc = new Set<string>();
     for (const node of nodes) {
-        if (node.isDir) {
-            acc.add(node.path);
-            collectDirPaths(node.children, acc);
-        }
+        if (node.isDir) acc.add(node.path);
     }
     return acc;
 };
+
+/** indentation stops deepening past this level so deeply-nested trees don't
+ * run off the right edge of the card. */
+const MAX_INDENT_DEPTH = 8;
+/** how many children to render per directory before a "show more" button. */
+const CHILDREN_PAGE_SIZE = 50;
 
 interface TreeRowProps {
     node: TreeNode;
@@ -82,10 +88,13 @@ interface TreeRowProps {
 
 const TreeRow = ({node, depth, expanded, onToggle, onPreview}: TreeRowProps) => {
     const isOpen = expanded.has(node.path);
-    // indent each level; base padding keeps content off the card edge
-    const indentStyle = {paddingLeft: `${depth * 20 + 16}px`};
+    const [visibleCount, setVisibleCount] = useState(CHILDREN_PAGE_SIZE);
+    // indent each level (capped) ; base padding keeps content off the card edge
+    const indentStyle = {paddingLeft: `${Math.min(depth, MAX_INDENT_DEPTH) * 20 + 16}px`};
 
     if (node.isDir) {
+        const shownChildren = node.children.slice(0, visibleCount);
+        const remaining = node.children.length - shownChildren.length;
         return (
             <>
                 <button
@@ -103,8 +112,11 @@ const TreeRow = ({node, depth, expanded, onToggle, onPreview}: TreeRowProps) => 
                     <span className="text-sm text-eosc-text font-light break-all" title={node.name}>
                         {node.name}
                     </span>
+                    <span className="text-xs text-gray-400 font-light shrink-0">
+                        {node.children.length}
+                    </span>
                 </button>
-                {isOpen && node.children.map((child) => (
+                {isOpen && shownChildren.map((child) => (
                     <TreeRow
                         key={child.path}
                         node={child}
@@ -114,6 +126,16 @@ const TreeRow = ({node, depth, expanded, onToggle, onPreview}: TreeRowProps) => 
                         onPreview={onPreview}
                     />
                 ))}
+                {isOpen && remaining > 0 && (
+                    <button
+                        type="button"
+                        onClick={() => setVisibleCount((c) => c + CHILDREN_PAGE_SIZE)}
+                        style={{paddingLeft: `${Math.min(depth + 1, MAX_INDENT_DEPTH) * 20 + 16}px`}}
+                        className="w-full flex items-center gap-2 pr-4 py-2.5 text-left text-sm text-eosc-light-blue hover:text-blue-500 hover:bg-gray-50 font-light transition-colors cursor-pointer"
+                    >
+                        Show {Math.min(remaining, CHILDREN_PAGE_SIZE)} more of {node.children.length}…
+                    </button>
+                )}
             </>
         );
     }
@@ -170,7 +192,7 @@ interface FileTreeProps {
 
 export const FileTree = ({files}: FileTreeProps) => {
     const tree = useMemo(() => buildFileTree(files), [files]);
-    const [expanded, setExpanded] = useState<Set<string>>(() => collectDirPaths(tree));
+    const [expanded, setExpanded] = useState<Set<string>>(() => collectTopLevelDirPaths(tree));
     const [previewFile, setPreviewFile] = useState<FileMeta | null>(null);
 
     const toggle = (path: string) => {
