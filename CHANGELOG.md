@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.5] - 06/07/2026
+
+Release 1 feedback fixes for the dataplayer, tool selection, and AI chat (all frontend):
+
+- The dataplayer file tree now starts collapsed beyond the top level, pages long lists of children behind a "show more"
+  control, and caps indentation depth, so large datasets no longer flood the screen.
+- Added **Remove** on each additional dataset and a **Reset all** control, so the list of added file groups can be
+  cleared instead of only ever growing.
+- Removed the "Back to Search Results" button, which navigated to a fresh empty search when the dataplayer was opened in
+  a new tab.
+- File preview now renders proxy errors as a "preview not available - download instead" message rather than dumping the
+  raw `{"error":...}` payload into the preview body, and falls back gracefully when an image fails to load.
+- The map-files step now has explicit loading, error, and loaded states with a 15s timeout and a retry/back path, so it
+  can no longer hang forever on empty or bad tool config. Tools with no parameters now show a "this tool needs no
+  parameters — click Submit to VRE" message instead of empty input boxes.
+- Tool descriptions are stripped of raw Markdown and line-clamped, so cards stay compact and readable.
+- The tool list empty state now offers starter suggestion chips (`jupyter`, `notebook`, `python`) plus a loading
+  indicator, and surfaces an error message when a tool search fails instead of silently showing "No tools found."
+- The AI chat now renders an in-chat error bubble (including a friendly "the search timed out" message) when the chat
+  stream fails, instead of dead-ending silently after the user's message.
+
 ## [0.9.4] - 02/07/2026
 
 - Task launches no longer fail when the EGI Secret Store is unreachable (e.g. dev environments, which only have the

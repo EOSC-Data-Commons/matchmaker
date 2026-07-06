@@ -50,6 +50,7 @@ export const DataplayerPage = () => {
     const [valueParametersMapping, setValueParametersMapping] = useState<Record<string, TypedValue>>({});
     const [filesError, setFilesError] = useState<string | null>(null);
 
+
     const isAuthenticated = !userLoading && !!user;
     const {isFilesLoading, files, error, resetDataset} = useDataset(datasetUrl, isAuthenticated);
     const [isAdding, setIsAdding] = useState(false);
@@ -68,7 +69,11 @@ export const DataplayerPage = () => {
     const [toolSearchText, setToolSearchText] = useState("");
 
     const {queryToolResults: toolMatchResults} = useFilesToQueryTool(files);
-    const {debouncedSearch, queryToolResults: toolSearchResults} = useSearchTextToQueryTool(toolSearchText);
+    const {
+        debouncedSearch,
+        queryToolResults: toolSearchResults,
+        searchError
+    } = useSearchTextToQueryTool(toolSearchText);
 
     // if user start type text to search, give the search result
     // otherwise, output the tool match result.
@@ -77,7 +82,12 @@ export const DataplayerPage = () => {
             ? toolSearchResults
             : toolMatchResults;
 
-    const {toolConfig} = useSelectedToolId(selectedToolId);
+    const {
+        toolConfig,
+        status: toolConfigStatus,
+        error: toolConfigError,
+        retry: retryToolConfig
+    } = useSelectedToolId(selectedToolId);
 
     const handleAddGroup = async (datasetHandle: string) => {
         try {
@@ -92,10 +102,18 @@ export const DataplayerPage = () => {
             setIsAdding(false);
         }
     };
-    
+
+    const handleRemoveGroup = (index: number) => {
+        setFileGroups((prev) => prev.filter((_, i) => i !== index));
+    };
+
+    const handleResetGroups = () => {
+        setFileGroups([]);
+    };
+
     const addToFilesSet = (slotName: string, fileMeta: FileMeta, renameTo: string) => {
         setFilesMapping(prev => {
-            const newMapping = { ...prev };
+            const newMapping = {...prev};
 
             newMapping[slotName] = [fileMeta, renameTo];
 
@@ -105,7 +123,7 @@ export const DataplayerPage = () => {
 
     const removeFromFilesSet = (slotName: string) => {
         setFilesMapping(prev => {
-            const newMapping = { ...prev };
+            const newMapping = {...prev};
             delete newMapping[slotName];
             return newMapping;
         });
@@ -240,12 +258,6 @@ export const DataplayerPage = () => {
             <div className="w-full max-w-7xl mx-auto grow flex flex-col px-4 py-8 gap-8">
                 {/* Top Section */}
                 <div className="flex flex-col gap-4">
-                    <button
-                        onClick={() => navigate('/search?q=' + (searchParams.get('q') || ''))}
-                        className="self-start text-sm text-eosc-gray hover:text-eosc-light-blue font-light flex items-center transition-colors"
-                    >
-                        ← Back to Search Results
-                    </button>
                     {datasetTitle && (
                         <div className="bg-white rounded-xl border border-eosc-border p-6 shadow-sm">
                             <p className="text-sm text-eosc-gray mb-1">Dataset</p>
@@ -265,7 +277,18 @@ export const DataplayerPage = () => {
 
                         <div
                             className="bg-white rounded-xl border border-eosc-border p-6 shadow-sm flex flex-col gap-4 ">
-                            <h2 className="text-lg font-light text-eosc-text">Additional Datasets</h2>
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-lg font-light text-eosc-text">Additional Datasets</h2>
+                                {fileGroups.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={handleResetGroups}
+                                        className="text-sm text-eosc-gray hover:text-red-500 font-light transition-colors cursor-pointer"
+                                    >
+                                        Reset all
+                                    </button>
+                                )}
+                            </div>
                             <DataplayInput
                                 label={isAdding ? "Loading..." : "Add"}
                                 onPlay={handleAddGroup}
@@ -282,9 +305,18 @@ export const DataplayerPage = () => {
 
                             {fileGroups.map((group, idx) => (
                                 <div key={idx} className="mt-2 border-t border-eosc-border pt-4">
-                                    <h3 className="text-md font-light text-eosc-text mb-2">
-                                        Group {idx + 1}
-                                    </h3>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h3 className="text-md font-light text-eosc-text">
+                                            Group {idx + 1}
+                                        </h3>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleRemoveGroup(idx)}
+                                            className="text-sm text-eosc-gray hover:text-red-500 font-light transition-colors cursor-pointer"
+                                        >
+                                            Remove
+                                        </button>
+                                    </div>
                                     <FilesList files={group} isFilesLoading={false} error={null}/>
                                 </div>
                             ))}
@@ -302,6 +334,7 @@ export const DataplayerPage = () => {
                                     queryToolResults={queryToolResults}
                                     handleToolSelect={handleToolSelect}
                                     filesError={filesError}
+                                    searchError={debouncedSearch.trim().length >= 2 ? searchError : null}
                                     selectedToolId={selectedToolId}
                                 />
                             )}
@@ -309,6 +342,9 @@ export const DataplayerPage = () => {
                                 <SlotsMappingAndFilesSetStep
                                     selectedToolId={selectedToolId}
                                     toolConfig={toolConfig}
+                                    toolConfigStatus={toolConfigStatus}
+                                    toolConfigError={toolConfigError}
+                                    onRetryToolConfig={retryToolConfig}
                                     files={allFiles}
                                     filesMapping={filesMapping}
                                     valueParametersMapping={valueParametersMapping}

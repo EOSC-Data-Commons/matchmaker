@@ -85,3 +85,37 @@ export function stripHtml(html: string): string {
         return entities[match] || match;
     });
 }
+
+/**
+ * Reduce common Markdown to readable plain text. Tool descriptions arrive as
+ * raw Markdown (headings, bold, links, image tags) which — rendered as-is —
+ * dumps the syntax verbatim and balloons the card. This drops the markup and
+ * keeps the visible text so it can be safely line-clamped.
+ */
+export function stripMarkdown(md: string): string {
+    if (!md) return '';
+
+    let text = md;
+    // fenced code blocks -> keep the inner code text
+    text = text.replace(/```[a-zA-Z0-9]*\n?([\s\S]*?)```/g, '$1');
+    // images ![alt](url) -> drop entirely (must run before the link rule)
+    text = text.replace(/!\[[^\]]*]\([^)]*\)/g, '');
+    // links [text](url) -> text
+    text = text.replace(/\[([^\]]*)]\([^)]*\)/g, '$1');
+    // headings, blockquotes and list markers at line starts
+    text = text.replace(/^\s{0,3}#{1,6}\s+/gm, '');
+    text = text.replace(/^\s{0,3}>\s?/gm, '');
+    text = text.replace(/^\s*[-*+]\s+/gm, '');
+    text = text.replace(/^\s*\d+\.\s+/gm, '');
+    // horizontal rules
+    text = text.replace(/^\s*([-*_])(\s*\1){2,}\s*$/gm, '');
+    // bold / italic / strikethrough / inline code
+    text = text.replace(/(\*\*|__)(.*?)\1/g, '$2');
+    text = text.replace(/(\*|_)(.*?)\1/g, '$2');
+    text = text.replace(/~~(.*?)~~/g, '$1');
+    text = text.replace(/`([^`]*)`/g, '$1');
+    // collapse the whitespace the markup left behind
+    text = text.replace(/\n{2,}/g, '\n').replace(/[ \t]{2,}/g, ' ');
+
+    return text.trim();
+}

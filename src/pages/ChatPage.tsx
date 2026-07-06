@@ -4,7 +4,7 @@ import {useAuth} from "@/hooks/useAuth.ts";
 import {loginWithReturn} from "@/lib/authRedirect.ts";
 import {Conversation, Message} from "@/types/chat.ts";
 import {BackendDataset} from "@/types/commons.ts";
-import {sendChatMessage} from "@/lib/api.ts";
+import {sendChatMessage, RateLimitError, ServerError} from "@/lib/api.ts";
 import {getUserInitials} from "@/lib/userUtils.ts";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 import {ChevronDown, ChevronUp, Loader2, MessageSquare, Plus, Send, User} from "lucide-react";
@@ -302,6 +302,21 @@ const ChatPage: FC = () => {
         setIsSending(true);
         setTimeout(scrollToBottom, 50);
 
+        // Turn a stream failure into a user-facing error bubble instead of a
+        // silent console.error that dead-ends the chat.
+        const errorText = (error: unknown): string => {
+            if (error instanceof RateLimitError || error instanceof ServerError) return error.message;
+            if (error instanceof Error && /timeout|timed out/i.test(error.message)) {
+                return "The search timed out — please try again.";
+            }
+            return "Something went wrong while searching. Please try again.";
+        };
+        const appendErrorBubble = (text: string) => {
+            const botMessage: Message = {sender: 'bot', content: text, isError: true};
+            setSelectedConversation(prev => prev ? {...prev, messages: [...prev.messages, botMessage]} : null);
+            setIsSending(false);
+        };
+
         try {
             let currentTextContent = "";
             let receivedRerank = false;
@@ -356,18 +371,18 @@ const ChatPage: FC = () => {
                     } else if (event.type === 'RUN_FINISHED') {
                         setIsSending(false);
                     } else if (event.error) {
-                        setIsSending(false);
                         console.error("Event error:", event.error);
+                        appendErrorBubble(errorText(new Error(event.error)));
                     }
                 },
                 (error) => {
                     console.error("Failed to send message", error);
-                    setIsSending(false);
+                    appendErrorBubble(errorText(error));
                 }
             );
         } catch (e) {
             console.error("Failed to send message", e);
-            setIsSending(false);
+            appendErrorBubble(errorText(e));
         } finally {
             fetchConversationsRef.current();
         }
@@ -611,12 +626,16 @@ const ChatPage: FC = () => {
                                             </div>
                                             <div
                                                 className={`rounded-2xl px-5 py-3 shadow-sm text-[15px] min-w-0 break-words ${
-                                                    msg.sender === 'user'
-                                                        ? 'bg-blue-600 text-white rounded-tr-sm'
-                                                        : 'bg-white border border-gray-200 text-gray-800 rounded-tl-sm whitespace-pre-wrap'
+                                                    msg.isError
+                                                        ? 'bg-red-50 border border-red-200 text-red-700 rounded-tl-sm whitespace-pre-wrap'
+                                                        : msg.sender === 'user'
+                                                            ? 'bg-blue-600 text-white rounded-tr-sm'
+                                                            : 'bg-white border border-gray-200 text-gray-800 rounded-tl-sm whitespace-pre-wrap'
                                                 }`}
                                             >
-                                                {msg.sender === 'user' ? (
+                                                {msg.isError ? (
+                                                    <p className="leading-relaxed">{msg.content}</p>
+                                                ) : msg.sender === 'user' ? (
                                                     <p className="leading-relaxed">{msg.content}</p>
                                                 ) : collapsedMessages.has(index) ? (
                                                     <div className="flex items-center gap-3">
@@ -692,7 +711,8 @@ const ChatPage: FC = () => {
                             )}
                             {!isSending &&
                                 selectedConversation &&
-                                selectedConversation.messages[selectedConversation.messages.length - 1]?.sender === 'bot' && (
+                                selectedConversation.messages[selectedConversation.messages.length - 1]?.sender === 'bot' &&
+                                !selectedConversation.messages[selectedConversation.messages.length - 1]?.isError && (
                                     <div className="pl-11">
                                         <SearchFeedback
                                             key={`${selectedConversation.id}-${selectedConversation.messages.length}`}

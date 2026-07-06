@@ -3,6 +3,7 @@ import {CalendarIcon, UserIcon, ExternalLinkIcon, TagIcon, Rocket} from "lucide-
 import {ProportionalStar} from './ProportionalStar';
 import {CitationExport} from './CitationExport';
 import {stripHtml} from "../lib/utils";
+import {loginWithReturn} from "../lib/authRedirect";
 import {useState} from 'react';
 import {useSearchParams} from 'react-router';
 import {RepoLogo} from "./RepoLogo.tsx";
@@ -28,7 +29,7 @@ export const SearchResultItem = ({hit, isAiRanked = false, isLoggedIn = false}: 
     const handleDataplayer = () => {
         if (!isLoggedIn) {
             trackEvent('Auth', 'gate_triggered', 'data_player');
-            window.location.href = '/auth/login';
+            loginWithReturn();
             return;
         }
         trackEvent('Dataset', 'play_clicked', hit.title);

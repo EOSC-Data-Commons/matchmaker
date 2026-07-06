@@ -10,4 +10,5 @@ export interface Message {
     sender: 'user' | 'bot';
     content: string;
     hits?: BackendDataset[];
+    isError?: boolean;
 }

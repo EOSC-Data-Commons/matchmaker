@@ -1,4 +1,5 @@
 import {ToolConfig} from '@/types/dataplayerTypes';
+import {stripMarkdown} from '@/lib/utils';
 
 // component: textbox to input text to search tool
 export function ToolSearchInput({
@@ -21,21 +22,48 @@ export function ToolSearchInput({
     );
 }
 
+const TOOL_SUGGESTIONS = ['jupyter', 'notebook', 'python'];
+
 // component: list all found tools
 export function ToolResultSelect({
-    isFilesLoading, results, handleToolSelect
-}: {
+                                     isFilesLoading, results, handleToolSelect, onPickSuggestion
+                                 }: {
     isFilesLoading: boolean;
     results: Record<string, ToolConfig>;
     handleToolSelect: (key: string) => Promise<void>;
+    onPickSuggestion: (text: string) => void;
 }) {
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {Object.entries(results).length === 0 ? (
-                    <div
-                        className="col-span-full text-center py-8 text-eosc-gray font-light bg-white rounded-lg border border-eosc-border flex items-center justify-center min-h-[75px]">
-                        No tools found.
-                    </div>
+                    isFilesLoading ? (
+                        <div
+                            className="col-span-full text-center py-8 text-eosc-gray font-light bg-white rounded-lg border border-eosc-border flex items-center justify-center gap-3 min-h-[75px]">
+                            <div
+                                className="w-5 h-5 border-2 border-gray-300 border-t-eosc-light-blue rounded-full animate-spin"/>
+                            Finding tools for your files…
+                        </div>
+                    ) : (
+                        <div
+                            className="col-span-full text-center py-8 px-4 text-eosc-gray font-light bg-white rounded-lg border border-eosc-border flex flex-col items-center justify-center gap-4 min-h-[75px]">
+                            <div>
+                                <p className="text-eosc-text">No tools found.</p>
+                                <p className="text-sm mt-1">Search by tool name, or start with a suggestion:</p>
+                            </div>
+                            <div className="flex flex-wrap gap-2 justify-center">
+                                {TOOL_SUGGESTIONS.map((suggestion) => (
+                                    <button
+                                        key={suggestion}
+                                        type="button"
+                                        onClick={() => onPickSuggestion(suggestion)}
+                                        className="px-3 py-1.5 rounded-full text-sm font-light border border-eosc-border bg-eosc-bg text-eosc-text hover:border-eosc-light-blue hover:text-eosc-light-blue transition-colors cursor-pointer"
+                                    >
+                                        {suggestion}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )
                 ) :
                 (Object.entries(results) as [string, ToolConfig][]).map(([key, config]) => (
                     <button
@@ -45,7 +73,17 @@ export function ToolResultSelect({
                         className="p-5 bg-white border border-eosc-border flex flex-col items-start rounded-xl hover:bg-gray-50 hover:border-eosc-light-blue transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed h-full w-full overflow-hidden cursor-pointer"
                     >
                         <h3 className="text-base sm:text-lg font-light text-eosc-text mb-2 wrap-break-word w-full">{config.name}</h3>
-                        <p className="text-sm font-light text-eosc-gray wrap-break-word w-full grow">{config.description}</p>
+                        {(() => {
+                            const description = stripMarkdown(config.description);
+                            return (
+                                <p
+                                    className="text-sm font-light text-eosc-gray wrap-break-word w-full grow line-clamp-3"
+                                    title={description}
+                                >
+                                    {description}
+                                </p>
+                            );
+                        })()}
                     </button>
                 ))}
         </div>
@@ -59,6 +97,7 @@ interface ToolSelectionStepProps {
     queryToolResults: Record<string, ToolConfig>;
     handleToolSelect: (key: string) => Promise<void>;
     filesError: string | null;
+    searchError: string | null;
     selectedToolId: string | null;
 }
 
@@ -69,6 +108,7 @@ export const ToolSelectionStep = ({
                                       queryToolResults,
                                       handleToolSelect,
                                       filesError,
+                                      searchError,
                                       selectedToolId
                                   }: ToolSelectionStepProps) => {
     return (
@@ -86,10 +126,17 @@ export const ToolSelectionStep = ({
                 />
             </div>
 
+            {searchError && (
+                <div className="mb-6 p-3 sm:p-4 bg-red-50 rounded-lg border border-red-200">
+                    <p className="text-sm sm:text-base text-red-900 font-light wrap-break-word">{searchError}</p>
+                </div>
+            )}
+
             <ToolResultSelect
                 isFilesLoading={isFilesLoading}
                 results={queryToolResults}
                 handleToolSelect={handleToolSelect}
+                onPickSuggestion={setToolSearchText}
             />
 
             {filesError && (

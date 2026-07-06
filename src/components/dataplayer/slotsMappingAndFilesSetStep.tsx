@@ -1,9 +1,13 @@
 import {FileMeta, ToolConfig, TypedValue} from '@/types/dataplayerTypes';
-import { useState } from 'react';
+import {useState} from 'react';
+import type {ToolConfigStatus} from '@/hooks/useDataplayerHooks';
 
 interface slotsMappingAndFilesSetProps {
     selectedToolId: string | null;
     toolConfig: ToolConfig | null;
+    toolConfigStatus: ToolConfigStatus;
+    toolConfigError: string | null;
+    onRetryToolConfig: () => void;
     files: FileMeta[];
     filesMapping: Record<string, [FileMeta, string]>;
     valueParametersMapping: Record<string, TypedValue>;
@@ -16,21 +20,21 @@ interface slotsMappingAndFilesSetProps {
 }
 
 export const SlotsMappingAndFilesSetStep = ({
-                                    selectedToolId,
-                                    toolConfig,
-                                    files,
-                                    filesMapping,
-                                    valueParametersMapping,
-                                    addToFilesSet,
-                                    removeFromFilesSet,
-                                    handleValueSlotSet,
-                                    allParametersMapped,
-                                    onReselectTool,
-                                    onSubmit
-                                }: slotsMappingAndFilesSetProps) => {
-    console.warn(selectedToolId);
-    console.warn(toolConfig);
-
+                                                selectedToolId,
+                                                toolConfig,
+                                                toolConfigStatus,
+                                                toolConfigError,
+                                                onRetryToolConfig,
+                                                files,
+                                                filesMapping,
+                                                valueParametersMapping,
+                                                addToFilesSet,
+                                                removeFromFilesSet,
+                                                handleValueSlotSet,
+                                                allParametersMapped,
+                                                onReselectTool,
+                                                onSubmit
+                                            }: slotsMappingAndFilesSetProps) => {
     const [promotedOptional, setPromotedOptional] = useState<string[]>([]);
     const requiredParams = toolConfig?.slots.filter(
         (p) => !p.isOptional || promotedOptional.includes(p.name)
@@ -39,8 +43,53 @@ export const SlotsMappingAndFilesSetStep = ({
         (p) => p.isOptional && !promotedOptional.includes(p.name)
     );
 
-    
+
     if (!selectedToolId) return null;
+
+    // Loading state — never dead-ends: the user can always go back and reselect.
+    if (toolConfigStatus === 'loading') {
+        return (
+            <div className="w-full font-light flex flex-col items-center justify-center gap-4 py-16 text-center">
+                <div className="w-8 h-8 border-2 border-gray-300 border-t-eosc-light-blue rounded-full animate-spin"/>
+                <p className="text-sm text-eosc-gray">Loading tool configuration…</p>
+                <button
+                    onClick={onReselectTool}
+                    className="text-sm font-light text-eosc-gray hover:text-eosc-light-blue transition-colors cursor-pointer"
+                >
+                    <span className="mr-2">←</span> Reselect Tool
+                </button>
+            </div>
+        );
+    }
+
+    // Error/timeout state — offer retry and a way back so the flow never hangs.
+    if (toolConfigStatus === 'error' || !toolConfig) {
+        return (
+            <div className="w-full font-light flex flex-col items-center justify-center gap-5 py-16 text-center">
+                <div className="max-w-md p-4 bg-red-50 rounded-lg border border-red-200">
+                    <p className="text-sm text-red-600">
+                        {toolConfigError ?? 'The tool configuration could not be loaded.'}
+                    </p>
+                </div>
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={onReselectTool}
+                        className="text-sm font-light text-eosc-gray hover:text-eosc-light-blue transition-colors cursor-pointer px-4 py-2 rounded-md hover:bg-eosc-bg"
+                    >
+                        <span className="mr-2">←</span> Reselect Tool
+                    </button>
+                    <button
+                        onClick={onRetryToolConfig}
+                        className="inline-flex items-center justify-center rounded-md bg-white border border-eosc-border px-6 py-2.5 text-sm font-light text-eosc-text hover:bg-gray-50 hover:border-eosc-light-blue transition-colors cursor-pointer"
+                    >
+                        Retry
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    const hasNoParams = toolConfig.slots.length === 0;
 
     const addFile = () => {
         const slotIndex = Object.keys(filesMapping).length + 1;
@@ -73,7 +122,7 @@ export const SlotsMappingAndFilesSetStep = ({
                                 Selected Tool
                             </p>
                             <p className="text-sm sm:text-base text-eosc-text font-light wrap-break-word">
-                                {toolConfig ? toolConfig.name : "Loading tool config..."}
+                                {toolConfig.name}
                             </p>
                         </div>
                         <div>
@@ -88,153 +137,166 @@ export const SlotsMappingAndFilesSetStep = ({
                 </div>
             </div>
 
+            {hasNoParams && (
+                <div className="mb-6 p-4 sm:p-5 bg-blue-50 rounded-lg border border-blue-200">
+                    <p className="text-sm text-eosc-text font-light">
+                        This tool needs no parameters — click <span className="font-medium">Submit to VRE</span> to
+                        continue.
+                    </p>
+                </div>
+            )}
+
             {/* Required Parameters Info */}
-            <div className="mb-6 p-4 sm:p-5 bg-white rounded-lg border border-eosc-border">
-                <p className="text-xs font-medium text-eosc-gray uppercase tracking-wider mb-3">
-                    Required Parameters Tracking</p>
-                <div className="flex flex-wrap gap-2">
-                    {toolConfig ? requiredParams?.map(param => {
-                        const isMapped = Object.keys(valueParametersMapping).includes(param.name);
-                        const isPromoted = promotedOptional.includes(param.name);
-                        return (
-                            <span
-                                key={param.name}
-                                onClick={
-                                    isPromoted ? () => setPromotedOptional((prev) =>
-                                        prev.filter((name) => name !== param.name)
-                                    ) : undefined
-                                }
-                                className={`px-3 py-1.5 rounded-md text-xs sm:text-sm font-light border ${
-                                    isMapped
-                                        ? 'bg-blue-50 text-eosc-light-blue border-blue-200'
-                                        : 'bg-eosc-bg text-eosc-gray border-eosc-border'
-                                }`}
-                            >
-                                {param.name} 
-                                <span className="opacity-75 font-light">({param.typ})</span>{""} 
+            {!hasNoParams && (<>
+                <div className="mb-6 p-4 sm:p-5 bg-white rounded-lg border border-eosc-border">
+                    <p className="text-xs font-medium text-eosc-gray uppercase tracking-wider mb-3">
+                        Required Parameters Tracking</p>
+                    <div className="flex flex-wrap gap-2">
+                        {toolConfig ? requiredParams?.map(param => {
+                            const isMapped = Object.keys(valueParametersMapping).includes(param.name);
+                            const isPromoted = promotedOptional.includes(param.name);
+                            return (
+                                <span
+                                    key={param.name}
+                                    onClick={
+                                        isPromoted ? () => setPromotedOptional((prev) =>
+                                            prev.filter((name) => name !== param.name)
+                                        ) : undefined
+                                    }
+                                    className={`px-3 py-1.5 rounded-md text-xs sm:text-sm font-light border ${
+                                        isMapped
+                                            ? 'bg-blue-50 text-eosc-light-blue border-blue-200'
+                                            : 'bg-eosc-bg text-eosc-gray border-eosc-border'
+                                    }`}
+                                >
+                                {param.name}
+                                    <span className="opacity-75 font-light">({param.typ})</span>{""}
                                     {isMapped ? '✓' : '⚠'} {isPromoted ? '✗' : ''}
                                 </span>
-                        );
-                    }) : "Loading tool config"}
+                            );
+                        }) : "Loading tool config"}
+                    </div>
                 </div>
-            </div>
 
-            {/* optional parameters panel */}
-            <div className="mb-6 p-4 sm:p-5 bg-white rounded-lg border border-eosc-border">
-                <p className="text-xs font-medium text-eosc-gray uppercase tracking-wider mb-3">
-                    Optional Parameters
-                </p>
+                {/* optional parameters panel */}
+                <div className="mb-6 p-4 sm:p-5 bg-white rounded-lg border border-eosc-border">
+                    <p className="text-xs font-medium text-eosc-gray uppercase tracking-wider mb-3">
+                        Optional Parameters
+                    </p>
 
-                <div className="flex flex-wrap gap-2">
-                    {optionalParams?.map((param) => (
-                        <button
-                            key={param.name}
-                            onClick={() =>
-                                setPromotedOptional((prev) => [...prev, param.name])
-                            }
-                            className="px-3 py-1.5 rounded-md text-xs sm:text-sm font-light border bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100 transition"
-                        >
-                            {param.name} <span className="opacity-75">({param.typ})</span> ➕
-                        </button>
-                    ))}
+                    <div className="flex flex-wrap gap-2">
+                        {optionalParams?.map((param) => (
+                            <button
+                                key={param.name}
+                                onClick={() =>
+                                    setPromotedOptional((prev) => [...prev, param.name])
+                                }
+                                className="px-3 py-1.5 rounded-md text-xs sm:text-sm font-light border bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100 transition"
+                            >
+                                {param.name} <span className="opacity-75">({param.typ})</span> ➕
+                            </button>
+                        ))}
+                    </div>
                 </div>
-            </div>
 
-            <div className="bg-white rounded-lg border border-eosc-border overflow-hidden mb-8">
-                <div className="overflow-x-auto">
-                    {toolConfig ? (<table className="min-w-full divide-y divide-eosc-border table-fixed">
-                            <thead className="bg-eosc-bg">
-                            <tr>
-                                <th className="w-1/4 px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-medium text-eosc-gray uppercase tracking-wider">
-                                    Parameter
-                                </th>
-                                <th className="w-1/4 px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-medium text-eosc-gray uppercase tracking-wider">
-                                    Data Type
-                                </th>
-                                <th className="w-1/2 px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-medium text-eosc-gray uppercase tracking-wider">
-                                    Value Assignment
-                                </th>
-                            </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-eosc-border">
-                            {requiredParams.map((param) => (
-                                <tr className="hover:bg-gray-50 transition-colors" key={param.name}>
-                                    <td className="px-4 sm:px-6 py-4 text-sm font-light text-eosc-text wrap-break-word">
-                                        {param.name}
-                                    </td>
-                                    <td className="px-4 sm:px-6 py-4 text-sm text-eosc-gray wrap-break-word">
+                <div className="bg-white rounded-lg border border-eosc-border overflow-hidden mb-8">
+                    <div className="overflow-x-auto">
+                        {toolConfig ? (<table className="min-w-full divide-y divide-eosc-border table-fixed">
+                                <thead className="bg-eosc-bg">
+                                <tr>
+                                    <th className="w-1/4 px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-medium text-eosc-gray uppercase tracking-wider">
+                                        Parameter
+                                    </th>
+                                    <th className="w-1/4 px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-medium text-eosc-gray uppercase tracking-wider">
+                                        Data Type
+                                    </th>
+                                    <th className="w-1/2 px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-medium text-eosc-gray uppercase tracking-wider">
+                                        Value Assignment
+                                    </th>
+                                </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-eosc-border">
+                                {requiredParams.map((param) => (
+                                    <tr className="hover:bg-gray-50 transition-colors" key={param.name}>
+                                        <td className="px-4 sm:px-6 py-4 text-sm font-light text-eosc-text wrap-break-word">
+                                            {param.name}
+                                        </td>
+                                        <td className="px-4 sm:px-6 py-4 text-sm text-eosc-gray wrap-break-word">
                                     <span
                                         className="inline-flex items-center px-2 py-0.5 rounded text-xs font-light bg-eosc-bg border border-eosc-border text-eosc-text">
                                         {param.typ}
                                     </span>
-                                    </td>
-                                    <td className="px-4 sm:px-6 py-4 p-2">
-                                        {param.typ === "File" && (
-                                            <select
-                                                onChange={(e) => {
-                                                    const index = Number(e.target.value);
-                                                    const selectedFile = files[index];
-                                                    handleValueSlotSet(param.name, selectedFile);
-                                                }}
-                                                value={files.findIndex(f => f === valueParametersMapping[param.name]) ?? ""}
-                                                className="block w-full max-w-full px-3 py-2 text-sm border border-eosc-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-eosc-light-blue focus:border-eosc-light-blue bg-white text-eosc-text wrap-break-word whitespace-normal"
-                                            >
-                                                <option key="none" value="">-- Select a file to assign --</option>
-                                                {files.map((file, fileIndex) => (
-                                                    <option key={fileIndex} value={fileIndex}>
-                                                        {file.filename}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        )}
+                                        </td>
+                                        <td className="px-4 sm:px-6 py-4 p-2">
+                                            {param.typ === "File" && (
+                                                <select
+                                                    onChange={(e) => {
+                                                        const index = Number(e.target.value);
+                                                        const selectedFile = files[index];
+                                                        handleValueSlotSet(param.name, selectedFile);
+                                                    }}
+                                                    value={files.findIndex(f => f === valueParametersMapping[param.name]) ?? ""}
+                                                    className="block w-full max-w-full px-3 py-2 text-sm border border-eosc-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-eosc-light-blue focus:border-eosc-light-blue bg-white text-eosc-text wrap-break-word whitespace-normal"
+                                                >
+                                                    <option key="none" value="">-- Select a file to assign --</option>
+                                                    {files.map((file, fileIndex) => (
+                                                        <option key={fileIndex} value={fileIndex}>
+                                                            {file.filename}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            )}
 
-                                        {(param.typ === "Number") && (
-                                            <input
-                                                type="number"
-                                                value={(valueParametersMapping[param.name] as number) ?? ""}
-                                                onChange={(e) => handleValueSlotSet(param.name, Number(e.target.value))}
-                                                placeholder="Enter number..."
-                                                className="block w-full max-w-md px-3 py-2 font-light text-sm border border-eosc-border rounded-md focus:outline-none focus:ring-2 focus:ring-eosc-light-blue focus:border-eosc-light-blue bg-white text-eosc-text"
-                                            />
-                                        )}
-
-                                        {(param.typ === "Text") && (
-                                            <input
-                                                type="text"
-                                                value={(valueParametersMapping[param.name] as string) ?? ""}
-                                                onChange={(e) => handleValueSlotSet(param.name, e.target.value)}
-                                                placeholder="Enter text..."
-                                                className="block w-full max-w-md px-3 py-2 font-light text-sm border border-eosc-border rounded-md focus:outline-none focus:ring-2 focus:ring-eosc-light-blue focus:border-eosc-light-blue bg-white text-eosc-text"
-                                            />
-                                        )}
-
-                                        {param.typ === "Flag" && (
-                                            <label className="inline-flex items-center cursor-pointer">
+                                            {(param.typ === "Number") && (
                                                 <input
-                                                    type="checkbox"
-                                                    checked={(valueParametersMapping[param.name] as boolean) || false}
-                                                    onChange={(e) => handleValueSlotSet(param.name, e.target.checked)}
-                                                    className="form-checkbox h-5 w-5 text-eosc-light-blue border-eosc-border rounded focus:ring-eosc-light-blue transition duration-150 ease-in-out"
+                                                    type="number"
+                                                    value={(valueParametersMapping[param.name] as number) ?? ""}
+                                                    onChange={(e) => handleValueSlotSet(param.name, Number(e.target.value))}
+                                                    placeholder="Enter number..."
+                                                    className="block w-full max-w-md px-3 py-2 font-light text-sm border border-eosc-border rounded-md focus:outline-none focus:ring-2 focus:ring-eosc-light-blue focus:border-eosc-light-blue bg-white text-eosc-text"
                                                 />
-                                                <span
-                                                    className="ml-2 text-sm text-eosc-text">{valueParametersMapping[param.name] ? 'Enabled' : 'Disabled'}</span>
-                                            </label>
-                                        )}
+                                            )}
 
-                                        {param.typ === "Unknown" && (
-                                            <span className="text-gray-400 text-sm italic">Unsupported parameter type</span>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                            </tbody>
-                        </table>) :
-                        <div className="p-8 text-center text-eosc-gray">No parameters available for this tool.</div>}
+                                            {(param.typ === "Text") && (
+                                                <input
+                                                    type="text"
+                                                    value={(valueParametersMapping[param.name] as string) ?? ""}
+                                                    onChange={(e) => handleValueSlotSet(param.name, e.target.value)}
+                                                    placeholder="Enter text..."
+                                                    className="block w-full max-w-md px-3 py-2 font-light text-sm border border-eosc-border rounded-md focus:outline-none focus:ring-2 focus:ring-eosc-light-blue focus:border-eosc-light-blue bg-white text-eosc-text"
+                                                />
+                                            )}
+
+                                            {param.typ === "Flag" && (
+                                                <label className="inline-flex items-center cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={(valueParametersMapping[param.name] as boolean) || false}
+                                                        onChange={(e) => handleValueSlotSet(param.name, e.target.checked)}
+                                                        className="form-checkbox h-5 w-5 text-eosc-light-blue border-eosc-border rounded focus:ring-eosc-light-blue transition duration-150 ease-in-out"
+                                                    />
+                                                    <span
+                                                        className="ml-2 text-sm text-eosc-text">{valueParametersMapping[param.name] ? 'Enabled' : 'Disabled'}</span>
+                                                </label>
+                                            )}
+
+                                            {param.typ === "Unknown" && (
+                                                <span
+                                                    className="text-gray-400 text-sm italic">Unsupported parameter type</span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                                </tbody>
+                            </table>) :
+                            <div className="p-8 text-center text-eosc-gray">No parameters available for this
+                                tool.</div>}
+                    </div>
                 </div>
-            </div>
+            </>)}
 
             {/* For filesOnly and SlotsAndFiles tool, require widget for getting files. */}
-            {( toolConfig && ( toolConfig.typ == "FilesOnly" || toolConfig.typ == "FilesAndSlots")) && (
+            {(toolConfig.typ == "FilesOnly" || toolConfig.typ == "FilesAndSlots") && (
                 <div className="bg-white rounded-lg border border-eosc-border overflow-hidden mb-8">
                     <div className="p-4 space-y-4">
 

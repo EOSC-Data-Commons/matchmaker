@@ -22,8 +22,13 @@ export const FilePreviewModal = ({file, onClose}: FilePreviewModalProps) => {
 
     const [text, setText] = useState<string | null>(null);
     const [truncated, setTruncated] = useState(false);
-    const [loading, setLoading] = useState(kind === 'text' || kind === 'csv');
+    // image/pdf are fetched as a blob so the proxy's {error} JSON (returned with
+    // a non-OK status) is caught here instead of being rendered raw in the body.
+    const [binaryUrl, setBinaryUrl] = useState<string | null>(null);
+    const [loading, setLoading] = useState(kind !== 'none');
     const [error, setError] = useState<string | null>(null);
+
+    const PREVIEW_UNAVAILABLE = 'Preview not available — download the file instead.';
 
     // close on Escape
     useEffect(() => {
@@ -47,9 +52,9 @@ export const FilePreviewModal = ({file, onClose}: FilePreviewModalProps) => {
                 setText(text);
                 setTruncated(truncated);
             })
-            .catch((err) => {
+            .catch(() => {
                 if (cancelled) return;
-                setError(err instanceof Error ? err.message : 'Failed to load preview');
+                setError(PREVIEW_UNAVAILABLE);
             })
             .finally(() => {
                 if (!cancelled) setLoading(false);
@@ -57,6 +62,36 @@ export const FilePreviewModal = ({file, onClose}: FilePreviewModalProps) => {
 
         return () => {
             cancelled = true;
+        };
+    }, [downloadUrl, kind]);
+
+    // fetch image/pdf bytes via the proxy as a blob. A rejected preview comes
+    // back as a non-OK JSON payload ({"error": ...}); loading it directly into
+    // an <img>/<iframe> would show a blank body or dump the raw JSON, so we
+    // fetch it here, surface an error, and render from an object URL on success.
+    useEffect(() => {
+        if (kind !== 'image' && kind !== 'pdf') return;
+        let cancelled = false;
+        let objectUrl: string | null = null;
+
+        fetch(filePreviewUrl(downloadUrl, 'binary'))
+            .then(async (res) => {
+                if (!res.ok) throw new Error(PREVIEW_UNAVAILABLE);
+                const blob = await res.blob();
+                if (cancelled) return;
+                objectUrl = URL.createObjectURL(blob);
+                setBinaryUrl(objectUrl);
+            })
+            .catch(() => {
+                if (!cancelled) setError(PREVIEW_UNAVAILABLE);
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
         };
     }, [downloadUrl, kind]);
 
@@ -83,22 +118,23 @@ export const FilePreviewModal = ({file, onClose}: FilePreviewModalProps) => {
             );
         }
 
-        if (kind === 'image') {
+        if (kind === 'image' && binaryUrl) {
             return (
                 <div className="p-4 flex justify-center bg-gray-50">
                     <img
-                        src={filePreviewUrl(downloadUrl, 'binary')}
+                        src={binaryUrl}
                         alt={displayName(file)}
+                        onError={() => setError(PREVIEW_UNAVAILABLE)}
                         className="max-w-full max-h-[70vh] object-contain"
                     />
                 </div>
             );
         }
 
-        if (kind === 'pdf') {
+        if (kind === 'pdf' && binaryUrl) {
             return (
                 <iframe
-                    src={filePreviewUrl(downloadUrl, 'binary')}
+                    src={binaryUrl}
                     title={displayName(file)}
                     className="w-full h-[70vh] border-0"
                 />
