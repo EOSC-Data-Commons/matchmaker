@@ -92,7 +92,15 @@ export const DataplayerPage = () => {
             setIsAdding(false);
         }
     };
-    
+
+    const handleRemoveGroup = (index: number) => {
+        setFileGroups((prev) => prev.filter((_, i) => i !== index));
+    };
+
+    const handleResetGroups = () => {
+        setFileGroups([]);
+    };
+
     const addToFilesSet = (slotName: string, fileMeta: FileMeta, renameTo: string) => {
         setFilesMapping(prev => {
             const newMapping = { ...prev };
@@ -265,7 +273,18 @@ export const DataplayerPage = () => {
 
                         <div
                             className="bg-white rounded-xl border border-eosc-border p-6 shadow-sm flex flex-col gap-4 ">
-                            <h2 className="text-lg font-light text-eosc-text">Additional Datasets</h2>
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-lg font-light text-eosc-text">Additional Datasets</h2>
+                                {fileGroups.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={handleResetGroups}
+                                        className="text-sm text-eosc-gray hover:text-red-500 font-light transition-colors cursor-pointer"
+                                    >
+                                        Reset all
+                                    </button>
+                                )}
+                            </div>
                             <DataplayInput
                                 label={isAdding ? "Loading..." : "Add"}
                                 onPlay={handleAddGroup}
@@ -282,9 +301,18 @@ export const DataplayerPage = () => {
 
                             {fileGroups.map((group, idx) => (
                                 <div key={idx} className="mt-2 border-t border-eosc-border pt-4">
-                                    <h3 className="text-md font-light text-eosc-text mb-2">
-                                        Group {idx + 1}
-                                    </h3>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h3 className="text-md font-light text-eosc-text">
+                                            Group {idx + 1}
+                                        </h3>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleRemoveGroup(idx)}
+                                            className="text-sm text-eosc-gray hover:text-red-500 font-light transition-colors cursor-pointer"
+                                        >
+                                            Remove
+                                        </button>
+                                    </div>
                                     <FilesList files={group} isFilesLoading={false} error={null}/>
                                 </div>
                             ))}
