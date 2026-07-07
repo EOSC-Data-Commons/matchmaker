@@ -53,6 +53,27 @@ describe("generateBibTeX", () => {
         expect(bib).not.toContain("year =");
     });
 
+    it("falls back to publicationYear (not 1970) when publication_date is null", () => {
+        // Regression: new Date(null) is the 1970 epoch, so a null date used to
+        // emit `year = {1970}` while the card showed publicationYear (e.g. 2024).
+        const bib = generateBibTeX(makeDataset({
+            publication_date: null,
+            _source: {publicationYear: "2024"},
+        }));
+        expect(bib).not.toContain("1970");
+        expect(bib).toContain("year = {2024}");
+        expect(bib).toContain("Doe_2024_");
+    });
+
+    it("omits year when both publication_date and publicationYear are absent", () => {
+        const bib = generateBibTeX(makeDataset({
+            publication_date: null,
+            _source: {publicationYear: ""},
+        }));
+        expect(bib).not.toContain("year =");
+        expect(bib).not.toContain("1970");
+    });
+
     it("omits the author field and uses an 'unknown' key when there are no creators", () => {
         const bib = generateBibTeX(makeDataset({_source: {creators: []}}));
         expect(bib).toMatch(/^@misc\{unknown_2023_/);
