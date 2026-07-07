@@ -76,7 +76,8 @@ export interface SSEEvent {
     tool_call_name?: string;
     content?: string;
     role?: string;
-    error?: string; // For RUN_ERROR events
+    error?: string; // legacy error field (kept for backward compatibility)
+    message?: string; // RUN_ERROR text emitted by the backend (AG-UI RunErrorEvent)
     timestamp?: string | number | null;
     raw_event?: unknown;
     delta?: string;
@@ -141,7 +142,7 @@ export const searchWithBackend = async (
 
             // Handle RUN_ERROR - unrecoverable error during agent run
             if (event.type === 'RUN_ERROR') {
-                const errorMessage = event.error || event.content || 'Agent run failed';
+                const errorMessage = event.message || event.error || event.content || 'Agent run failed';
                 const error = new Error(errorMessage);
                 if (handlers?.onError) handlers.onError(error);
                 throw error; // Terminate stream processing
@@ -285,6 +286,14 @@ export const sendChatMessage = async (
 
         await handleStream(response, (event) => {
             onEvent(event);
+            // A terminal RUN_ERROR (e.g. the backend time-bounding a stalled LLM
+            // or tool call) arrives mid-stream with its text in `message`. Throw it
+            // so it propagates through handleStream to the catch below and into
+            // onError — otherwise the stream just ends with no results and gets
+            // swallowed as NoResultsError, leaving the chat spinner hanging.
+            if (event.type === 'RUN_ERROR') {
+                throw new Error(event.message || event.error || event.content || 'The search failed. Please try again.');
+            }
             return null;
         });
 

@@ -310,4 +310,21 @@ describe("sendChatMessage", () => {
         }, onError);
         expect(onError).not.toHaveBeenCalled();
     });
+
+    it("surfaces a terminal RUN_ERROR (backend timeout) through onError with its message", async () => {
+        // Mirrors the backend RunErrorEvent(message=...) on a time-bounded LLM/tool
+        // call: the stream ends with a RUN_ERROR and no results. It must not be
+        // swallowed as NoResultsError — it should reach onError so the UI renders a
+        // "timed out" bubble instead of hanging the spinner.
+        const run = sse([
+            {type: "RUN_STARTED", thread_id: "t-err"},
+            {type: "RUN_ERROR", message: "LLM generation timed out"},
+        ]);
+        server.use(http.post("/api/search/chat", () => sseResponse(run)));
+        const onError = vi.fn();
+        await expect(sendChatMessage([{sender: "user", content: "hi"}], "m", undefined, () => {
+        }, onError)).resolves.toBeUndefined();
+        expect(onError).toHaveBeenCalledTimes(1);
+        expect(onError.mock.calls[0][0].message).toBe("LLM generation timed out");
+    });
 });
