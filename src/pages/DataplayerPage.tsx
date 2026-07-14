@@ -194,16 +194,19 @@ export const DataplayerPage = () => {
 
                 onError: (err) => {
                     console.error(err);
-                    setStatusMessage("Failed to fetch task result");
-                    setCurrentStep("map-files");
+                    setStatusMessage(err instanceof Error ? err.message : "Failed to launch the tool. Please try again.");
                     setStatusType("EXCEPTION");
+                    // Stay on the monitoring step so the EXCEPTION is actually rendered.
+                    // Returning to 'map-files' here unmounts MonitoringStep — the only
+                    // place the error is shown — so the failure looked silent.
+                    setCurrentStep("monitoring");
                 },
             });
         } catch (err) {
             console.error(err);
             setStatusMessage(err instanceof Error ? err.message : "Unknown error");
             setStatusType("EXCEPTION");
-            setCurrentStep("map-files");
+            setCurrentStep("monitoring");
         }
     };
 
@@ -366,6 +369,7 @@ export const DataplayerPage = () => {
                                     taskId={taskId}
                                     taskResult={taskResult}
                                     onStartOver={handleStartOver}
+                                    onBackToConfig={() => setCurrentStep('map-files')}
                                 />
                             )}
                         </div>

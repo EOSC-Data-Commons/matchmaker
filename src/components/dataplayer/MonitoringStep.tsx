@@ -10,6 +10,7 @@ interface MonitoringStepProps {
     taskId: string | null;
     taskResult: DispatchResult | null;
     onStartOver: () => void;
+    onBackToConfig?: () => void;
 }
 
 export const MonitoringStep = ({
@@ -20,7 +21,8 @@ export const MonitoringStep = ({
                                    toolConfig,
                                    taskId,
                                    taskResult,
-                                   onStartOver
+                                   onStartOver,
+                                   onBackToConfig
                                }: MonitoringStepProps) => {
 
     const getStatusIcon = () => {
@@ -117,12 +119,22 @@ export const MonitoringStep = ({
 
                 <div className="flex flex-col sm:flex-row flex-wrap gap-3 mt-6">
                     {statusType === "EXCEPTION" && (
-                        <button
-                            onClick={onStartOver}
-                            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md bg-white border border-eosc-border px-6 py-2.5 text-sm font-light text-eosc-text hover:bg-gray-50 hover:border-eosc-light-blue transition-colors cursor-pointer"
-                        >
-                            Start Over
-                        </button>
+                        <>
+                            {onBackToConfig && (
+                                <button
+                                    onClick={onBackToConfig}
+                                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md bg-white border border-eosc-border px-6 py-2.5 text-sm font-light text-eosc-text hover:bg-gray-50 hover:border-eosc-light-blue transition-colors cursor-pointer"
+                                >
+                                    Back to configuration
+                                </button>
+                            )}
+                            <button
+                                onClick={onStartOver}
+                                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md bg-white border border-eosc-border px-6 py-2.5 text-sm font-light text-eosc-text hover:bg-gray-50 hover:border-eosc-light-blue transition-colors cursor-pointer"
+                            >
+                                Start Over
+                            </button>
+                        </>
                     )}
                 </div>
             </div>

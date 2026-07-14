@@ -91,6 +91,16 @@ async function coordinatorErrorMessage(res: Response, fallback: string): Promise
         lower.includes("cancelled") || lower.includes("unavailable")) {
         return "The tool registry service is currently unavailable. Please try again in a moment.";
     }
+    // Catch-all for raw gRPC/backend internals — "5 NOT_FOUND: not find tool,
+    // search_tools_by_text, error decoding response body for url (...)" and the
+    // like. These leak implementation details and are meaningless to users, so
+    // never surface them verbatim regardless of the exact error shape.
+    if (res.status >= 500 ||
+        lower.includes("not_found") || lower.includes("not found") ||
+        lower.includes("error decoding") ||
+        /\b\d+\s+[a-z_]+:/i.test(detail)) {
+        return "No tools matched — try a different search term.";
+    }
     if (detail) {
         return `${fallback}: ${detail}`;
     }
