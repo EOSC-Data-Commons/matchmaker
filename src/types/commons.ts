@@ -1,7 +1,16 @@
 // Backend API types - matching Python SearchHit structure
 
+export interface SearchHitSrcNameIdentifier {
+    nameIdentifier: string;
+    nameIdentifierScheme?: string | null;
+}
+
 export interface SearchHitSrcCreator {
     creatorName: string;
+    // DataCite: "Personal" | "Organizational". The organizational creator (with a URL
+    // nameIdentifier) identifies the owning repository/source — used for the provenance owner logo.
+    nameType?: string | null;
+    nameIdentifiers?: SearchHitSrcNameIdentifier[] | null;
 }
 
 export interface SearchHitSrcSubject {

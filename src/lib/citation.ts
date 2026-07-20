@@ -14,9 +14,31 @@ const firstCreatorLastName = (creators: string[]) => {
     return parts.length ? parts[parts.length - 1] : "unknown";
 };
 
-const extractYear = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return isNaN(d.getTime()) ? "n.d." : String(d.getUTCFullYear());
+/**
+ * Parse a publication date into a Date, or null when it is absent or invalid.
+ * Guards two footguns: `new Date(null)` is the 1970 epoch (a valid Date, not
+ * NaN), and `new Date("")` is Invalid — both must count as "no date".
+ */
+const parsePublicationDate = (dateStr?: string | null): Date | null => {
+    const raw = dateStr?.trim();
+    if (!raw) return null;
+    const d = new Date(raw);
+    return isNaN(d.getTime()) ? null : d;
+};
+
+/**
+ * Citation year for a dataset: the year of a full publication date when we have
+ * one, otherwise the `publicationYear` field (mirroring how SearchResultItem
+ * shows the date on the card), otherwise "n.d.". A present-but-unparseable
+ * publication_date yields "n.d." rather than a misleading year — notably a null
+ * date must not become 1970.
+ */
+const citationYear = (ds: BackendDataset): string => {
+    const d = parsePublicationDate(ds.publication_date);
+    if (d) return String(d.getUTCFullYear());
+    if (ds.publication_date?.trim()) return "n.d.";
+    const year = ds._source?.publicationYear?.trim();
+    return year && /^\d{4}$/.test(year) ? year : "n.d.";
 };
 
 const formatAuthorsBibTeX = (creators: string[]) => {
@@ -88,7 +110,7 @@ export const fetchDOICitation = async (doi: string, format: keyof typeof DOI_CON
     }
 };
 export const generateBibTeX = (ds: BackendDataset): string => {
-    const year = extractYear(ds.publication_date);
+    const year = citationYear(ds);
     const creatorNames = (ds._source.creators ?? []).map(creator => creator.creatorName);
     const keyBase = `${firstCreatorLastName(creatorNames)}_${year}_${ds._id}`.replace(/[^A-Za-z0-9_]/g, "");
     const authors = formatAuthorsBibTeX(creatorNames);
@@ -112,9 +134,9 @@ export const generateBibTeX = (ds: BackendDataset): string => {
 };
 
 export const generateRIS = (ds: BackendDataset): string => {
-    const year = extractYear(ds.publication_date);
-    const date = new Date(ds.publication_date);
-    const datePart = isNaN(date.getTime()) ? '' : `${date.getUTCFullYear()}/${String(date.getUTCMonth() + 1).padStart(2, '0')}/${String(date.getUTCDate()).padStart(2, '0')}`;
+    const year = citationYear(ds);
+    const date = parsePublicationDate(ds.publication_date);
+    const datePart = date ? `${date.getUTCFullYear()}/${String(date.getUTCMonth() + 1).padStart(2, '0')}/${String(date.getUTCDate()).padStart(2, '0')}` : '';
     const doi = extractDOI(ds._id);
     const lines: string[] = [];
     lines.push('TY  - DATA');
@@ -129,7 +151,7 @@ export const generateRIS = (ds: BackendDataset): string => {
 };
 
 export const generateEndNote = (ds: BackendDataset): string => {
-    const year = extractYear(ds.publication_date);
+    const year = citationYear(ds);
     const doi = extractDOI(ds._id);
     const lines: string[] = [];
     lines.push('%0 Dataset');
@@ -143,9 +165,9 @@ export const generateEndNote = (ds: BackendDataset): string => {
 };
 
 export const generateCSLJSON = (ds: BackendDataset): string => {
-    const year = extractYear(ds.publication_date);
-    const date = new Date(ds.publication_date);
-    const dateParts = isNaN(date.getTime()) ? undefined : [[date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate()]];
+    const year = citationYear(ds);
+    const date = parsePublicationDate(ds.publication_date);
+    const dateParts = date ? [[date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate()]] : undefined;
     const authors = (ds._source.creators ?? []).map(c => ({literal: c.creatorName.trim()})).filter(a => a.literal.length);
     const obj: Record<string, unknown> = {
         type: 'dataset',
@@ -166,7 +188,7 @@ export const generateCSLJSON = (ds: BackendDataset): string => {
 
 export const generateRefWorks = (ds: BackendDataset): string => {
     // RefWorks Tagged Format (simplified)
-    const year = extractYear(ds.publication_date);
+    const year = citationYear(ds);
     const lines: string[] = [];
     lines.push('RT Dataset');
     lines.push('SR Electronic');
