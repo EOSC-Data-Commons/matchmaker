@@ -6,7 +6,7 @@ import {stripHtml} from "../lib/utils";
 import {loginWithReturn} from "../lib/authRedirect";
 import {useState} from 'react';
 import {useSearchParams} from 'react-router';
-import {RepoLogo} from "./RepoLogo.tsx";
+import {RepoProvenance} from "./RepoProvenance.tsx";
 import useMatomo from "../hooks/useMatomo";
 
 interface SearchResultItemProps {
@@ -219,7 +219,7 @@ export const SearchResultItem = ({hit, isAiRanked = false, isLoggedIn = false}: 
                     <CitationExport dataset={hit}/>
                 </div>
                 <div className="flex items-center space-x-4">
-                    {hit._source._repo && <RepoLogo repo={hit._source._repo}/>}
+                    <RepoProvenance hit={hit}/>
                     {isAiRanked && (
                         <span
                             className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">AI-powered search</span>
