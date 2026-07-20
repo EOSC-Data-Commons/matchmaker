@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.6] - 20/07/2026
+
+- Search results now show repository provenance logos: records aggregated through a crawler platform (currently OneData,
+  with OpenAIRE and OpenAlex support built in) display both the owning repository and the aggregator that harvested it,
+  instead of only the aggregator's logo, which made harvested data look as though it had been deposited there directly.
+  Records harvested directly from a repository (DANS, HAL, Zenodo, etc.) keep a single source-repository logo.
+- Tool launch failures are no longer silent: a failed launch now stays on the monitoring step and shows the actual error
+  message, instead of bouncing back to the configuration step, which unmounted the only place the error was rendered.
+  Added a "Back to configuration" button alongside "Start Over" on launch failure. Raw backend/gRPC error text (e.g. "5
+  NOT_FOUND: ...") is now replaced with a plain
+  "No tools matched - try a different search term" message.
+- Fixed citation exports (BibTeX, RIS, EndNote, CSL-JSON, RefWorks) showing "1970" as the publication year for datasets
+  with a missing or unparseable date; they now correctly fall back to "n.d.", or to the dataset's `publicationYear`
+  field when available.
+- Chat and search failures caused by a backend timeout now surface the backend's actual error message instead of the
+  stream silently ending and leaving the chat stuck on its loading spinner.
+
 ## [0.9.5] - 06/07/2026
 
 Release 1 feedback fixes for the dataplayer, tool selection, and AI chat (all frontend):
