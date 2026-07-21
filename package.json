@@ -17,6 +17,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "preversion": "git fetch origin main && if [ -n \"$(git rev-list HEAD..origin/main)\" ]; then echo \"ERROR: HEAD is behind origin/main — pull before bumping, or the tag will publish stale code. Aborting.\" && exit 1; fi",
     "postversion": "if [ \"$(git rev-parse --abbrev-ref HEAD)\" = \"main\" ]; then git push --follow-tags origin HEAD; else echo \"Not on main branch, skipping push.\"; fi"
   },
   "dependencies": {
