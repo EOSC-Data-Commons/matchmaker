@@ -11,11 +11,10 @@ import useMatomo from "../hooks/useMatomo";
 
 interface SearchResultItemProps {
     hit: BackendDataset;
-    isAiRanked?: boolean;
     isLoggedIn?: boolean;
 }
 
-export const SearchResultItem = ({hit, isAiRanked = false, isLoggedIn = false}: SearchResultItemProps) => {
+export const SearchResultItem = ({hit, isLoggedIn = false}: SearchResultItemProps) => {
     const [searchParams] = useSearchParams();
     const {trackEvent} = useMatomo();
 
@@ -89,16 +88,12 @@ export const SearchResultItem = ({hit, isAiRanked = false, isLoggedIn = false}: 
     const remainingAuthors = Math.max(0, creators.length - baseAuthorsToShow);
 
     return (
-        <div className={`rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow ${
-            isAiRanked
-                ? 'bg-white border-gray-200'
-                : 'bg-gray-100 border-gray-300'
-        }`}>
+        <div className="rounded-lg shadow-sm border p-6 bg-white border-gray-200 hover:shadow-md transition-shadow">
             <div className="flex flex-col sm:flex-row justify-between items-start mb-3">
                 <h3 className="text-lg font-semibold text-gray-900 pr-4 mb-2 sm:mb-0 min-w-0 break-words">
                     {hit.title}
                 </h3>
-                {isAiRanked && hit.score !== undefined && (
+                {hit.score != null && (
                     <div
                         className="shrink-0 flex items-center space-x-1 bg-yellow-50 px-2 py-1 rounded-full cursor-help"
                         title="AI-powered relevance score: Ranked by LLM based on semantic understanding of your query. Scores range from 0% (low relevance) to 100% (high relevance)."
@@ -109,7 +104,7 @@ export const SearchResultItem = ({hit, isAiRanked = false, isLoggedIn = false}: 
                         </span>
                     </div>
                 )}
-                {!isAiRanked && typeof hit._score === 'number' && !Number.isNaN(hit._score) && (
+                {hit.score == null && typeof hit._score === 'number' && !Number.isNaN(hit._score) && (
                     <div
                         className="shrink-0 flex items-center space-x-1 bg-blue-50 px-2 py-1 rounded-full cursor-help"
                         title="OpenSearch relevance score: Based on keyword matching and text analysis. Scores range from 0% (low match) to 100% (high match)."
@@ -220,10 +215,6 @@ export const SearchResultItem = ({hit, isAiRanked = false, isLoggedIn = false}: 
                 </div>
                 <div className="flex items-center space-x-4">
                     <RepoProvenance hit={hit}/>
-                    {isAiRanked && (
-                        <span
-                            className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">AI-powered search</span>
-                    )}
                 </div>
             </div>
         </div>

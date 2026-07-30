@@ -58,15 +58,23 @@ export interface BackendDataset {
     score?: number | null; //LLM Ranked Score
     fileExtensions?: string[] | null;
     relevantTools?: string[] | null;
+    // Canonical URL of the dataset (DOI when available). The assistant cites datasets
+    // as plain Markdown links to this URL, and the chat resolves a link back to its
+    // result card by matching the href against this value.
+    dataset_url?: string | null;
     title?: string | null;
     description?: string | null;
     publication_date?: string | null;
     creator?: string | null;
 }
 
-export interface BackendSearchResponse {
+/**
+ * Payload of a search tool result (the backend's `SearchResults`). The assistant's
+ * summary is no longer part of it — it is streamed as regular message text.
+ */
+export interface SearchResults {
     hits: BackendDataset[];
-    summary: string;
+    total_found?: number;
 }
 
 export interface AggregationBucket {

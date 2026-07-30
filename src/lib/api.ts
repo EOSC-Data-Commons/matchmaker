@@ -1,4 +1,5 @@
-import {BackendDataset, BackendSearchResponse, RepositoryStatsResponse} from '../types/commons';
+import {EventStreamContentType, fetchEventSource} from '@microsoft/fetch-event-source';
+import {SearchResults, RepositoryStatsResponse} from '../types/commons';
 import {logError, fetchWithTimeout} from './utils.ts';
 import {Message} from "@/types/chat.ts";
 
@@ -85,18 +86,78 @@ export interface SSEEvent {
 }
 
 export interface SSEEventHandler {
-    onSearchData?: (data: BackendSearchResponse) => void;
-    onRerankedData?: (data: BackendSearchResponse) => void;
+    onSearchData?: (data: SearchResults) => void;
+    // Chunks of the assistant's summary of the results, as they stream in.
+    onSummaryDelta?: (delta: string) => void;
     onEvent?: (event: SSEEvent) => void;
     onError?: (error: Error) => void;
 }
 
+/** Text carried by a terminal RUN_ERROR event (AG-UI RunErrorEvent). */
+const runErrorMessage = (event: SSEEvent): string =>
+    event.message || event.error || event.content || 'The search failed. Please try again.';
+
+/**
+ * POSTs to the streaming chat endpoint and forwards every SSE event to `onEvent`.
+ * Resolves once the server closes the stream, and rejects on a RUN_ERROR — the
+ * backend's terminal error (a stalled LLM or tool call, a provider failure),
+ * which is delivered to `onEvent` first so callers can still render what arrived.
+ *
+ * SSE framing, buffering across chunk boundaries and keep-alive comments are
+ * handled by @microsoft/fetch-event-source. Two of its defaults are overridden:
+ * it never retries (one request is one agent run — a retry would restart the
+ * whole run) and it keeps streaming while the tab is hidden.
+ *
+ * `onEvent` may throw to stop the stream early (used for terminal RUN_ERROR);
+ * the error propagates out of this call.
+ */
+export const streamChatEvents = async (
+    requestBody: object,
+    onEvent: (event: SSEEvent) => void
+): Promise<void> => {
+    await fetchEventSource(`${BACKEND_API_URL}/chat`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no' // Disable buffering for Nginx proxies
+        },
+        body: JSON.stringify(requestBody),
+        cache: 'no-store',
+        openWhenHidden: true,
+        onopen: async (response) => {
+            if (response.status === 429) throw new RateLimitError();
+            if (response.status >= 500) throw new ServerError(response.status);
+            if (!response.ok) throw new Error(`Error sending the request: ${response.status}`);
+            if (!response.headers.get('content-type')?.startsWith(EventStreamContentType)) {
+                throw new Error('The server did not return an event stream');
+            }
+        },
+        onmessage: (message) => {
+            if (!message.data) return;
+            let event: SSEEvent;
+            try {
+                event = JSON.parse(message.data) as SSEEvent;
+            } catch (e) {
+                logError(e, 'Failed to parse SSE event');
+                return;
+            }
+            onEvent(event);
+            if (event.type === 'RUN_ERROR') throw new Error(runErrorMessage(event));
+        },
+        onerror: (error) => {
+            // Rethrowing rejects the promise; returning would schedule a retry.
+            throw error;
+        },
+    });
+};
+
 export const searchWithBackend = async (
     query: string,
     model: string = 'cesnet/agentic',
-    handlers: SSEEventHandler,
-    timeoutMs: number = 60000 // Default 1 minute timeout
-): Promise<BackendSearchResponse> => {
+    handlers: SSEEventHandler
+): Promise<SearchResults> => {
     const requestBody: SearchRequest = {
         items: [{
             type: 'message',
@@ -106,135 +167,58 @@ export const searchWithBackend = async (
         model: model
     };
 
+    const toolCallMap = new Map<string, string>();
+    let latestResults: SearchResults | null = null;
+
     try {
-        const response = await fetchWithTimeout(
-            `${BACKEND_API_URL}/chat`,
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'text/event-stream',
-                    'Cache-Control': 'no-cache',
-                    'X-Accel-Buffering': 'no' // Disable buffering for Nginx proxies
-                },
-                body: JSON.stringify(requestBody),
-                cache: 'no-store'
-            },
-            timeoutMs
-        );
+        await streamChatEvents(requestBody, (event) => {
+            if (handlers.onEvent) handlers.onEvent(event);
 
-        if (response.status === 429) {
-            throw new RateLimitError();
-        }
+            switch (event.type) {
+                case 'TOOL_CALL_START':
+                    if (event.tool_call_id && event.tool_call_name) {
+                        toolCallMap.set(event.tool_call_id, event.tool_call_name);
+                    }
+                    return;
 
-        if (response.status >= 500) {
-            throw new ServerError(response.status);
-        }
+                case 'TOOL_CALL_RESULT': {
+                    if (!event.content) return;
+                    let searchResp: SearchResults;
+                    try {
+                        searchResp = JSON.parse(event.content) as SearchResults;
+                    } catch (e) {
+                        logError(e, 'Failed to parse tool result');
+                        return;
+                    }
 
-        if (!response.ok) throw new Error(`Error sending the request: ${response.status}`);
-        // if (!response.headers.get('content-type')?.includes('text/event-stream')) return response.json();
-
-        const toolCallMap = new Map<string, string>();
-
-        // Handle SSE stream based on tool_call_id
-        return handleStream(response, (event) => {
-            if (handlers?.onEvent) handlers.onEvent(event);
-
-            // Handle RUN_ERROR - unrecoverable error during agent run
-            if (event.type === 'RUN_ERROR') {
-                const errorMessage = event.message || event.error || event.content || 'Agent run failed';
-                const error = new Error(errorMessage);
-                if (handlers?.onError) handlers.onError(error);
-                throw error; // Terminate stream processing
-            }
-
-            if (event.type === 'TOOL_CALL_START' && event.tool_call_id && event.tool_call_name) {
-                toolCallMap.set(event.tool_call_id, event.tool_call_name);
-            }
-
-            if (event.type === 'TOOL_CALL_RESULT' && event.content) {
-                const searchResp = JSON.parse(event.content) as BackendSearchResponse;
-
-                const toolName = event.tool_call_id ? (toolCallMap.get(event.tool_call_id) || event.tool_call_id) : undefined;
-
-                if (toolName === 'rerank_results') {
-                    if (handlers.onRerankedData) handlers.onRerankedData(searchResp);
-                } else if (toolName === 'search_data') {
+                    const toolName = event.tool_call_id
+                        ? toolCallMap.get(event.tool_call_id) || event.tool_call_id
+                        : undefined;
+                    // Only the search tool feeds the results list; other tools may
+                    // run in the same turn and are not results.
+                    if (toolName !== 'search_data') return;
                     if (handlers.onSearchData) handlers.onSearchData(searchResp);
+                    latestResults = searchResp;
+                    return;
                 }
-                return searchResp;
-            }
 
-            // Legacy error handling (backward compatibility)
-            if (event.type === 'error' && handlers?.onError) {
-                handlers.onError(new Error(event.content || 'Unknown error'));
-            }
+                case 'TEXT_MESSAGE_CHUNK':
+                case 'TEXT_MESSAGE_CONTENT':
+                    if (event.delta && handlers.onSummaryDelta) handlers.onSummaryDelta(event.delta);
+                    return;
 
-            return null;
+                // Legacy error event (backward compatibility)
+                case 'error':
+                    if (handlers.onError) handlers.onError(new Error(event.content || 'Unknown error'));
+            }
         });
+
+        if (!latestResults) throw new NoResultsError();
+        return latestResults;
     } catch (error) {
         logError(error, 'Search API');
         if (handlers.onError) handlers.onError(error instanceof Error ? error : new Error(String(error)));
         throw error;
-    }
-};
-
-/**
- * Generic SSE stream handler - parses data: field and calls onMessage with parsed JSON
- */
-export const handleStream = async (
-    response: Response,
-    onMessage: (data: SSEEvent) => BackendSearchResponse | null
-): Promise<BackendSearchResponse> => {
-    if (!response.body) throw new Error('Response body is not readable');
-
-    const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
-    let buffer = '';
-    let latestResults: BackendSearchResponse | null = null;
-    let runError: Error | null = null;
-
-    try {
-        while (true) {
-            const {done, value} = await reader.read();
-            if (done) break;
-            buffer += value;
-            const parts = buffer.split('\n\n');
-            buffer = parts.pop() || '';
-            for (const part of parts) {
-                if (!part.trim()) continue;
-                try {
-                    const dataLine = part.split('\n').find(line => line.startsWith('data:'));
-                    if (!dataLine) continue;
-                    const event = JSON.parse(dataLine.slice(5).trim()) as SSEEvent;
-                    try {
-                        const result = onMessage(event);
-                        if (result) latestResults = result;
-                    } catch (e) {
-                        // RUN_ERROR thrown from onMessage handler
-                        if (e instanceof Error) {
-                            runError = e;
-                            break; // Stop processing further events
-                        }
-                        throw e;
-                    }
-                } catch (e) {
-                    // Only log parse errors, not runtime errors
-                    if (!runError) {
-                        logError(e, 'Failed to parse SSE event');
-                    }
-                }
-            }
-            // Break outer loop if we encountered a RUN_ERROR
-            if (runError) break;
-        }
-
-        // If we encountered a RUN_ERROR, throw it
-        if (runError) throw runError;
-
-        if (!latestResults) throw new NoResultsError();
-        return latestResults;
-    } finally {
-        reader.releaseLock();
     }
 };
 
@@ -243,18 +227,13 @@ export const sendChatMessage = async (
     model: string = 'cesnet/agentic',
     threadId: string | undefined,
     onEvent: (event: SSEEvent) => void,
-    onError: (error: Error) => void,
-    timeoutMs: number = 60000
+    onError: (error: Error) => void
 ) => {
     const requestBody: Record<string, unknown> = {
         items: messages.map(msg => ({
             type: 'message',
             role: msg.sender === 'user' ? 'user' : 'assistant',
-            content: [{
-                text: (msg.hits && msg.hits.length > 0)
-                    ? formatSearchResults(msg.content, msg.hits)
-                    : msg.content
-            }]
+            content: [{text: msg.content}]
         })),
         model: model
     };
@@ -264,88 +243,8 @@ export const sendChatMessage = async (
     }
 
     try {
-        const response = await fetchWithTimeout(
-            `${BACKEND_API_URL}/chat`,
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'text/event-stream',
-                    'Cache-Control': 'no-cache',
-                    'X-Accel-Buffering': 'no'
-                },
-                body: JSON.stringify(requestBody),
-                cache: 'no-store'
-            },
-            timeoutMs
-        );
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        await handleStream(response, (event) => {
-            onEvent(event);
-            // A terminal RUN_ERROR (e.g. the backend time-bounding a stalled LLM
-            // or tool call) arrives mid-stream with its text in `message`. Throw it
-            // so it propagates through handleStream to the catch below and into
-            // onError — otherwise the stream just ends with no results and gets
-            // swallowed as NoResultsError, leaving the chat spinner hanging.
-            if (event.type === 'RUN_ERROR') {
-                throw new Error(event.message || event.error || event.content || 'The search failed. Please try again.');
-            }
-            return null;
-        });
-
+        await streamChatEvents(requestBody, onEvent);
     } catch (error) {
-        // Chat streams deliver everything through onEvent and never produce a
-        // BackendSearchResponse, so handleStream's no-results check always fires.
-        // A completed stream is success here, not an error.
-        if (error instanceof NoResultsError) {
-            return;
-        }
-        if (error instanceof Error) {
-            onError(error);
-        } else {
-            onError(new Error('An unknown error occurred'));
-        }
+        onError(error instanceof Error ? error : new Error('An unknown error occurred'));
     }
 };
-
-function formatSearchResults(summary: string, hits: BackendDataset[]): string {
-    if (!summary && (!hits || hits.length === 0)) {
-        return 'No results found.';
-    }
-
-    let formatted = (summary || 'No summary available.') + '\n\n';
-
-    if (!hits || hits.length === 0) {
-        return formatted.trim();
-    }
-
-    hits.forEach((hit, index) => {
-        if (!hit) return; // Skip null/undefined entries
-
-        const source = hit._source;
-        const title = source?.titles?.[0]?.title || hit.title || 'Untitled';
-        const creator = source?.creators?.[0]?.creatorName || hit.creator || 'Unknown';
-        const date = source?.dates?.find(d => d.dateType === 'Issued')?.date || hit.publication_date || 'N/A';
-        const doi = source?.doi || hit._id || '';
-
-        formatted += `${index + 1}. [${title}](${doi})\n`;
-        formatted += `**Creator:** ${creator}\n`;
-        formatted += `**Published:** ${date}\n`;
-
-        const description = source?.descriptions?.[0]?.description || hit.description;
-        if (description) {
-            const truncated = description.length > 200
-                ? description.substring(0, 200) + '...'
-                : description;
-            formatted += `**Description:** ${truncated}\n`;
-        }
-
-        formatted += '\n';
-    });
-
-    return formatted.trim();
-}

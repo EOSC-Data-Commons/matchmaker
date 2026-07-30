@@ -119,3 +119,25 @@ export function stripMarkdown(md: string): string {
 
     return text.trim();
 }
+
+/**
+ * While Markdown text is streaming a link arrives character by character, so the
+ * raw `[label](htt` would flash before it can be rendered. Hide that trailing
+ * fragment until the link is complete.
+ */
+export function trimTrailingPartialLink(text: string): string {
+    const open = text.lastIndexOf('[');
+    if (open === -1) return text;
+    return /^\[[^\]]*]\([^)]*\)/.test(text.slice(open)) ? text : text.slice(0, open);
+}
+
+/** Pretty-print a JSON payload with 2-space indent; returns the input unchanged when it is not JSON. */
+export function prettyJson(raw: string): string {
+    const trimmed = raw.trim();
+    if (!trimmed) return '';
+    try {
+        return JSON.stringify(JSON.parse(trimmed), null, 2);
+    } catch {
+        return trimmed;
+    }
+}

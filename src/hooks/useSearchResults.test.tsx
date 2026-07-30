@@ -21,14 +21,15 @@ const renderSearch = (query: string, model = "cesnet/agentic") =>
         location: useLocation(),
     }), {wrapper});
 
-const initialResult = {hits: [makeDataset()], summary: "found"};
-const rerankedResult = {hits: [makeDataset()], summary: "reranked"};
+const searchResult = {total_found: 1, hits: [makeDataset()]};
 
 const successfulRun = sse([
     {type: "TOOL_CALL_START", tool_call_id: "c1", tool_call_name: "search_data"},
-    {type: "TOOL_CALL_RESULT", tool_call_id: "c1", content: JSON.stringify(initialResult)},
-    {type: "TOOL_CALL_START", tool_call_id: "c2", tool_call_name: "rerank_results"},
-    {type: "TOOL_CALL_RESULT", tool_call_id: "c2", content: JSON.stringify(rerankedResult)},
+    {type: "TOOL_CALL_RESULT", tool_call_id: "c1", content: JSON.stringify(searchResult)},
+    {type: "TEXT_MESSAGE_START", message_id: "m1"},
+    {type: "TEXT_MESSAGE_CHUNK", delta: "One dataset "},
+    {type: "TEXT_MESSAGE_CHUNK", delta: "matches."},
+    {type: "TEXT_MESSAGE_END", message_id: "m1"},
     {type: "RUN_FINISHED"},
 ]);
 
@@ -43,7 +44,7 @@ describe("useSearchResults", () => {
         vi.restoreAllMocks();
     });
 
-    it("delivers initial and reranked results and records the search history", async () => {
+    it("delivers the results and the streamed summary, and records the search history", async () => {
         server.use(http.post("/api/search/chat", () => sseResponse(successfulRun)));
         const {result} = renderSearch("ocean");
 
@@ -51,10 +52,10 @@ describe("useSearchResults", () => {
         await act(() => result.current.search.performSearch());
 
         expect(result.current.search.error).toBeNull();
-        expect(result.current.search.initialResults).toEqual(initialResult);
-        expect(result.current.search.rerankedResults).toEqual(rerankedResult);
+        expect(result.current.search.results).toEqual(searchResult);
+        expect(result.current.search.summary).toBe("One dataset matches.");
         expect(result.current.search.loading).toBe(false);
-        expect(result.current.search.isProcessing).toBe(false);
+        expect(result.current.search.isSummarizing).toBe(false);
         expect(getSearchHistory()).toEqual(["ocean"]);
     });
 

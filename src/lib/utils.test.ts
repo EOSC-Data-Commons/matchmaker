@@ -1,5 +1,5 @@
 import {describe, it, expect, vi, afterEach} from "vitest";
-import {getUserErrorMessage, stripHtml, stripMarkdown, fetchWithTimeout} from "./utils";
+import {getUserErrorMessage, stripHtml, stripMarkdown, fetchWithTimeout, prettyJson, trimTrailingPartialLink} from "./utils";
 
 describe("getUserErrorMessage", () => {
     // Vitest runs with MODE=test, so the non-dev branches apply.
@@ -99,5 +99,24 @@ describe("fetchWithTimeout", () => {
     it("passes through non-abort fetch errors unchanged", async () => {
         vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("connection refused")));
         await expect(fetchWithTimeout("https://example.test/down")).rejects.toThrow("connection refused");
+    });
+});
+
+describe("prettyJson", () => {
+    it("indents JSON with 2 spaces and passes plain text through", () => {
+        expect(prettyJson('{"a":1}')).toBe('{\n  "a": 1\n}');
+        expect(prettyJson("not json")).toBe("not json");
+    });
+});
+
+describe("trimTrailingPartialLink", () => {
+    it("hides a half-streamed link and keeps complete ones", () => {
+        expect(trimTrailingPartialLink("See [Global Carbon](https://doi.org/1) and [Air qual")).toBe(
+            "See [Global Carbon](https://doi.org/1) and ",
+        );
+        expect(trimTrailingPartialLink("See [Global Carbon](https://doi.org/1)")).toBe(
+            "See [Global Carbon](https://doi.org/1)",
+        );
+        expect(trimTrailingPartialLink("no links here")).toBe("no links here");
     });
 });
