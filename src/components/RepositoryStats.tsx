@@ -26,6 +26,25 @@ const MIN_SUBJECTS = 8;
 const REPO_ROW_HEIGHT = 48;
 const SUBJECT_ROW_HEIGHT = 36;
 
+// The backend identifies repositories by short upstream codes (and sometimes an
+// all-caps name to match). These are the spellings the projects use for
+// themselves, so they are what we show:
+//   Onedata     https://onedata.org/
+//   PaNOSC      https://www.panosc.eu/
+//   DataverseLV https://dataverse.lv/en/
+//   FinBIF      https://laji.fi/en
+// Codes not listed here fall through to whatever the backend sends.
+const DISPLAY_NAMES: Record<string, string> = {
+    ONE: "Onedata",
+    PANOSC: "PaNOSC",
+    DATAVERSELV: "DataverseLV",
+    FINBIF: "FinBIF",
+};
+
+const displayLabel = (code: string) => DISPLAY_NAMES[code.toUpperCase()] ?? code;
+
+const displayName = (code: string, name: string) => DISPLAY_NAMES[code.toUpperCase()] ?? name;
+
 const formatNumber = (n: number) => n.toLocaleString("en-GB");
 
 const truncate = (text: string, max = 28) =>
@@ -96,7 +115,7 @@ const ClickableTick = ({x, y, payload, selectedCode, onSelect}: ClickableTickPro
             style={{cursor: "pointer"}}
             onClick={() => onSelect(payload.value)}
         >
-            {payload.value}
+            {displayLabel(payload.value)}
         </text>
     );
 };
@@ -136,7 +155,7 @@ export const RepositoryStats = () => {
     }, [stats]);
 
     const repoData: RepoBarDatum[] = useMemo(
-        () => activeRepos.map((r) => ({code: r.code, name: r.name, datasets: r.datasets})),
+        () => activeRepos.map((r) => ({code: r.code, name: displayName(r.code, r.name), datasets: r.datasets})),
         [activeRepos]
     );
 
@@ -257,7 +276,7 @@ export const RepositoryStats = () => {
                         Top subjects
                     </h4>
                     <p className="text-xs font-light text-[#646363] mb-4 truncate">
-                        {selectedRepo?.name ?? ""}
+                        {selectedRepo ? displayName(selectedRepo.code, selectedRepo.name) : ""}
                     </p>
                     {subjectData.length > 0 ? (
                         <ResponsiveContainer width="100%"
