@@ -65,7 +65,7 @@ const REPOSITORIES: Record<string, { name: string; logo: string | null }> = {
     DASCH: {name: "DaSCH", logo: `${CDN}/2025/07/DASCH.png`},
     EODC: {name: "EODC", logo: `${CDN}/2025/07/EODC-lightblue.png`},
     MDDB: {name: "MDDB", logo: null},
-    DATAVERSELV: {name: "Dataverse Latvia", logo: null},
+    DATAVERSELV: {name: "DataverseLV", logo: null}, // https://dataverse.lv/en/
 };
 
 // ── Owner logos (left, for aggregated records) ───────────────────────────────
