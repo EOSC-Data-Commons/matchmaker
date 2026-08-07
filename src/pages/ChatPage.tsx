@@ -603,7 +603,8 @@ const ChatPage: FC = () => {
                                         className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4">
                                         <MessageSquare className="h-8 w-8"/>
                                     </div>
-                                    <h2 className="text-xl font-semibold text-gray-700 mb-2">Welcome to EOSC Chat</h2>
+                                    <h2 className="text-xl font-semibold text-gray-700 mb-2">Welcome to the EOSC Data
+                                        Commons Chat</h2>
                                     <p className="text-gray-500 max-w-md">Start a new conversation by typing a message
                                         below
                                         to search datasets or ask questions.</p>
