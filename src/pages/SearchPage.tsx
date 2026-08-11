@@ -6,13 +6,12 @@ import {SearchResultItem} from "../components/SearchResultItem.tsx";
 import {AlphaDisclaimer} from "../components/AlphaDisclaimer";
 import {Footer} from "../components/Footer";
 import {FilterPanel} from "../components/FilterPanel.tsx";
-import {ProcessingIndicator} from "../components/ProcessingIndicator.tsx";
 import {NoResultsMessage} from "../components/NoResultsMessage.tsx";
 import {LoadingOverlay} from "../components/LoadingOverlay.tsx";
 import {useSearchResults} from "../hooks/useSearchResults.ts";
 import {useDatasetFilters} from "../hooks/useDatasetFilters.ts";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
-import {RateLimitError, ServerError, NoResultsError} from "../lib/api.ts";
+import {RateLimitError, ServerError} from "../lib/api.ts";
 import {useAuth} from "@/hooks/useAuth.ts";
 import {SearchFeedback} from "../components/SearchFeedback.tsx";
 
@@ -25,7 +24,7 @@ export const SearchPage = () => {
     const model = searchParams.get('model') || 'cesnet/agentic';
 
     // Custom hooks for data management
-    const {results, summary, loading, isSummarizing, error, performSearch} = useSearchResults(query, model);
+    const {results, loading, error, performSearch} = useSearchResults(query);
 
     // Extract active filters from URL params
     const activeFilters = useMemo(() => {
@@ -66,14 +65,9 @@ export const SearchPage = () => {
         setSearchParams(params);
     };
 
-    const hasResults = results !== null;
     const isRateLimit = error instanceof RateLimitError;
     const isServerError = error instanceof ServerError;
-    // An empty result set is not a failure — show the friendly no-results view,
-    // not the red error panel.
-    const isNoResults = error instanceof NoResultsError;
-    // "Real" errors that warrant the red error panel (rate limit, server, run error).
-    const hasError = !!error && !isNoResults;
+    const hasError = !!error;
 
     // Helper to determine error UI properties
     const getErrorState = () => {
@@ -113,22 +107,23 @@ export const SearchPage = () => {
                         onClick={() => navigate('/')}
                     />
                     <div className="flex-grow ml-4">
-                        <SearchInput onSearch={handleSearch} initialQuery={query} initialModel={model}/>
+                        {/* AI mode starts off here: landing on the plain results page already
+                            means the user chose plain search, so it must be opted back into. */}
+                        <SearchInput
+                            onSearch={handleSearch}
+                            initialQuery={query}
+                            initialModel={model}
+                            isLoggedIn={!!user}
+                            showAiToggle={true}
+                            initialAiMode={false}
+                        />
                     </div>
                 </div>
             </header>
 
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                {/* AI summary of the results, streamed in as the agent writes it */}
-                {!loading && !hasError && summary.trim() && (
-                    <div className="mb-6 p-4 bg-white rounded-lg shadow-sm border border-blue-200">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">AI-Generated Summary</h3>
-                        <p className="text-gray-700 whitespace-pre-wrap">{summary}</p>
-                    </div>
-                )}
-
                 <div className="flex flex-col lg:flex-row gap-8">
-                    {/* Filter Panel - Only show when AI results are ready */}
+                    {/* Filter Panel - only once there are hits to build facets from */}
                     {!loading && !hasError && Object.keys(aggregations).length > 0 && (
                         <FilterPanel
                             aggregations={aggregations}
@@ -160,9 +155,6 @@ export const SearchPage = () => {
                                 </div>
                             </div>
                         )}
-
-                        {/* Shown while the agent is still writing its summary of the results */}
-                        <ProcessingIndicator show={!loading && !hasError && hasResults && isSummarizing}/>
 
                         {/* Results section */}
                         <div
