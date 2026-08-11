@@ -39,6 +39,9 @@ export interface ToolSlot {
 
 export interface FileMeta {
     downloadUrl?: string;
+    /** server-issued signature authorising `downloadUrl` for the preview proxy;
+     *  set by /api/coordinator/files, absent for files without a download URL */
+    previewSig?: string;
     /** abs path as received from the server */
     dataPath: string;
     /** basename, same as dataPath for now — mirrors Rust impl */

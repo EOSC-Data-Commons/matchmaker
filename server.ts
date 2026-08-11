@@ -23,6 +23,8 @@ import {
     mapToolKindToTyp,
 } from "./src/lib/server/grpcClient";
 
+import {signPreviewUrl, verifyPreviewUrl} from "./src/lib/server/previewSigning";
+
 import type {
     ApiKeysResponse,
     FileMeta,
@@ -389,11 +391,6 @@ app.get("/api/coordinator/tool/get/:toolId", async (req, res) => {
     }
 });
 
-// SSRF guard for the preview proxy: it will only ever fetch a download URL that
-// the server itself produced (from datahugger) and handed to the client below.
-// A user can therefore never steer the proxy at an arbitrary or internal host.
-const PREVIEWABLE_URLS = new Set<string>();
-
 app.get("/api/coordinator/files", async (req, res) => {
     const handle = req.query.handle as string;
     if (!handle) {
@@ -406,8 +403,11 @@ app.get("/api/coordinator/files", async (req, res) => {
         const token = getEgiToken(req);
         // XXX: where error goes if url is invalid?? Should we give this to user??
         const files = await fetchDatasetFilesFromDatahuggerByUrl(handle, token);
+        // SSRF guard for the preview proxy: sign every download URL we emit so
+        // the proxy can later prove a URL came from us, without holding state
+        // that a sibling pm2 worker would not see.
         for (const file of files) {
-            if (file.downloadUrl) PREVIEWABLE_URLS.add(file.downloadUrl);
+            if (file.downloadUrl) file.previewSig = signPreviewUrl(file.downloadUrl);
         }
         res.json(files);
     } catch (err) {
@@ -423,9 +423,9 @@ app.get("/api/coordinator/files", async (req, res) => {
 const PREVIEW_TEXT_MAX_BYTES = 64 * 1024;
 const PREVIEW_BINARY_MAX_BYTES = 25 * 1024 * 1024;
 
-// Defense-in-depth on top of the PREVIEWABLE_URLS allowlist: reject anything
-// that isn't plain http(s) pointing at a public host (blocks an upstream URL
-// that somehow resolves to a loopback/link-local/private literal).
+// Defense-in-depth on top of the signature check: reject anything that isn't
+// plain http(s) pointing at a public host (blocks an upstream URL that somehow
+// resolves to a loopback/link-local/private literal).
 function isSafePublicUrl(raw: string): boolean {
     let url: URL;
     try {
@@ -469,10 +469,19 @@ async function fetchPreviewUpstream(
 app.get("/api/coordinator/file-preview", async (req, res) => {
     const rawUrl = req.query.url as string | undefined;
     const mode = (req.query.mode as string) === "text" ? "text" : "binary";
+    const signature = req.query.sig as string | undefined;
 
-    // Primary control: only fetch URLs the server itself emitted from /files.
-    // This is what prevents request forgery — the URL is not trusted from the user.
-    if (!rawUrl || !PREVIEWABLE_URLS.has(rawUrl) || !isSafePublicUrl(rawUrl)) {
+    // Primary control: only fetch URLs the server itself emitted from /files,
+    // proven by the signature it attached there. This is what prevents request
+    // forgery — the URL is not trusted from the user.
+    if (!rawUrl || !isSafePublicUrl(rawUrl)) {
+        return res.status(403).json({error: "URL not permitted for preview"});
+    }
+    const signatureCheck = verifyPreviewUrl(rawUrl, signature);
+    if (signatureCheck === "expired") {
+        return res.status(410).json({error: "Preview link expired"});
+    }
+    if (signatureCheck !== "ok") {
         return res.status(403).json({error: "URL not permitted for preview"});
     }
 

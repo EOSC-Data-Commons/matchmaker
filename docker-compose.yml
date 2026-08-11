@@ -20,3 +20,7 @@ services:
       # - NODE_ENV=development
       - SEARCH_API_URL=http://host.docker.internal:8000
       - PLAYER_API_URL=https://dev1.player.eosc-data-commons.eu
+      # Signing key for the file-preview proxy. Only needed if the frontend is
+      # scaled beyond one container; the pm2 workers inside a single container
+      # share a generated key on their own. Set it to a random 32+ byte string.
+      # - PREVIEW_URL_SECRET=
