@@ -8,7 +8,7 @@ import {applyChatEvent, finalizeStream, parseConversationItems} from "@/lib/chat
 import {buildDatasetUrlMap} from "@/lib/datasetCitations.ts";
 import {getUserInitials} from "@/lib/userUtils.ts";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
-import {ChevronDown, ChevronUp, Loader2, MessageSquare, Plus, Send, User} from "lucide-react";
+import {ChevronDown, ChevronUp, Loader2, Menu, MessageSquare, Plus, Send, User, X} from "lucide-react";
 import {MessageMarkdown} from "@/components/MessageMarkdown.tsx";
 import {ToolCallEntry} from "@/components/ToolCallEntry.tsx";
 import {SearchInput} from "@/components/SearchInput.tsx";
@@ -42,6 +42,9 @@ const ChatPage: FC = () => {
     const [collapsedMessages, setCollapsedMessages] = useState<Set<number>>(new Set());
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+    // Below `md` the sidebar is an off-canvas drawer; at `md` and up it is always
+    // visible and this flag is ignored.
+    const [sidebarOpen, setSidebarOpen] = useState(false);
     const activeIdRef = useRef<string | undefined>(undefined);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -188,6 +191,15 @@ const ChatPage: FC = () => {
         }
         return () => document.removeEventListener('click', handleClickOutside);
     }, [menuOpenId]);
+
+    useEffect(() => {
+        if (!sidebarOpen) return;
+        const handleEscape = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setSidebarOpen(false);
+        };
+        document.addEventListener('keydown', handleEscape);
+        return () => document.removeEventListener('keydown', handleEscape);
+    }, [sidebarOpen]);
 
     const handleDeleteConversation = async (id: string) => {
         try {
@@ -403,7 +415,16 @@ const ChatPage: FC = () => {
             )}
             {/* Header */}
             <header
-                className="bg-white border-b border-gray-200 shrink-0 py-3 px-6 flex items-center justify-between shadow-sm z-10">
+                className="bg-white border-b border-gray-200 shrink-0 py-3 px-4 md:px-6 flex items-center gap-3 shadow-sm z-10">
+                <button
+                    type="button"
+                    onClick={() => setSidebarOpen(open => !open)}
+                    aria-label={sidebarOpen ? "Close conversations" : "Open conversations"}
+                    aria-expanded={sidebarOpen}
+                    className="md:hidden -ml-2 p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer"
+                >
+                    {sidebarOpen ? <X className="h-6 w-6"/> : <Menu className="h-6 w-6"/>}
+                </button>
                 <img
                     src={dataCommonsIconBlue}
                     alt="EOSC Logo"
@@ -412,14 +433,26 @@ const ChatPage: FC = () => {
                 />
             </header>
 
-            <div className="flex-1 flex overflow-hidden">
+            <div className="flex-1 flex overflow-hidden relative">
+                {/* Backdrop for the mobile drawer */}
+                {sidebarOpen && (
+                    <div
+                        className="md:hidden absolute inset-0 bg-black/40 z-30"
+                        onClick={() => setSidebarOpen(false)}
+                        aria-hidden="true"
+                    />
+                )}
+
                 {/* Sidebar */}
-                <div className="w-80 bg-gray-50 border-r border-gray-200 flex flex-col shrink-0">
+                <div
+                    className={`absolute inset-y-0 left-0 z-40 w-72 max-w-[85vw] bg-gray-50 border-r border-gray-200 flex flex-col shrink-0 transition-transform duration-200 ease-out md:static md:z-auto md:w-80 md:max-w-none md:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+                >
                     <div className="p-4 border-b border-gray-200">
                         <button
                             onClick={() => {
                                 setSelectedConversation(null);
                                 if (urlId) navigate('/chat');
+                                setSidebarOpen(false);
                                 focusChatInput();
                             }}
                             className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors shadow-sm cursor-pointer"
@@ -440,7 +473,10 @@ const ChatPage: FC = () => {
                                         conversation={convo}
                                         isActive={isActive}
                                         menuOpen={menuOpenId === convo.id}
-                                        onClick={() => handleSelectConversation(convo.id)}
+                                        onClick={() => {
+                                            handleSelectConversation(convo.id);
+                                            setSidebarOpen(false);
+                                        }}
                                         onMenuToggle={(e) => {
                                             e.stopPropagation();
                                             setMenuOpenId(menuOpenId === convo.id ? null : convo.id);
@@ -461,8 +497,8 @@ const ChatPage: FC = () => {
                 <div className="flex-1 flex flex-col bg-white min-w-0 relative">
                     {/* Header */}
                     {selectedConversation && (
-                        <div className="px-6 py-4 border-b border-gray-100 bg-white shrink-0">
-                            <h1 className="text-lg font-semibold text-gray-800 wrap-break-word line-clamp-2 md:line-clamp-none">
+                        <div className="px-4 py-3 md:px-6 md:py-4 border-b border-gray-100 bg-white shrink-0">
+                            <h1 className="text-base md:text-lg font-semibold text-gray-800 wrap-break-word line-clamp-2 md:line-clamp-none">
                                 {conversations.find(c => c.id === selectedConversation.id)?.title || selectedConversation.title}
                             </h1>
                         </div>
@@ -472,9 +508,9 @@ const ChatPage: FC = () => {
                     <div
                         ref={messagesContainerRef}
                         onScroll={handleScroll}
-                        className="flex-1 p-6 overflow-y-auto bg-gray-50"
+                        className="flex-1 p-4 md:p-6 overflow-y-auto bg-gray-50"
                     >
-                        <div className="max-w-6xl mx-auto space-y-6">
+                        <div className="max-w-6xl mx-auto space-y-4 md:space-y-6">
                             {!selectedConversation || selectedConversation.messages.length === 0 ? (
                                 <div
                                     className="flex flex-col items-center justify-center h-full min-h-64 text-center mt-20">
@@ -493,7 +529,7 @@ const ChatPage: FC = () => {
                                     <div key={index}
                                          className={`w-full flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                                         <div
-                                            className={`group flex gap-3 max-w-[85%] min-w-0 ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
+                                            className={`group flex gap-2 md:gap-3 max-w-full md:max-w-[85%] min-w-0 ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
                                             {/* Avatar */}
                                             <div
                                                 className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center shadow-sm mt-1 overflow-hidden ${msg.sender === 'user' ? 'bg-[#002337] text-white text-sm font-medium' : 'bg-white border border-gray-100 p-1'}`}>
@@ -505,7 +541,7 @@ const ChatPage: FC = () => {
                                                 )}
                                             </div>
                                             <div
-                                                className={`rounded-2xl px-5 py-3 shadow-sm text-[15px] min-w-0 break-words ${
+                                                className={`rounded-2xl px-4 md:px-5 py-3 shadow-sm text-[15px] min-w-0 break-words ${
                                                     msg.isError
                                                         ? 'bg-red-50 border border-red-200 text-red-700 rounded-tl-sm whitespace-pre-wrap'
                                                         : msg.sender === 'user'
@@ -559,14 +595,14 @@ const ChatPage: FC = () => {
                             {/* Loading Indicator — only until the answer starts streaming */}
                             {isSending && !lastMessageIsStreaming && (
                                 <div className="w-full flex justify-start">
-                                    <div className="flex gap-3 max-w-[85%]">
+                                    <div className="flex gap-2 md:gap-3 max-w-full md:max-w-[85%]">
                                         <div
                                             className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center shadow-sm bg-white border border-gray-100 mt-1 p-1 overflow-hidden">
                                             <img src={dataCommonsIconBlue} alt="Bot"
                                                  className="w-full h-full object-contain animate-pulse"/>
                                         </div>
                                         <div
-                                            className="rounded-2xl px-5 py-3 shadow-sm text-[15px] bg-white border border-gray-200 text-gray-500 rounded-tl-sm flex items-center gap-3">
+                                            className="rounded-2xl px-4 md:px-5 py-3 shadow-sm text-[15px] bg-white border border-gray-200 text-gray-500 rounded-tl-sm flex items-center gap-3 min-w-0">
                                         <span className="flex gap-1.5 opacity-70">
                                             <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
                                             <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
@@ -610,7 +646,7 @@ const ChatPage: FC = () => {
                     )}
 
                     {/* Input Area */}
-                    <div className="p-4 bg-white border-t border-gray-200">
+                    <div className="p-3 md:p-4 bg-white border-t border-gray-200 shrink-0">
                         <div className="max-w-6xl mx-auto">
                             <SearchInput
                                 onSearch={handleSendMessage}

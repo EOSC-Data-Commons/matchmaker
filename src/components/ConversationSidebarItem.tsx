@@ -37,7 +37,7 @@ export const ConversationSidebarItem: FC<Props> = ({
                     onClick={onMenuToggle}
                     aria-haspopup="menu"
                     aria-expanded={menuOpen}
-                    className={`p-1.5 rounded-md hover:bg-gray-300 transition-colors cursor-pointer ${menuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} ${isActive ? 'hover:bg-blue-200' : ''}`}
+                    className={`p-1.5 rounded-md hover:bg-gray-300 transition-colors cursor-pointer ${menuOpen ? 'opacity-100' : 'opacity-100 md:opacity-0 md:group-hover:opacity-100'} ${isActive ? 'hover:bg-blue-200' : ''}`}
                     title="Options"
                     aria-label="Conversation options"
                 >
