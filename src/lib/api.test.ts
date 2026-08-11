@@ -219,6 +219,54 @@ describe("sendChatMessage", () => {
         expect(text).toBe("Found this");
     });
 
+    it("does not replay local error bubbles as assistant turns", async () => {
+        let items: Array<{ role: string; content: Array<{ text: string }> }> = [];
+        server.use(
+            http.post("/api/search/chat", async ({request}) => {
+                const body = await request.json() as { items: typeof items };
+                items = body.items;
+                return sseResponse(chatRun);
+            }),
+        );
+        const messages: Message[] = [
+            {sender: "user", content: "find data"},
+            {sender: "bot", content: "Something went wrong while searching.", isError: true},
+            {sender: "user", content: "try again"},
+        ];
+        await sendChatMessage(messages, "m", undefined, () => {
+        }, () => {
+        });
+
+        expect(items.map(i => i.role)).toEqual(["user", "user"]);
+        expect(JSON.stringify(items)).not.toContain("Something went wrong");
+    });
+
+    it("drops turns with no text, so no empty assistant message is sent", async () => {
+        let items: Array<{ role: string }> = [];
+        server.use(
+            http.post("/api/search/chat", async ({request}) => {
+                const body = await request.json() as { items: typeof items };
+                items = body.items;
+                return sseResponse(chatRun);
+            }),
+        );
+        // A turn that only made a tool call has blocks but no text of its own.
+        const messages: Message[] = [
+            {sender: "user", content: "find data"},
+            {
+                sender: "bot",
+                content: "   ",
+                blocks: [{kind: "tool", toolCall: {id: "c1", name: "search_data", args: ""}}]
+            },
+            {sender: "user", content: "and now?"},
+        ];
+        await sendChatMessage(messages, "m", undefined, () => {
+        }, () => {
+        });
+
+        expect(items.map(i => i.role)).toEqual(["user", "user"]);
+    });
+
     it("reports HTTP failures through onError without throwing", async () => {
         server.use(http.post("/api/search/chat", () => new HttpResponse(null, {status: 500})));
         const onError = vi.fn();

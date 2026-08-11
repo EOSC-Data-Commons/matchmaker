@@ -159,12 +159,21 @@ export const sendChatMessage = async (
     onEvent: (event: SSEEvent) => void,
     onError: (error: Error) => void
 ) => {
-    const requestBody: Record<string, unknown> = {
-        items: messages.map(msg => ({
+    // Only real conversation turns are replayed to the model. Error bubbles are a local
+    // UI artefact ("Something went wrong…") that the assistant never said, and a turn
+    // that produced only a tool call has no text at all — sending either as an assistant
+    // message teaches the model to apologise for failures that never happened, or hands
+    // the provider an empty assistant turn.
+    const items = messages
+        .filter(msg => !msg.isError && msg.content.trim())
+        .map(msg => ({
             type: 'message',
             role: msg.sender === 'user' ? 'user' : 'assistant',
             content: [{text: msg.content}]
-        })),
+        }));
+
+    const requestBody: Record<string, unknown> = {
+        items,
         model: model
     };
 
