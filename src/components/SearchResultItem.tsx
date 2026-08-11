@@ -45,7 +45,10 @@ export const SearchResultItem = ({hit, isLoggedIn = false}: SearchResultItemProp
         window.open(`/dataplayer?${params.toString()}`, '_blank', 'noopener,noreferrer');
     };
 
-    const scorePercent = (hit.score || 0) * 100;
+    // OpenSearch's hybrid relevance score, normalised to 0-1 across the result set. Tool
+    // registry hits carry a raw rank (20, 19, 18…) instead, so this is clamped rather than
+    // rendered as "2000%".
+    const scorePercent = Math.min(100, Math.max(0, (hit._score ?? 0) * 100));
 
     const getPublicationDate = (): string | null => {
         // First priority: root-level publicationDate field (if not null)
@@ -93,25 +96,14 @@ export const SearchResultItem = ({hit, isLoggedIn = false}: SearchResultItemProp
                 <h3 className="text-lg font-semibold text-gray-900 pr-4 mb-2 sm:mb-0 min-w-0 break-words">
                     {hit.title}
                 </h3>
-                {hit.score != null && (
+                {typeof hit._score === 'number' && !Number.isNaN(hit._score) && (
                     <div
                         className="shrink-0 flex items-center space-x-1 bg-yellow-50 px-2 py-1 rounded-full cursor-help"
-                        title="AI-powered relevance score: Ranked by LLM based on semantic understanding of your query. Scores range from 0% (low relevance) to 100% (high relevance)."
+                        title="Relevance score: how closely this result matches your query, combining semantic similarity with keyword matching. It is scaled across this set of results, so it is meant for comparing these results with each other rather than as an absolute measure of quality."
                     >
                         <ProportionalStar percent={scorePercent} className="h-4 w-4"/>
                         <span className="text-sm font-medium text-yellow-700">
                             {scorePercent.toFixed(0)}%
-                        </span>
-                    </div>
-                )}
-                {hit.score == null && typeof hit._score === 'number' && !Number.isNaN(hit._score) && (
-                    <div
-                        className="shrink-0 flex items-center space-x-1 bg-blue-50 px-2 py-1 rounded-full cursor-help"
-                        title="OpenSearch relevance score: Based on keyword matching and text analysis. Scores range from 0% (low match) to 100% (high match)."
-                    >
-                        <ProportionalStar percent={(hit._score || 0) * 100} className="h-4 w-4" color="#005EB8"/>
-                        <span className="text-sm font-semibold" style={{color: '#005EB8'}}>
-                            {(((hit._score || 0) * 100)).toFixed(0)}%
                         </span>
                     </div>
                 )}

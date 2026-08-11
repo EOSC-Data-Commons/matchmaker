@@ -54,8 +54,9 @@ export interface SearchHitSrc {
 export interface BackendDataset {
     _id: string;
     _source: SearchHitSrc;
-    _score: number; //OpenSearch Score
-    score?: number | null; //LLM Ranked Score
+    // Hybrid semantic + keyword relevance, scaled across the result set. The LLM-reranked
+    // `score` that used to sit alongside it is gone with reranking itself.
+    _score: number;
     fileExtensions?: string[] | null;
     relevantTools?: string[] | null;
     // Canonical URL of the dataset (DOI when available). The assistant cites datasets
