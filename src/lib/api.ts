@@ -48,26 +48,33 @@ export class ServerError extends Error {
 }
 
 /**
- * Thrown when the stream completes without any dataset results (e.g. the agent
- * answered conversationally via TEXT_MESSAGE_CHUNK events instead of calling a
- * search tool). This is not a failure — it should surface as a friendly
- * "no results" view, not a red error.
+ * Runs a plain dataset search: no agent, no LLM, no streaming. The backend calls
+ * the same `search_data` function the chat agent's tool call reaches, so the hits
+ * are identical to what the agent sees — only the summary is missing, which is
+ * what /chat (the AI mode) is for.
  */
-export class NoResultsError extends Error {
-    constructor(message?: string) {
-        super(message || "No search results received");
-        this.name = "NoResultsError";
-    }
-}
+export const searchDatasets = async (
+    query: string,
+    timeoutMs: number = 30000
+): Promise<SearchResults> => {
+    const params = new URLSearchParams({q: query, resource: 'datasets'});
+    try {
+        const response = await fetchWithTimeout(
+            `${BACKEND_API_URL}/search?${params.toString()}`,
+            {method: 'GET', headers: {'Accept': 'application/json'}},
+            timeoutMs
+        );
 
-export interface SearchRequest {
-    items: Array<{
-        type: string;
-        role: 'user' | 'assistant';
-        content: Array<{ text: string }>;
-    }>;
-    model: string;
-}
+        if (response.status === 429) throw new RateLimitError();
+        if (response.status >= 500) throw new ServerError(response.status);
+        if (!response.ok) throw new Error(`Error sending the request: ${response.status}`);
+
+        return await response.json() as SearchResults;
+    } catch (error) {
+        logError(error, 'searchDatasets');
+        throw error;
+    }
+};
 
 // NOTE: you could probably reuse types defined in AG-UI TS SDK https://docs.ag-ui.com/sdk/js/core/overview
 export interface SSEEvent {
@@ -83,14 +90,6 @@ export interface SSEEvent {
     raw_event?: unknown;
     delta?: string;
     thread_id?: string;
-}
-
-export interface SSEEventHandler {
-    onSearchData?: (data: SearchResults) => void;
-    // Chunks of the assistant's summary of the results, as they stream in.
-    onSummaryDelta?: (delta: string) => void;
-    onEvent?: (event: SSEEvent) => void;
-    onError?: (error: Error) => void;
 }
 
 /** Text carried by a terminal RUN_ERROR event (AG-UI RunErrorEvent). */
@@ -151,75 +150,6 @@ export const streamChatEvents = async (
             throw error;
         },
     });
-};
-
-export const searchWithBackend = async (
-    query: string,
-    model: string = 'cesnet/agentic',
-    handlers: SSEEventHandler
-): Promise<SearchResults> => {
-    const requestBody: SearchRequest = {
-        items: [{
-            type: 'message',
-            role: 'user',
-            content: [{text: query}]
-        }],
-        model: model
-    };
-
-    const toolCallMap = new Map<string, string>();
-    let latestResults: SearchResults | null = null;
-
-    try {
-        await streamChatEvents(requestBody, (event) => {
-            if (handlers.onEvent) handlers.onEvent(event);
-
-            switch (event.type) {
-                case 'TOOL_CALL_START':
-                    if (event.tool_call_id && event.tool_call_name) {
-                        toolCallMap.set(event.tool_call_id, event.tool_call_name);
-                    }
-                    return;
-
-                case 'TOOL_CALL_RESULT': {
-                    if (!event.content) return;
-                    let searchResp: SearchResults;
-                    try {
-                        searchResp = JSON.parse(event.content) as SearchResults;
-                    } catch (e) {
-                        logError(e, 'Failed to parse tool result');
-                        return;
-                    }
-
-                    const toolName = event.tool_call_id
-                        ? toolCallMap.get(event.tool_call_id) || event.tool_call_id
-                        : undefined;
-                    // Only the search tool feeds the results list; other tools may
-                    // run in the same turn and are not results.
-                    if (toolName !== 'search_data') return;
-                    if (handlers.onSearchData) handlers.onSearchData(searchResp);
-                    latestResults = searchResp;
-                    return;
-                }
-
-                case 'TEXT_MESSAGE_CHUNK':
-                case 'TEXT_MESSAGE_CONTENT':
-                    if (event.delta && handlers.onSummaryDelta) handlers.onSummaryDelta(event.delta);
-                    return;
-
-                // Legacy error event (backward compatibility)
-                case 'error':
-                    if (handlers.onError) handlers.onError(new Error(event.content || 'Unknown error'));
-            }
-        });
-
-        if (!latestResults) throw new NoResultsError();
-        return latestResults;
-    } catch (error) {
-        logError(error, 'Search API');
-        if (handlers.onError) handlers.onError(error instanceof Error ? error : new Error(String(error)));
-        throw error;
-    }
 };
 
 export const sendChatMessage = async (

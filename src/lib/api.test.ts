@@ -7,12 +7,11 @@ import type {SearchResults} from "@/types/commons";
 import type {Message} from "@/types/chat";
 import {
     fetchRepositoryStats,
-    searchWithBackend,
+    searchDatasets,
     sendChatMessage,
     streamChatEvents,
     RateLimitError,
     ServerError,
-    NoResultsError,
     type SSEEvent,
 } from "./api";
 
@@ -118,95 +117,39 @@ describe("streamChatEvents", () => {
     });
 });
 
-describe("searchWithBackend", () => {
-    const agentRun = sse([
-        {type: "RUN_STARTED", thread_id: "t-1"},
-        {type: "TOOL_CALL_START", tool_call_id: "c1", tool_call_name: "search_data"},
-        {type: "TOOL_CALL_RESULT", tool_call_id: "c1", content: JSON.stringify(searchResult)},
-        {type: "TEXT_MESSAGE_START", message_id: "m1"},
-        {type: "TEXT_MESSAGE_CHUNK", delta: "One hit "},
-        {type: "TEXT_MESSAGE_CHUNK", delta: "about oceans."},
-        {type: "TEXT_MESSAGE_END", message_id: "m1"},
-        {type: "RUN_FINISHED"},
-    ]);
+describe("searchDatasets", () => {
+    it("queries the plain search endpoint and returns the hits", async () => {
+        let url: URL | undefined;
+        server.use(http.get("/api/search/search", ({request}) => {
+            url = new URL(request.url);
+            return HttpResponse.json(searchResult);
+        }));
 
-    it("sends the query and default model, and reports results plus the streamed summary", async () => {
-        let requestBody: unknown;
-        server.use(
-            http.post("/api/search/chat", async ({request}) => {
-                requestBody = await request.json();
-                return sseResponse(agentRun);
-            }),
-        );
-        const onSearchData = vi.fn();
-        const onSummaryDelta = vi.fn();
-
-        const result = await searchWithBackend("ocean data", undefined, {onSearchData, onSummaryDelta});
-
-        expect(requestBody).toEqual({
-            items: [{type: "message", role: "user", content: [{text: "ocean data"}]}],
-            model: "cesnet/agentic",
-        });
-        expect(result).toEqual(searchResult);
-        expect(onSearchData).toHaveBeenCalledExactlyOnceWith(searchResult);
-        expect(onSummaryDelta.mock.calls.map(c => c[0])).toEqual(["One hit ", "about oceans."]);
+        await expect(searchDatasets("ocean data")).resolves.toEqual(searchResult);
+        expect(url?.pathname).toBe("/api/search/search");
+        expect(url?.searchParams.get("q")).toBe("ocean data");
+        expect(url?.searchParams.get("resource")).toBe("datasets");
     });
 
-    it("ignores the result of a tool that is not the search tool", async () => {
-        server.use(http.post("/api/search/chat", () => sseResponse(sse([
-            {type: "TOOL_CALL_START", tool_call_id: "c1", tool_call_name: "list_vault_files"},
-            {type: "TOOL_CALL_RESULT", tool_call_id: "c1", content: JSON.stringify({hits: [makeDataset()]})},
-            {type: "RUN_FINISHED"},
-        ]))));
-        const onSearchData = vi.fn();
-        await expect(searchWithBackend("q", "m", {onSearchData})).rejects.toBeInstanceOf(NoResultsError);
-        expect(onSearchData).not.toHaveBeenCalled();
+    it("returns an empty result set rather than failing", async () => {
+        const empty: SearchResults = {total_found: 0, hits: []};
+        server.use(http.get("/api/search/search", () => HttpResponse.json(empty)));
+        await expect(searchDatasets("nothing")).resolves.toEqual(empty);
     });
 
-    it("throws RateLimitError on 429 and reports it to onError", async () => {
-        server.use(http.post("/api/search/chat", () => new HttpResponse(null, {status: 429})));
-        const onError = vi.fn();
-        await expect(searchWithBackend("q", "m", {onError})).rejects.toBeInstanceOf(RateLimitError);
-        expect(onError.mock.calls[0][0]).toBeInstanceOf(RateLimitError);
+    it("throws RateLimitError on 429", async () => {
+        server.use(http.get("/api/search/search", () => new HttpResponse(null, {status: 429})));
+        await expect(searchDatasets("q")).rejects.toBeInstanceOf(RateLimitError);
     });
 
     it("throws ServerError on 5xx", async () => {
-        server.use(http.post("/api/search/chat", () => new HttpResponse(null, {status: 503})));
-        const onError = vi.fn();
-        await expect(searchWithBackend("q", "m", {onError})).rejects.toBeInstanceOf(ServerError);
-        expect(onError.mock.calls[0][0].message).toContain("503");
+        server.use(http.get("/api/search/search", () => new HttpResponse(null, {status: 503})));
+        await expect(searchDatasets("q")).rejects.toBeInstanceOf(ServerError);
     });
 
     it("throws a generic error for other non-OK statuses", async () => {
-        server.use(http.post("/api/search/chat", () => new HttpResponse(null, {status: 400})));
-        await expect(searchWithBackend("q", "m", {})).rejects.toThrow("Error sending the request: 400");
-    });
-
-    it("surfaces RUN_ERROR events as an error and stops the stream", async () => {
-        server.use(http.post("/api/search/chat", () =>
-            sseResponse(sse([
-                {type: "RUN_STARTED"},
-                {type: "RUN_ERROR", error: "model overloaded"},
-                {type: "RUN_FINISHED"},
-            ])),
-        ));
-        const onError = vi.fn();
-        const onEvent = vi.fn();
-        await expect(searchWithBackend("q", "m", {onError, onEvent})).rejects.toThrow("model overloaded");
-        expect(onError.mock.calls[0][0].message).toBe("model overloaded");
-        // RUN_FINISHED must not be processed after the error
-        expect(onEvent.mock.calls.map(c => c[0].type)).toEqual(["RUN_STARTED", "RUN_ERROR"]);
-    });
-
-    it("throws NoResultsError for a purely conversational answer", async () => {
-        server.use(http.post("/api/search/chat", () =>
-            sseResponse(sse([
-                {type: "TEXT_MESSAGE_CHUNK", delta: "Hello!"},
-                {type: "TEXT_MESSAGE_END"},
-                {type: "RUN_FINISHED"},
-            ])),
-        ));
-        await expect(searchWithBackend("hi", "m", {})).rejects.toBeInstanceOf(NoResultsError);
+        server.use(http.get("/api/search/search", () => new HttpResponse(null, {status: 400})));
+        await expect(searchDatasets("q")).rejects.toThrow("Error sending the request: 400");
     });
 });
 
