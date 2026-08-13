@@ -12,6 +12,7 @@ import {useSearchResults} from "../hooks/useSearchResults.ts";
 import {useDatasetFilters} from "../hooks/useDatasetFilters.ts";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 import {RateLimitError, ServerError} from "../lib/api.ts";
+import {describeResultCount} from "../lib/utils.ts";
 import {useAuth} from "@/hooks/useAuth.ts";
 import {SearchFeedback} from "../components/SearchFeedback.tsx";
 
@@ -168,7 +169,11 @@ export const SearchPage = () => {
                                         <div className="mb-8">
                                             <div className="mb-4">
                                                 <p className="text-gray-600">
-                                                    Found {datasets.length} dataset{datasets.length !== 1 ? 's' : ''}
+                                                    {describeResultCount(
+                                                        datasets.length,
+                                                        results?.hits.length ?? 0,
+                                                        results?.total_found ?? 0,
+                                                    )}
                                                 </p>
                                             </div>
 

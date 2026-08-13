@@ -132,19 +132,21 @@ export function trimTrailingPartialLink(text: string): string {
 }
 
 /**
- * Describes a result count honestly, given that "how many" has three different answers:
- * how many matched in the index (`totalFound`), how many the backend actually returned
- * (`retrieved`, capped server-side), and how many survive the active filters (`shown`).
+ * Describes a result count without quoting `totalFound` as a number.
  *
- * Saying only `shown` hides that the index holds far more; quoting only `totalFound`
- * implies you can reach all of them. Which one leads depends on whether a filter is on.
+ * `totalFound` is OpenSearch's hit total for a `multi_match` that defaults to OR, so it
+ * counts records containing ANY query word — "climate data" reports ~296k against a
+ * ~392k corpus, because almost every record mentions "data". It is also the sum of two
+ * corpora (ours plus Zenodo). Printing it reads as "296,193 relevant datasets", which is
+ * badly wrong. It is still a reliable "there are more beyond these" signal, so it decides
+ * the wording without ever being shown.
  */
 export function describeResultCount(shown: number, retrieved: number, totalFound: number): string {
     if (shown !== retrieved) {
-        return `Showing ${shown} of ${retrieved} retrieved datasets`;
+        return `Showing ${shown} of ${retrieved} datasets`;
     }
     if (totalFound > retrieved) {
-        return `Showing the top ${retrieved} of ${totalFound.toLocaleString()} matching datasets`;
+        return `Showing the ${retrieved} most relevant datasets`;
     }
     return `Found ${shown} dataset${shown !== 1 ? 's' : ''}`;
 }

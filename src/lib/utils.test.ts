@@ -2,14 +2,19 @@ import {describe, it, expect, vi, afterEach} from "vitest";
 import {getUserErrorMessage, stripHtml, stripMarkdown, fetchWithTimeout, prettyJson, trimTrailingPartialLink, formatFileSize, describeResultCount} from "./utils";
 
 describe("describeResultCount", () => {
-    it("leads with the corpus total when nothing is filtered out", () => {
-        expect(describeResultCount(30, 30, 12345))
-            .toBe("Showing the top 30 of 12,345 matching datasets");
+    it("signals more results without quoting the inflated match total", () => {
+        expect(describeResultCount(30, 30, 296193))
+            .toBe("Showing the 30 most relevant datasets");
     });
 
-    it("leads with what was retrieved once a filter narrows the list", () => {
-        expect(describeResultCount(12, 30, 12345))
-            .toBe("Showing 12 of 30 retrieved datasets");
+    it("never prints totalFound, which counts any-word matches", () => {
+        expect(describeResultCount(30, 30, 296193)).not.toContain("296");
+        expect(describeResultCount(12, 30, 296193)).not.toContain("296");
+    });
+
+    it("compares against what was retrieved once a filter narrows the list", () => {
+        expect(describeResultCount(12, 30, 296193))
+            .toBe("Showing 12 of 30 datasets");
     });
 
     it("states a plain count when everything that matched was returned", () => {
