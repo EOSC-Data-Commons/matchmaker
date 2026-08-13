@@ -4,7 +4,7 @@
   "version": "0.9.8",
   "type": "module",
   "scripts": {
-    "dev": "tsx server.ts",
+    "dev": "tsx --env-file-if-exists=.env server.ts",
     "clean": "rm -rf build",
     "build": "npm run clean && react-router build && esbuild server.ts --bundle --platform=node --format=esm --outfile=build/server.js --packages=external",
     "start": "NODE_ENV=production node build/server.js",
