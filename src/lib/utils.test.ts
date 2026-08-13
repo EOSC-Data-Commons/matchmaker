@@ -1,5 +1,43 @@
 import {describe, it, expect, vi, afterEach} from "vitest";
-import {getUserErrorMessage, stripHtml, stripMarkdown, fetchWithTimeout, prettyJson, trimTrailingPartialLink} from "./utils";
+import {getUserErrorMessage, stripHtml, stripMarkdown, fetchWithTimeout, prettyJson, trimTrailingPartialLink, formatFileSize, describeResultCount} from "./utils";
+
+describe("describeResultCount", () => {
+    it("leads with the corpus total when nothing is filtered out", () => {
+        expect(describeResultCount(30, 30, 12345))
+            .toBe("Showing the top 30 of 12,345 matching datasets");
+    });
+
+    it("leads with what was retrieved once a filter narrows the list", () => {
+        expect(describeResultCount(12, 30, 12345))
+            .toBe("Showing 12 of 30 retrieved datasets");
+    });
+
+    it("states a plain count when everything that matched was returned", () => {
+        expect(describeResultCount(5, 5, 5)).toBe("Found 5 datasets");
+        expect(describeResultCount(1, 1, 1)).toBe("Found 1 dataset");
+    });
+});
+
+describe("formatFileSize", () => {
+    it("formats across units", () => {
+        expect(formatFileSize(0)).toBe("0 B");
+        expect(formatFileSize(512)).toBe("512 B");
+        expect(formatFileSize(2048)).toBe("2.0 KB");
+        expect(formatFileSize(5242880)).toBe("5.0 MB");
+        expect(formatFileSize(1024 ** 3 * 2.5)).toBe("2.5 GB");
+    });
+
+    it("drops the decimal above 10 units", () => {
+        expect(formatFileSize(1024 * 240)).toBe("240 KB");
+    });
+
+    it("returns null when there is no usable size", () => {
+        expect(formatFileSize(null)).toBeNull();
+        expect(formatFileSize(undefined)).toBeNull();
+        expect(formatFileSize(-1)).toBeNull();
+        expect(formatFileSize(NaN)).toBeNull();
+    });
+});
 
 describe("getUserErrorMessage", () => {
     // Vitest runs with MODE=test, so the non-dev branches apply.

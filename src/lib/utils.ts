@@ -131,6 +131,44 @@ export function trimTrailingPartialLink(text: string): string {
     return /^\[[^\]]*]\([^)]*\)/.test(text.slice(open)) ? text : text.slice(0, open);
 }
 
+/**
+ * Describes a result count honestly, given that "how many" has three different answers:
+ * how many matched in the index (`totalFound`), how many the backend actually returned
+ * (`retrieved`, capped server-side), and how many survive the active filters (`shown`).
+ *
+ * Saying only `shown` hides that the index holds far more; quoting only `totalFound`
+ * implies you can reach all of them. Which one leads depends on whether a filter is on.
+ */
+export function describeResultCount(shown: number, retrieved: number, totalFound: number): string {
+    if (shown !== retrieved) {
+        return `Showing ${shown} of ${retrieved} retrieved datasets`;
+    }
+    if (totalFound > retrieved) {
+        return `Showing the top ${retrieved} of ${totalFound.toLocaleString()} matching datasets`;
+    }
+    return `Found ${shown} dataset${shown !== 1 ? 's' : ''}`;
+}
+
+/**
+ * Human-readable file size, or null when there is no usable number — callers omit the
+ * size entirely rather than printing a misleading "0 B" for an unknown value.
+ */
+export function formatFileSize(bytes: number | null | undefined): string | null {
+    if (bytes == null || !Number.isFinite(bytes) || bytes < 0) return null;
+    if (bytes < 1024) return `${bytes} B`;
+
+    const units = ['KB', 'MB', 'GB', 'TB'];
+    let value = bytes / 1024;
+    let unit = 0;
+    while (value >= 1024 && unit < units.length - 1) {
+        value /= 1024;
+        unit++;
+    }
+    // One decimal below 10 (2.4 MB), none above it (240 MB) — enough precision to compare
+    // small files without a wall of digits on large ones.
+    return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
+}
+
 /** Pretty-print a JSON payload with 2-space indent; returns the input unchanged when it is not JSON. */
 export function prettyJson(raw: string): string {
     const trimmed = raw.trim();

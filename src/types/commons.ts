@@ -44,7 +44,9 @@ export interface SearchHitSrc {
     _repo?: string;
     titles: SearchHitSrcTitle[];
     descriptions: SearchHitSrcDescription[];
-    publicationYear: string;
+    // Optional: the backend allows a null publication year, which Zenodo records without a
+    // publication_date actually produce.
+    publicationYear?: string | null;
     dates?: SearchHitSrcDate[] | null;
     subjects?: SearchHitSrcSubject[] | null;
     creators?: SearchHitSrcCreator[] | null;
@@ -76,6 +78,24 @@ export interface BackendDataset {
 export interface SearchResults {
     hits: BackendDataset[];
     total_found?: number;
+}
+
+/**
+ * A file belonging to a dataset, from the `get_dataset_files` tool (FileMetrix).
+ * Field names are snake_case because the backend serialises by field name, not alias.
+ */
+export interface DatasetFile {
+    link: string;
+    name: string;
+    size?: number | null;
+    raw_metadata?: {
+        friendly_type?: string | null;
+        content_type?: string | null;
+    } | null;
+}
+
+export interface DatasetFilesResponse {
+    files: DatasetFile[];
 }
 
 export interface AggregationBucket {
