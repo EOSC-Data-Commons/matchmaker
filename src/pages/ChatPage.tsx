@@ -652,6 +652,7 @@ const ChatPage: FC = () => {
                                 onSearch={handleSendMessage}
                                 loading={isSending}
                                 placeholder="Ask anything or search for datasets..."
+                                placeholderShort="Ask or search datasets..."
                                 clearOnSearch={true}
                                 inputRef={chatInputRef}
                                 buttonText={
