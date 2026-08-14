@@ -2,7 +2,57 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.9.6] - 20/07/2026
+## [0.10.0] - 14/08/2026
+
+Searching and asking the AI are now two separate things, so a plain search no longer waits on the AI:
+
+- Plain search is much faster. The results page goes straight to the index instead of starting an AI run and waiting for
+  it to search on your behalf, and the results you get are the same ones the AI would have found.
+- Added an **AI Mode** button in the search bar. Switch it on and your question opens a chat; leave it off and you get
+  the plain list of results. It starts on from the home page and off on the results page.
+- Clicking **AI Mode** while signed out now takes you through sign in and back to your query, instead of being greyed
+  out and doing nothing.
+- The search bar is now a single bar holding the query, a clear button, **AI Mode** and search, and the query can be
+  cleared without selecting the text first.
+- The AI summary box has been removed from the results page. AI answers now live in the chat, where you can ask a
+  follow-up question about them.
+- Results now carry one relevance score instead of two competing ones. The tooltip explains it is for comparing results
+  in this list against each other, rather than a mark out of 100 for how good a dataset is.
+- The chat now shows its work. Each search or lookup it ran appears as a line you can expand ("Searched datasets",
+  "Searched tools", "Listed dataset files") to see what it found, with software tools and dataset files laid out
+  properly instead of as raw data.
+- Datasets mentioned in an AI answer are now clickable: hover or click one to see its full details without leaving the
+  answer.
+- Long AI answers are no longer cut off part way through, and scrolling up to re-read something no longer drags you back
+  to the bottom.
+- The chat no longer apologises for errors that never happened, which it did when an earlier error message was carried
+  back into the conversation.
+- The results page now says "Showing the 30 most relevant datasets" rather than "Found 30 datasets", which suggested
+  that was everything there was to find.
+- Fixed datasets from Zenodo with no publication date failing to load.
+
+For deployment: plain search needs a backend exposing `GET /api/search/search`. LLM reranking has been removed, the
+streaming code now uses `@microsoft/fetch-event-source` instead of a hand-rolled parser, and the coordinator gRPC target
+is set in one place (`GRPC_TARGET`, defaulting to the hosted coordinator in production and a local one in development).
+
+## [0.9.8] - 07/08/2026
+
+- Fixed the npm supply-chain guard being inert: `.npmrc` set `in-release-age=3` where npm reads `min-release-age`, so
+  the intended 3 day quarantine on freshly published packages was silently ignored on every install since it was added.
+- Upgraded React Router from 7.17 to 8.3 (`react-router`, `@react-router/dev`, `express`, `fs-routes`, `node` and
+  `serve`), and React from 19.2.4 to 19.2.7.
+- Added a `preversion` script that fetches `origin/main` and aborts the bump when HEAD is behind it, so a release tag
+  can no longer be cut on stale code and published as if it were current.
+- The repository statistics chart now shows each repository the way the project spells its own name (`ONE` as Onedata,
+  `PANOSC` as PaNOSC, `DATAVERSELV` as DataverseLV, `FINBIF` as FinBIF) rather than the backend's upstream short code.
+  Codes not on that list still fall through to whatever the backend sends.
+- Renamed "Dataverse Latvia" to "DataverseLV" in the search result provenance labels, matching the name the repository
+  uses at dataverse.lv.
+- The chat empty state now reads "Welcome to the EOSC Data Commons Chat" instead of "Welcome to EOSC Chat".
+
+## [0.9.7] - 21/07/2026
+
+These four changes were previously listed under 0.9.6, which was tagged before the branch carrying them was merged:
 
 - Search results now show repository provenance logos: records aggregated through a crawler platform (currently OneData,
   with OpenAIRE and OpenAlex support built in) display both the owning repository and the aggregator that harvested it,
@@ -18,6 +68,12 @@ All notable changes to this project will be documented in this file.
   field when available.
 - Chat and search failures caused by a backend timeout now surface the backend's actual error message instead of the
   stream silently ending and leaving the chat stuck on its loading spinner.
+- Updated `systeminformation` from 5.31.6 to 5.33.0.
+
+## [0.9.6] - 20/07/2026
+
+- Updated `morgan` from 1.10.1 to 1.11.0. This tag carries no other changes: the work described in the original 0.9.6
+  entry is now listed under 0.9.7 above, where it actually shipped.
 
 ## [0.9.5] - 06/07/2026
 
