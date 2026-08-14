@@ -1,14 +1,16 @@
-import {FC, Fragment, JSX, useCallback, useEffect, useRef, useState} from "react";
+import {FC, useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {useLocation, useNavigate, useParams} from "react-router";
 import {useAuth} from "@/hooks/useAuth.ts";
 import {loginWithReturn} from "@/lib/authRedirect.ts";
 import {Conversation, Message} from "@/types/chat.ts";
-import {BackendDataset} from "@/types/commons.ts";
 import {sendChatMessage, RateLimitError, ServerError} from "@/lib/api.ts";
+import {applyChatEvent, finalizeStream, parseConversationItems} from "@/lib/chatMessages.ts";
+import {buildDatasetUrlMap} from "@/lib/datasetCitations.ts";
 import {getUserInitials} from "@/lib/userUtils.ts";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 import {ChevronDown, ChevronUp, Loader2, MessageSquare, Plus, Send, User} from "lucide-react";
-import {SearchResultItem} from "@/components/SearchResultItem.tsx";
+import {MessageMarkdown} from "@/components/MessageMarkdown.tsx";
+import {ToolCallEntry} from "@/components/ToolCallEntry.tsx";
 import {SearchInput} from "@/components/SearchInput.tsx";
 import {DeleteConversationDialog} from "@/components/DeleteConversationDialog.tsx";
 import {ConversationSidebarItem} from "@/components/ConversationSidebarItem.tsx";
@@ -49,14 +51,24 @@ const ChatPage: FC = () => {
     // To prevent processing initial state multiple times
     const initialQueryProcessed = useRef(false);
 
+    // Whether the view is following the bottom of the thread; false once the user
+    // scrolls up, so streamed content does not yank them back down.
+    const followingRef = useRef(true);
+
     const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({behavior: "smooth"});
+        messagesEndRef.current?.scrollIntoView?.({behavior: "smooth"});
+    };
+
+    const scrollToBottomIfFollowing = () => {
+        if (!followingRef.current) return;
+        requestAnimationFrame(() => messagesEndRef.current?.scrollIntoView?.({block: 'end'}));
     };
 
     const handleScroll = () => {
         if (!messagesContainerRef.current) return;
         const {scrollTop, scrollHeight, clientHeight} = messagesContainerRef.current;
         const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+        followingRef.current = isNearBottom;
         setShowScrollButton(!isNearBottom);
     };
 
@@ -112,49 +124,7 @@ const ChatPage: FC = () => {
                 return res.json();
             })
             .then(data => {
-                const parsedMessages: Message[] = [];
-                if (data.items && Array.isArray(data.items)) {
-                    data.items.forEach((item: Record<string, unknown>, idx: number) => {
-                        if (item.type === 'message' && item.role === 'user') {
-                            const contentObj = Array.isArray(item.content) && item.content[0] as Record<string, unknown>;
-                            const text = Array.isArray(item.content) && contentObj?.text
-                                ? String(contentObj.text)
-                                : typeof item.content === 'string' ? item.content : '';
-                            parsedMessages.push({sender: 'user', content: text});
-                        } else if (item.type === 'message' && item.role === 'assistant') {
-                            const contentObj = Array.isArray(item.content) && item.content[0] as Record<string, unknown>;
-                            const text = Array.isArray(item.content) && contentObj?.text
-                                ? String(contentObj.text)
-                                : typeof item.content === 'string' ? item.content : '';
-                            if (text.trim()) {
-                                // Check if this is a standalone "No results found"
-                                const isNoResultsOnly = text.trim() === 'No results found';
-                                const hasPriorAssistantMessage = parsedMessages.some(m => m.sender === 'bot' && !m.hits);
-
-                                // Look back to see if this is in response to a tool call
-                                const prevItem = data.items && data.items[idx - 1];
-                                const isResponseToTool = prevItem?.type === 'tool_result' || prevItem?.type === 'tool_call';
-
-                                // Only suppress if it's a standalone "No results found" AND there's a prior assistant message AND it's not a tool response
-                                if (isNoResultsOnly && hasPriorAssistantMessage && !isResponseToTool) {
-                                    // Skip this message
-                                } else {
-                                    parsedMessages.push({sender: 'bot', content: text});
-                                }
-                            }
-                        } else if (item.type === 'tool_result' && (item.call_id === 'rerank_results' || (item.metadata as Record<string, unknown>)?.name === 'rerank_results')) {
-                            try {
-                                const contentObj = typeof item.content === 'string' ? JSON.parse(item.content) : item.content;
-                                if (contentObj && contentObj.summary && contentObj.hits) {
-                                    const {summary, hits} = contentObj;
-                                    parsedMessages.push({sender: 'bot', content: summary || "", hits: hits});
-                                }
-                            } catch (e) {
-                                console.error("Failed to parse tool result content", e);
-                            }
-                        }
-                    });
-                }
+                const parsedMessages = parseConversationItems(data.items);
 
                 const formattedConversation: Conversation = {
                     id: data.thread_id || data.id || id,
@@ -265,22 +235,6 @@ const ChatPage: FC = () => {
         return content.split('\n').find(l => l.trim()) || '';
     };
 
-    const sanitizeLinkHref = (href: string): string | null => {
-        const trimmed = href.trim();
-        if (!trimmed) return null;
-
-        try {
-            const parsed = new URL(trimmed);
-            if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-                return parsed.toString();
-            }
-            return null;
-        } catch {
-            return null;
-        }
-    };
-
-
     const handleSendMessage = async (messageText: string, model: string) => {
         if (!messageText.trim()) return;
         if (isSending) return; // Prevent concurrent sends
@@ -311,69 +265,41 @@ const ChatPage: FC = () => {
             }
             return "Something went wrong while searching. Please try again.";
         };
+        // The whole assistant turn is reduced into this local list, then pushed to
+        // state on every event so tool calls and text appear as they stream in.
+        let streamed: Message[] = updatedMessages;
+        const publish = () => {
+            setSelectedConversation(prev => prev ? {...prev, messages: streamed} : null);
+            scrollToBottomIfFollowing();
+        };
+
+        // The bubble goes into `streamed` too — a later publish would otherwise drop it.
         const appendErrorBubble = (text: string) => {
-            const botMessage: Message = {sender: 'bot', content: text, isError: true};
-            setSelectedConversation(prev => prev ? {...prev, messages: [...prev.messages, botMessage]} : null);
+            streamed = [...finalizeStream(streamed), {sender: 'bot', content: text, isError: true}];
+            publish();
             setIsSending(false);
         };
 
         try {
-            let currentTextContent = "";
-            let receivedRerank = false;
-            let hasAddedMessage = false; // Track if we've added a message in this cycle
-            const toolCallMap = new Map<string, string>();
-
             await sendChatMessage(
                 updatedMessages,
                 model,
                 currentConversation.id.startsWith('new-') ? undefined : currentConversation.id,
                 (event) => {
-                    if (event.type === 'TOOL_CALL_START' && event.tool_call_id && event.tool_call_name) {
-                        toolCallMap.set(event.tool_call_id, event.tool_call_name);
-                    } else if (event.type === 'RUN_STARTED' && event.thread_id && currentConversation.id.startsWith('new-')) {
+                    if (event.type === 'RUN_STARTED' && event.thread_id && currentConversation.id.startsWith('new-')) {
                         const newThreadId = event.thread_id;
                         navigate(`/chat/${newThreadId}`, {replace: true});
                         setSelectedConversation(prev => prev ? {...prev, id: newThreadId} : null);
-                        // Also update currentConversation in scope so subsequent handlers during this stream don't misbehave if they need it, though they use prev.
-                    } else if (event.type === 'TOOL_CALL_RESULT' && event.content && event.tool_call_id && (toolCallMap.get(event.tool_call_id) === 'rerank_results' || event.tool_call_id === 'rerank_results')) {
-                        receivedRerank = true;
-                        const result = JSON.parse(event.content);
-                        const {summary, hits} = result;
-
-                        const botMessage: Message = {sender: 'bot', content: summary || "", hits: hits};
-
-                        setSelectedConversation(prev => {
-                            if (!prev) return null;
-                            return {...prev, messages: [...prev.messages, botMessage]};
-                        });
-                        hasAddedMessage = true;
-                        setIsSending(false);
-                    } else if (event.type === 'TEXT_MESSAGE_CHUNK' && event.delta) {
-                        currentTextContent += event.delta;
-                    } else if (event.type === 'TEXT_MESSAGE_END') {
-                        if (currentTextContent.trim() && !receivedRerank) {
-                            // Only add "No results found" if no other message was added in this cycle
-                            const isNoResultsOnly = currentTextContent.trim() === 'No results found';
-                            if (isNoResultsOnly && hasAddedMessage) {
-                                // Skip it — we already have content from a tool result
-                            } else {
-                                const botMessage: Message = {sender: 'bot', content: currentTextContent};
-                                setSelectedConversation(prev => {
-                                    if (!prev) return null;
-                                    return {...prev, messages: [...prev.messages, botMessage]};
-                                });
-                                hasAddedMessage = true;
-                            }
-                        }
-                        currentTextContent = "";
-                        receivedRerank = false;
-                        setIsSending(false);
-                    } else if (event.type === 'RUN_FINISHED') {
-                        setIsSending(false);
-                    } else if (event.error) {
+                        return;
+                    }
+                    if (event.type !== 'RUN_ERROR' && event.error) {
                         console.error("Event error:", event.error);
                         appendErrorBubble(errorText(new Error(event.error)));
+                        return;
                     }
+                    streamed = applyChatEvent(streamed, event);
+                    publish();
+                    if (event.type === 'RUN_FINISHED') setIsSending(false);
                 },
                 (error) => {
                     console.error("Failed to send message", error);
@@ -384,106 +310,59 @@ const ChatPage: FC = () => {
             console.error("Failed to send message", e);
             appendErrorBubble(errorText(e));
         } finally {
+            // A stream that ends without RUN_FINISHED would otherwise leave the
+            // message flagged as still streaming.
+            streamed = finalizeStream(streamed);
+            publish();
+            setIsSending(false);
             fetchConversationsRef.current();
         }
     };
 
-    const renderInlineMarkdown = (line: string, lineIndex: number) => {
-        // Handles **[label](url)**, [label](url), and **bold** in a single pass.
-        const tokenRegex = /\*\*\[(.+?)]\((.+?)\)\*\*|\[(.+?)]\((.+?)\)|\*\*(.+?)\*\*/g;
-        const nodes: (string | JSX.Element)[] = [];
-        let lastIndex = 0;
-        let tokenIndex = 0;
-        let match: RegExpExecArray | null;
+    // Every dataset URL cited anywhere in this thread's search results, so a plain
+    // Markdown link in the answer can be resolved back to the dataset it cites.
+    const datasetsByUrl = useMemo(
+        () => buildDatasetUrlMap(selectedConversation?.messages ?? []),
+        [selectedConversation?.messages]
+    );
 
-        while ((match = tokenRegex.exec(line)) !== null) {
-            if (match.index > lastIndex) {
-                nodes.push(line.substring(lastIndex, match.index));
+    // The assistant bubble already shows its own progress once blocks arrive.
+    const messages = selectedConversation?.messages ?? [];
+    const lastMessage = messages[messages.length - 1];
+    const lastMessageIsStreaming = !!lastMessage?.isStreaming && (lastMessage.blocks?.length ?? 0) > 0;
+
+    /** Bot message body: tool calls and text in the order the agent produced them. */
+    const renderBotMessage = (msg: Message, msgIndex: number) => {
+        const blocks = msg.blocks ?? (msg.content ? [{kind: 'text' as const, text: msg.content}] : []);
+        const lastTextIndex = blocks.reduce((acc, b, i) => (b.kind === 'text' ? i : acc), -1);
+
+        return blocks.map((block, blockIndex) => {
+            if (block.kind === 'tool') {
+                return (
+                    <ToolCallEntry
+                        key={`tool-${msgIndex}-${block.toolCall.id}`}
+                        toolCall={block.toolCall}
+                        isLoggedIn={!!user}
+                    />
+                );
             }
-
-            const [fullMatch, boldLinkText, boldLinkHref, linkText, linkHref, boldText] = match;
-            if (boldLinkText && boldLinkHref) {
-                const safeHref = sanitizeLinkHref(boldLinkHref);
-                if (!safeHref) {
-                    nodes.push(boldLinkText);
-                    lastIndex = match.index + fullMatch.length;
-                    continue;
-                }
-                nodes.push(
-                    <a
-                        key={`md-${lineIndex}-${tokenIndex++}`}
-                        href={safeHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-500 hover:text-blue-700 underline font-semibold break-all"
-                    >
-                        {boldLinkText}
-                    </a>
-                );
-            } else if (linkText && linkHref) {
-                const safeHref = sanitizeLinkHref(linkHref);
-                if (!safeHref) {
-                    nodes.push(linkText);
-                    lastIndex = match.index + fullMatch.length;
-                    continue;
-                }
-                nodes.push(
-                    <a
-                        key={`md-${lineIndex}-${tokenIndex++}`}
-                        href={safeHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-500 hover:text-blue-700 underline font-medium break-all"
-                    >
-                        {linkText}
-                    </a>
-                );
-            } else if (boldText) {
-                nodes.push(
-                    <strong key={`md-${lineIndex}-${tokenIndex++}`} className="font-semibold text-gray-900">
-                        {boldText}
-                    </strong>
-                );
-            } else {
-                nodes.push(fullMatch);
-            }
-
-            lastIndex = match.index + fullMatch.length;
-        }
-
-        if (lastIndex < line.length) {
-            nodes.push(line.substring(lastIndex));
-        }
-
-        return nodes.map((node, idx) => <Fragment key={`md-frag-${lineIndex}-${idx}`}>{node}</Fragment>);
-    };
-
-    const renderMessageContent = (content: string) => {
-        const lines = content.split('\n');
-
-        return lines.map((rawLine, i) => {
-            const trimmedLeft = rawLine.trimStart();
-            const orderedMatch = trimmedLeft.match(/^(\d+)\.\s+(.*)$/);
-            const unorderedMatch = trimmedLeft.match(/^[*-]\s+(.*)$/);
-            const lineBody = orderedMatch?.[2] ?? unorderedMatch?.[1] ?? rawLine;
-            const formattedParts = renderInlineMarkdown(lineBody, i);
-
-            const isMetadata =
-                trimmedLeft.startsWith('**Creator:**') ||
-                trimmedLeft.startsWith('**Published:**') ||
-                trimmedLeft.startsWith('**Description:**');
-
-            const pClass = `leading-relaxed min-h-6 ${isMetadata ? 'text-gray-700 text-sm mt-1' : ''}`;
-
+            if (!block.text.trim()) return null;
             return (
-                <p key={i} className={pClass}>
-                    {orderedMatch ? <span className="mr-2 font-medium text-gray-700">{orderedMatch[1]}.</span> : null}
-                    {unorderedMatch ? <span className="mr-2 text-gray-500">•</span> : null}
-                    {formattedParts}
-                </p>
+                <div key={`text-${msgIndex}-${blockIndex}`}>
+                    <MessageMarkdown
+                        text={block.text}
+                        datasets={datasetsByUrl}
+                        streaming={msg.isStreaming && blockIndex === lastTextIndex}
+                        isLoggedIn={!!user}
+                    />
+                </div>
             );
         });
     };
+
+    /** Total number of search hits returned by a bot message's tool calls. */
+    const countHits = (msg: Message): number =>
+        (msg.blocks ?? []).reduce((acc, b) => acc + (b.kind === 'tool' ? (b.toolCall.hits?.length ?? 0) : 0), 0);
 
     return (
         <div className="flex flex-col h-dvh bg-white overflow-hidden">
@@ -642,10 +521,10 @@ const ChatPage: FC = () => {
                                                     <div className="flex items-center gap-3">
                                                         <p className="text-gray-400 text-sm italic flex-1 whitespace-pre-wrap">
                                                             {getMessageSummary(msg.content)}
-                                                            {msg.hits && msg.hits.length > 0 && (
+                                                            {countHits(msg) > 0 && (
                                                                 <span
                                                                     className="ml-2 text-blue-400 font-medium not-italic">
-                                                                    · {msg.hits.length} result{msg.hits.length !== 1 ? 's' : ''}
+                                                                    · {countHits(msg)} result{countHits(msg) !== 1 ? 's' : ''}
                                                                 </span>
                                                             )}
                                                         </p>
@@ -669,17 +548,7 @@ const ChatPage: FC = () => {
                                                                 <span>Collapse</span>
                                                             </button>
                                                         </div>
-                                                        {msg.content && <div>{renderMessageContent(msg.content)}</div>}
-                                                        {msg.hits && msg.hits.length > 0 && (
-                                                            <div className="flex flex-col space-y-4 mt-2">
-                                                                {msg.hits.map((hit: unknown, hitIdx: number) => (
-                                                                    <SearchResultItem key={hitIdx}
-                                                                                      hit={hit as BackendDataset}
-                                                                                      isAiRanked={true}
-                                                                                      isLoggedIn={!!user}/>
-                                                                ))}
-                                                            </div>
-                                                        )}
+                                                        {renderBotMessage(msg, index)}
                                                     </div>
                                                 )}
                                             </div>
@@ -687,8 +556,8 @@ const ChatPage: FC = () => {
                                     </div>
                                 ))
                             )}
-                            {/* Loading Indicator */}
-                            {isSending && (
+                            {/* Loading Indicator — only until the answer starts streaming */}
+                            {isSending && !lastMessageIsStreaming && (
                                 <div className="w-full flex justify-start">
                                     <div className="flex gap-3 max-w-[85%]">
                                         <div
@@ -728,7 +597,10 @@ const ChatPage: FC = () => {
                     {showScrollButton && (
                         <div className="absolute bottom-32 left-1/2 -translate-x-1/2 z-20">
                             <button
-                                onClick={scrollToBottom}
+                                onClick={() => {
+                                    followingRef.current = true;
+                                    scrollToBottom();
+                                }}
                                 className="p-2 bg-white border border-gray-200 shadow-md rounded-full text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors focus:outline-none flex items-center justify-center cursor-pointer"
                                 title="Scroll to bottom"
                             >

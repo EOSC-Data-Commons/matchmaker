@@ -1,19 +1,18 @@
 import {useNavigate, useSearchParams} from "react-router";
-import {useEffect, useState, useMemo} from "react";
-import {XCircleIcon, ChevronDown, ChevronUp, Sparkles, Clock, AlertTriangle} from "lucide-react";
+import {useEffect, useMemo} from "react";
+import {XCircleIcon, Clock, AlertTriangle} from "lucide-react";
 import {SearchInput} from "../components/SearchInput.tsx";
 import {SearchResultItem} from "../components/SearchResultItem.tsx";
 import {AlphaDisclaimer} from "../components/AlphaDisclaimer";
 import {Footer} from "../components/Footer";
 import {FilterPanel} from "../components/FilterPanel.tsx";
-import {ProcessingIndicator} from "../components/ProcessingIndicator.tsx";
 import {NoResultsMessage} from "../components/NoResultsMessage.tsx";
 import {LoadingOverlay} from "../components/LoadingOverlay.tsx";
 import {useSearchResults} from "../hooks/useSearchResults.ts";
-import {useCombinedDatasets} from "../hooks/useCombinedDatasets.ts";
-import {useFilteredDatasets} from "../hooks/useFilteredDatasets.ts";
+import {useDatasetFilters} from "../hooks/useDatasetFilters.ts";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
-import {RateLimitError, ServerError, NoResultsError} from "../lib/api.ts";
+import {RateLimitError, ServerError} from "../lib/api.ts";
+import {describeResultCount} from "../lib/utils.ts";
 import {useAuth} from "@/hooks/useAuth.ts";
 import {SearchFeedback} from "../components/SearchFeedback.tsx";
 
@@ -21,20 +20,12 @@ export const SearchPage = () => {
     const navigate = useNavigate();
     const {user} = useAuth();
     const [searchParams, setSearchParams] = useSearchParams();
-    const [showInitialResults, setShowInitialResults] = useState(false);
 
     const query = searchParams.get('q') || '';
     const model = searchParams.get('model') || 'cesnet/agentic';
 
     // Custom hooks for data management
-    const {
-        initialResults,
-        rerankedResults,
-        loading,
-        isProcessing,
-        error,
-        performSearch
-    } = useSearchResults(query, model);
+    const {results, loading, error, performSearch} = useSearchResults(query);
 
     // Extract active filters from URL params
     const activeFilters = useMemo(() => {
@@ -47,20 +38,12 @@ export const SearchPage = () => {
         return filters;
     }, [searchParams]);
 
-    const {allCombinedDatasets, aggregations} = useCombinedDatasets(initialResults, rerankedResults, activeFilters);
-
-    const {
-        filteredRerankedDatasets,
-        filteredInitialDatasets,
-        datasets
-    } = useFilteredDatasets(allCombinedDatasets, initialResults, rerankedResults, activeFilters);
-
+    const {datasets, aggregations} = useDatasetFilters(results, activeFilters);
 
     // Trigger search when query or model changes
     useEffect(() => {
         void (async () => {
             try {
-                setShowInitialResults(false); // Reset collapsible state on new search
                 await performSearch();
             } catch (err) {
                 console.error("Unhandled search error:", err);
@@ -83,15 +66,9 @@ export const SearchPage = () => {
         setSearchParams(params);
     };
 
-    const hasRerankedResults = rerankedResults !== null;
-    const hasInitialResults = initialResults !== null;
     const isRateLimit = error instanceof RateLimitError;
     const isServerError = error instanceof ServerError;
-    // An empty result set is not a failure — show the friendly no-results view,
-    // not the red error panel.
-    const isNoResults = error instanceof NoResultsError;
-    // "Real" errors that warrant the red error panel (rate limit, server, run error).
-    const hasError = !!error && !isNoResults;
+    const hasError = !!error;
 
     // Helper to determine error UI properties
     const getErrorState = () => {
@@ -131,23 +108,24 @@ export const SearchPage = () => {
                         onClick={() => navigate('/')}
                     />
                     <div className="flex-grow ml-4">
-                        <SearchInput onSearch={handleSearch} initialQuery={query} initialModel={model}/>
+                        {/* AI mode starts off here: landing on the plain results page already
+                            means the user chose plain search, so it must be opted back into. */}
+                        <SearchInput
+                            onSearch={handleSearch}
+                            initialQuery={query}
+                            initialModel={model}
+                            isLoggedIn={!!user}
+                            showAiToggle={true}
+                            initialAiMode={false}
+                        />
                     </div>
                 </div>
             </header>
 
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                {/* Summary - show reranked summary if available */}
-                {!loading && !hasError && hasRerankedResults && rerankedResults.summary && (
-                    <div className="mb-6 p-4 bg-white rounded-lg shadow-sm border border-blue-200">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">AI-Generated Summary</h3>
-                        <p className="text-gray-700">{rerankedResults.summary}</p>
-                    </div>
-                )}
-
                 <div className="flex flex-col lg:flex-row gap-8">
-                    {/* Filter Panel - Only show when AI results are ready */}
-                    {!loading && !hasError && hasRerankedResults && Object.keys(aggregations).length > 0 && (
+                    {/* Filter Panel - only once there are hits to build facets from */}
+                    {!loading && !hasError && Object.keys(aggregations).length > 0 && (
                         <FilterPanel
                             aggregations={aggregations}
                             onFilterChange={handleFilterChange}
@@ -179,9 +157,6 @@ export const SearchPage = () => {
                             </div>
                         )}
 
-                        {/* Processing indicator - shows when initial results exist but reranking is in progress */}
-                        <ProcessingIndicator show={!loading && !hasError && hasInitialResults && isProcessing}/>
-
                         {/* Results section */}
                         <div
                             className={loading ? 'opacity-0 pointer-events-none select-none' : 'opacity-100 transition-opacity'}
@@ -191,116 +166,27 @@ export const SearchPage = () => {
                                     <NoResultsMessage/>
                                 ) : (
                                     <>
-                                        {/* AI-Ranked Results Section (when AI results match filters) */}
-                                        {hasRerankedResults && filteredRerankedDatasets && filteredRerankedDatasets.length > 0 && (
-                                            <div className="mb-8">
-                                                <div className="mb-4 flex items-center justify-between">
-                                                    <div className="flex items-center space-x-2">
-                                                        <Sparkles className="h-5 w-5 text-blue-600"/>
-                                                        <p className="text-gray-700 font-medium">
-                                                            AI-Ranked Results
-                                                            ({datasets.length} dataset{datasets.length !== 1 ? 's' : ''})
-                                                        </p>
-                                                    </div>
-                                                </div>
-
-                                                <div className="space-y-4">
-                                                    {datasets.map((dataset, index) => (
-                                                        <SearchResultItem
-                                                            key={`reranked-${dataset._id}-${index}`}
-                                                            hit={dataset}
-                                                            isAiRanked={true}
-                                                            isLoggedIn={!!user}
-                                                        />
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Fallback to Initial Results (when AI results don't match filters) */}
-                                        {hasRerankedResults && filteredRerankedDatasets && filteredRerankedDatasets.length === 0 &&
-                                            filteredInitialDatasets && filteredInitialDatasets.length > 0 && (
-                                                <div className="mb-8">
-                                                    <div
-                                                        className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                                                        <p className="text-sm text-amber-800">
-                                                            <span className="font-medium">Note:</span> No AI-ranked
-                                                            results match your filters.
-                                                            Showing {filteredInitialDatasets.length} result{filteredInitialDatasets.length !== 1 ? 's' : ''} from
-                                                            initial search.
-                                                        </p>
-                                                    </div>
-
-                                                    <div className="space-y-4">
-                                                        {datasets.map((dataset, index) => (
-                                                            <SearchResultItem
-                                                                key={`initial-fallback-${dataset._id}-${index}`}
-                                                                hit={dataset}
-                                                                isAiRanked={false}
-                                                                isLoggedIn={!!user}
-                                                            />
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                        {/* Initial Results (when no reranked results exist yet) */}
-                                        {!hasRerankedResults && hasInitialResults && (
-                                            <div className="mb-8">
-                                                <div className="mb-4">
-                                                    <p className="text-gray-600">
-                                                        Found {datasets.length} dataset{datasets.length !== 1 ? 's' : ''}
-                                                    </p>
-                                                </div>
-
-                                                <div className="space-y-4">
-                                                    {datasets.map((dataset, index) => (
-                                                        <SearchResultItem
-                                                            key={`initial-${dataset._id}-${index}`}
-                                                            hit={dataset}
-                                                            isAiRanked={false}
-                                                            isLoggedIn={!!user}
-                                                        />
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Collapsible Initial Results Section (only when showing AI-ranked results) */}
-                                        {hasRerankedResults && filteredRerankedDatasets && filteredRerankedDatasets.length > 0 &&
-                                            hasInitialResults && filteredInitialDatasets && filteredInitialDatasets.length > 0 && (
-                                                <div className="mb-8">
-                                                    <button
-                                                        onClick={() => setShowInitialResults(!showInitialResults)}
-                                                        className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-300 transition-colors"
-                                                    >
-                                                        <div className="flex items-center space-x-2">
-                                                        <span className="text-gray-700 font-medium">
-                                                            Initial Search Results ({filteredInitialDatasets.length} dataset{filteredInitialDatasets.length !== 1 ? 's' : ''})
-                                                        </span>
-                                                        </div>
-                                                        {showInitialResults ? (
-                                                            <ChevronUp className="h-5 w-5 text-gray-600"/>
-                                                        ) : (
-                                                            <ChevronDown className="h-5 w-5 text-gray-600"/>
-                                                        )}
-                                                    </button>
-
-                                                    {showInitialResults && (
-                                                        <div
-                                                            className="mt-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                                                            {filteredInitialDatasets.map((dataset, index) => (
-                                                                <SearchResultItem
-                                                                    key={`initial-collapsed-${dataset._id}-${index}`}
-                                                                    hit={dataset}
-                                                                    isAiRanked={false}
-                                                                    isLoggedIn={!!user}
-                                                                />
-                                                            ))}
-                                                        </div>
+                                        <div className="mb-8">
+                                            <div className="mb-4">
+                                                <p className="text-gray-600">
+                                                    {describeResultCount(
+                                                        datasets.length,
+                                                        results?.hits.length ?? 0,
+                                                        results?.total_found ?? 0,
                                                     )}
-                                                </div>
-                                            )}
+                                                </p>
+                                            </div>
+
+                                            <div className="space-y-4">
+                                                {datasets.map((dataset, index) => (
+                                                    <SearchResultItem
+                                                        key={`${dataset._id}-${index}`}
+                                                        hit={dataset}
+                                                        isLoggedIn={!!user}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
                                         <SearchFeedback key={query} query={query}/>
                                     </>
                                 )

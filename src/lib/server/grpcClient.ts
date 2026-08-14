@@ -84,29 +84,29 @@ export function grpcErrorToHttpStatus(err: grpc.ServiceError): number {
     }
 }
 
-const GRPC_TARGET =
-  process.env.GRPC_TARGET ?? "grpc.eosc-coordinator.ethz.ch:443";
+/** Hosted coordinator, reachable over the public internet with TLS. */
+const CLOUD_GRPC_TARGET = "grpc.eosc-coordinator.ethz.ch:443";
+/** Coordinator running next to us in local dev — see req-packager's tonic server. */
+const LOCAL_GRPC_TARGET = "0.0.0.0:50051";
 
-// tls, used when coordinator is not with matchmaker in same private network.
-// creds,
-const creds = grpc.credentials.createSsl();
+// Single source of truth for where the coordinator lives. GRPC_TARGET wins when
+// set; otherwise local dev talks to a locally running coordinator and everything
+// else falls back to the cloud one.
+export const GRPC_TARGET =
+    process.env.GRPC_TARGET ??
+    (process.env.NODE_ENV === "production" ? CLOUD_GRPC_TARGET : LOCAL_GRPC_TARGET);
 
 // NOTE: creds with CA, mTLS
 // const CA_PAM = "/home/jyu/EOSC/dev-environment/ca.pem";
 // const caCert = fs.readFileSync(CA_PAM);
 // const creds_with_ca = grpc.credentials.createSsl(caCert);
 
-// NOTE: if matchmaker and coordinator stay in same private network, use InsecureChannel.
-function createInsecureChannel(): grpc.ChannelCredentials {
-    return grpc.credentials.createInsecure();
-}
-
-let channel: grpc.ChannelCredentials;
-if (GRPC_TARGET === 'grpc.eosc-coordinator.ethz.ch:443') {
-    channel = creds;
-} else {
-    channel = createInsecureChannel()
-};
+// TLS for the public coordinator; plaintext when it sits in the same private
+// network as the matchmaker (local dev, or both behind the same VPC).
+const channel: grpc.ChannelCredentials =
+    GRPC_TARGET === CLOUD_GRPC_TARGET
+        ? grpc.credentials.createSsl()
+        : grpc.credentials.createInsecure();
 
 // ---------------------------------------------------------------------------
 // Types
@@ -282,7 +282,6 @@ export async function fetchDatasetFilesFromDatahuggerByUrl(
     const metadata = makeAuthMetadata(token);
 
     // XXX: in-efficient, create client as singlton
-    // const client = new DatasetServiceClient(GRPC_TARGET, createInsecureChannel());
     const client = getDatasetClient();
 
     const request: BrowseDatasetByUrlRequest = {

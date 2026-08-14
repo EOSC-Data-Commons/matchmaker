@@ -4,10 +4,9 @@ import {renderHook, act} from "@testing-library/react";
 import {MemoryRouter, useLocation} from "react-router";
 import {http, HttpResponse, delay} from "msw";
 import {server} from "@/test/msw/server";
-import {sse, sseResponse} from "@/test/sse";
 import {makeDataset} from "@/test/fixtures/datasets";
 import {getSearchHistory} from "@/lib/history";
-import {RateLimitError} from "@/lib/api";
+import {RateLimitError, ServerError} from "@/lib/api";
 import {useSearchResults} from "./useSearchResults";
 
 const wrapper = ({children}: {children: ReactNode}) => (
@@ -15,22 +14,13 @@ const wrapper = ({children}: {children: ReactNode}) => (
 );
 
 // Render the hook alongside useLocation so navigation is observable
-const renderSearch = (query: string, model = "cesnet/agentic") =>
+const renderSearch = (query: string) =>
     renderHook(() => ({
-        search: useSearchResults(query, model),
+        search: useSearchResults(query),
         location: useLocation(),
     }), {wrapper});
 
-const initialResult = {hits: [makeDataset()], summary: "found"};
-const rerankedResult = {hits: [makeDataset()], summary: "reranked"};
-
-const successfulRun = sse([
-    {type: "TOOL_CALL_START", tool_call_id: "c1", tool_call_name: "search_data"},
-    {type: "TOOL_CALL_RESULT", tool_call_id: "c1", content: JSON.stringify(initialResult)},
-    {type: "TOOL_CALL_START", tool_call_id: "c2", tool_call_name: "rerank_results"},
-    {type: "TOOL_CALL_RESULT", tool_call_id: "c2", content: JSON.stringify(rerankedResult)},
-    {type: "RUN_FINISHED"},
-]);
+const searchResult = {total_found: 1, hits: [makeDataset()]};
 
 describe("useSearchResults", () => {
     beforeEach(() => {
@@ -43,19 +33,26 @@ describe("useSearchResults", () => {
         vi.restoreAllMocks();
     });
 
-    it("delivers initial and reranked results and records the search history", async () => {
-        server.use(http.post("/api/search/chat", () => sseResponse(successfulRun)));
+    it("delivers the results and records the search history", async () => {
+        server.use(http.get("/api/search/search", () => HttpResponse.json(searchResult)));
         const {result} = renderSearch("ocean");
 
         expect(result.current.search.loading).toBe(true);
         await act(() => result.current.search.performSearch());
 
         expect(result.current.search.error).toBeNull();
-        expect(result.current.search.initialResults).toEqual(initialResult);
-        expect(result.current.search.rerankedResults).toEqual(rerankedResult);
+        expect(result.current.search.results).toEqual(searchResult);
         expect(result.current.search.loading).toBe(false);
-        expect(result.current.search.isProcessing).toBe(false);
         expect(getSearchHistory()).toEqual(["ocean"]);
+    });
+
+    it("treats an empty result set as a normal response, not an error", async () => {
+        server.use(http.get("/api/search/search", () => HttpResponse.json({total_found: 0, hits: []})));
+        const {result} = renderSearch("nothing matches this");
+        await act(() => result.current.search.performSearch());
+
+        expect(result.current.search.error).toBeNull();
+        expect(result.current.search.results).toEqual({total_found: 0, hits: []});
     });
 
     it("navigates home when the query is empty", async () => {
@@ -65,7 +62,7 @@ describe("useSearchResults", () => {
     });
 
     it("exposes RateLimitError and does not record history", async () => {
-        server.use(http.post("/api/search/chat", () => new HttpResponse(null, {status: 429})));
+        server.use(http.get("/api/search/search", () => new HttpResponse(null, {status: 429})));
         const {result} = renderSearch("ocean");
         await act(() => result.current.search.performSearch());
 
@@ -74,21 +71,21 @@ describe("useSearchResults", () => {
         expect(getSearchHistory()).toEqual([]);
     });
 
-    it("surfaces RUN_ERROR events as an error state", async () => {
-        server.use(http.post("/api/search/chat", () =>
-            sseResponse(sse([{type: "RUN_ERROR", error: "model overloaded"}])),
-        ));
+    it("exposes ServerError on a backend failure", async () => {
+        server.use(http.get("/api/search/search", () => new HttpResponse(null, {status: 503})));
         const {result} = renderSearch("ocean");
         await act(() => result.current.search.performSearch());
-        expect(result.current.search.error?.message).toBe("model overloaded");
+
+        expect(result.current.search.error).toBeInstanceOf(ServerError);
+        expect(result.current.search.results).toBeNull();
     });
 
     it("ignores a second performSearch while one is in flight", async () => {
         let hits = 0;
-        server.use(http.post("/api/search/chat", async () => {
+        server.use(http.get("/api/search/search", async () => {
             hits++;
             await delay(30);
-            return sseResponse(successfulRun);
+            return HttpResponse.json(searchResult);
         }));
         const {result} = renderSearch("ocean");
 

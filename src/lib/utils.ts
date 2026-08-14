@@ -119,3 +119,65 @@ export function stripMarkdown(md: string): string {
 
     return text.trim();
 }
+
+/**
+ * While Markdown text is streaming a link arrives character by character, so the
+ * raw `[label](htt` would flash before it can be rendered. Hide that trailing
+ * fragment until the link is complete.
+ */
+export function trimTrailingPartialLink(text: string): string {
+    const open = text.lastIndexOf('[');
+    if (open === -1) return text;
+    return /^\[[^\]]*]\([^)]*\)/.test(text.slice(open)) ? text : text.slice(0, open);
+}
+
+/**
+ * Describes a result count without quoting `totalFound` as a number.
+ *
+ * `totalFound` is OpenSearch's hit total for a `multi_match` that defaults to OR, so it
+ * counts records containing ANY query word — "climate data" reports ~296k against a
+ * ~392k corpus, because almost every record mentions "data". It is also the sum of two
+ * corpora (ours plus Zenodo). Printing it reads as "296,193 relevant datasets", which is
+ * badly wrong. It is still a reliable "there are more beyond these" signal, so it decides
+ * the wording without ever being shown.
+ */
+export function describeResultCount(shown: number, retrieved: number, totalFound: number): string {
+    if (shown !== retrieved) {
+        return `Showing ${shown} of ${retrieved} datasets`;
+    }
+    if (totalFound > retrieved) {
+        return `Showing the ${retrieved} most relevant datasets`;
+    }
+    return `Found ${shown} dataset${shown !== 1 ? 's' : ''}`;
+}
+
+/**
+ * Human-readable file size, or null when there is no usable number — callers omit the
+ * size entirely rather than printing a misleading "0 B" for an unknown value.
+ */
+export function formatFileSize(bytes: number | null | undefined): string | null {
+    if (bytes == null || !Number.isFinite(bytes) || bytes < 0) return null;
+    if (bytes < 1024) return `${bytes} B`;
+
+    const units = ['KB', 'MB', 'GB', 'TB'];
+    let value = bytes / 1024;
+    let unit = 0;
+    while (value >= 1024 && unit < units.length - 1) {
+        value /= 1024;
+        unit++;
+    }
+    // One decimal below 10 (2.4 MB), none above it (240 MB) — enough precision to compare
+    // small files without a wall of digits on large ones.
+    return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
+}
+
+/** Pretty-print a JSON payload with 2-space indent; returns the input unchanged when it is not JSON. */
+export function prettyJson(raw: string): string {
+    const trimmed = raw.trim();
+    if (!trimmed) return '';
+    try {
+        return JSON.stringify(JSON.parse(trimmed), null, 2);
+    } catch {
+        return trimmed;
+    }
+}

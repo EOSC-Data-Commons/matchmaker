@@ -44,7 +44,9 @@ export interface SearchHitSrc {
     _repo?: string;
     titles: SearchHitSrcTitle[];
     descriptions: SearchHitSrcDescription[];
-    publicationYear: string;
+    // Optional: the backend allows a null publication year, which Zenodo records without a
+    // publication_date actually produce.
+    publicationYear?: string | null;
     dates?: SearchHitSrcDate[] | null;
     subjects?: SearchHitSrcSubject[] | null;
     creators?: SearchHitSrcCreator[] | null;
@@ -54,19 +56,46 @@ export interface SearchHitSrc {
 export interface BackendDataset {
     _id: string;
     _source: SearchHitSrc;
-    _score: number; //OpenSearch Score
-    score?: number | null; //LLM Ranked Score
+    // Hybrid semantic + keyword relevance, scaled across the result set. The LLM-reranked
+    // `score` that used to sit alongside it is gone with reranking itself.
+    _score: number;
     fileExtensions?: string[] | null;
     relevantTools?: string[] | null;
+    // Canonical URL of the dataset (DOI when available). The assistant cites datasets
+    // as plain Markdown links to this URL, and the chat resolves a link back to its
+    // result card by matching the href against this value.
+    dataset_url?: string | null;
     title?: string | null;
     description?: string | null;
     publication_date?: string | null;
     creator?: string | null;
 }
 
-export interface BackendSearchResponse {
+/**
+ * Payload of a search tool result (the backend's `SearchResults`). The assistant's
+ * summary is no longer part of it — it is streamed as regular message text.
+ */
+export interface SearchResults {
     hits: BackendDataset[];
-    summary: string;
+    total_found?: number;
+}
+
+/**
+ * A file belonging to a dataset, from the `get_dataset_files` tool (FileMetrix).
+ * Field names are snake_case because the backend serialises by field name, not alias.
+ */
+export interface DatasetFile {
+    link: string;
+    name: string;
+    size?: number | null;
+    raw_metadata?: {
+        friendly_type?: string | null;
+        content_type?: string | null;
+    } | null;
+}
+
+export interface DatasetFilesResponse {
+    files: DatasetFile[];
 }
 
 export interface AggregationBucket {

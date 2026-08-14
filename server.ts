@@ -38,7 +38,6 @@ const PORT = Number.parseInt(
     process.env.PORT || (DEVELOPMENT ? "5173" : "3000"),
 );
 const SEARCH_API_URL = process.env.SEARCH_API_URL || "http://127.0.0.1:8000";
-const COORDINATOR_API_URL = process.env.GRPC_TARGET || "https://grpc.eosc-coordinator.ethz.ch";
 
 function getEgiToken(req: express.Request): string {
     const cookieHeader = req.headers.cookie ?? "";
@@ -77,23 +76,6 @@ app.use(
                 }
             }, error: (err, _req, res) => {
                 console.error("Search API proxy error:", err);
-                (res as express.Response).status(500).send("Proxy error");
-            },
-        },
-    }),
-);
-
-// placeholder for the coordinator service on internet over https
-app.use(
-    "/api/coordinator-online",
-    createProxyMiddleware({
-        target: COORDINATOR_API_URL,
-        changeOrigin: true,
-        pathRewrite: {"^/api/coordinator-online": ""},
-        secure: false,
-        on: {
-            error: (err, _req, res) => {
-                console.error("coordinator API proxy error:", err);
                 (res as express.Response).status(500).send("Proxy error");
             },
         },

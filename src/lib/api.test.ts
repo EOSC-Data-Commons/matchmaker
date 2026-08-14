@@ -3,32 +3,33 @@ import {http, HttpResponse} from "msw";
 import {server} from "@/test/msw/server";
 import {makeDataset} from "@/test/fixtures/datasets";
 import {sse, sseResponse} from "@/test/sse";
-import type {BackendSearchResponse} from "@/types/commons";
+import type {SearchResults} from "@/types/commons";
 import type {Message} from "@/types/chat";
 import {
     fetchRepositoryStats,
-    searchWithBackend,
+    searchDatasets,
     sendChatMessage,
-    handleStream,
+    streamChatEvents,
     RateLimitError,
     ServerError,
-    NoResultsError,
     type SSEEvent,
 } from "./api";
 
-const streamResponse = (chunks: string[]): Response => {
+/** An event-stream response delivered as the given raw chunks, to exercise SSE framing. */
+const chunkedSseResponse = (chunks: string[]) => {
     const encoder = new TextEncoder();
-    return new Response(
+    return new HttpResponse(
         new ReadableStream<Uint8Array>({
             start(controller) {
                 for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
                 controller.close();
             },
         }),
+        {headers: {"Content-Type": "text/event-stream"}},
     );
 };
 
-const searchResult: BackendSearchResponse = {hits: [makeDataset()], summary: "one hit"};
+const searchResult: SearchResults = {total_found: 1, hits: [makeDataset()]};
 
 // logError writes to console.error on every failure path; keep test output clean.
 beforeEach(() => {
@@ -68,158 +69,87 @@ describe("fetchRepositoryStats", () => {
     });
 });
 
-describe("handleStream", () => {
-    const collect = () => {
+describe("streamChatEvents", () => {
+    const collect = async (chunks: string[]) => {
         const events: SSEEvent[] = [];
-        const onMessage = (event: SSEEvent) => {
-            events.push(event);
-            return event.type === "TOOL_CALL_RESULT" ? searchResult : null;
-        };
-        return {events, onMessage};
+        server.use(http.post("/api/search/chat", () => chunkedSseResponse(chunks)));
+        await streamChatEvents({items: []}, e => events.push(e));
+        return events.map(e => e.type);
     };
 
-    it("parses an event split across chunk boundaries", async () => {
-        const {events, onMessage} = collect();
-        const full = sse([{type: "RUN_STARTED"}, {type: "TOOL_CALL_RESULT"}]);
-        // Cut mid-JSON to prove buffering works
-        const cut = full.indexOf("TOOL_CALL") + 4;
-        const result = await handleStream(streamResponse([full.slice(0, cut), full.slice(cut)]), onMessage);
-        expect(events.map(e => e.type)).toEqual(["RUN_STARTED", "TOOL_CALL_RESULT"]);
-        expect(result).toBe(searchResult);
+    it("reassembles an event split across chunk boundaries", async () => {
+        const full = sse([{type: "RUN_STARTED"}, {type: "RUN_FINISHED"}]);
+        const cut = full.indexOf("RUN_FINISHED") + 4; // mid-JSON
+        expect(await collect([full.slice(0, cut), full.slice(cut)])).toEqual(["RUN_STARTED", "RUN_FINISHED"]);
     });
 
-    it("handles multiple events arriving in a single chunk", async () => {
-        const {events, onMessage} = collect();
-        await handleStream(
-            streamResponse([sse([{type: "a"}, {type: "b"}, {type: "TOOL_CALL_RESULT"}])]),
-            onMessage,
-        );
-        expect(events.map(e => e.type)).toEqual(["a", "b", "TOOL_CALL_RESULT"]);
+    it("handles several events in one chunk and ignores keep-alive comments", async () => {
+        const body = ": keep-alive\n\n" + sse([{type: "a"}, {type: "b"}, {type: "RUN_FINISHED"}]);
+        expect(await collect([body])).toEqual(["a", "b", "RUN_FINISHED"]);
     });
 
-    it("skips malformed JSON events and keeps processing", async () => {
-        const {events, onMessage} = collect();
-        const body = "data: {broken json\n\n" + sse([{type: "TOOL_CALL_RESULT"}]);
-        const result = await handleStream(streamResponse([body]), onMessage);
-        expect(events.map(e => e.type)).toEqual(["TOOL_CALL_RESULT"]);
-        expect(result).toBe(searchResult);
+    it("skips malformed JSON and keeps processing", async () => {
+        const body = "data: {broken json\n\n" + sse([{type: "RUN_FINISHED"}]);
+        expect(await collect([body])).toEqual(["RUN_FINISHED"]);
     });
 
-    it("ignores parts without a data: line", async () => {
-        const {events, onMessage} = collect();
-        const body = ": keep-alive comment\n\nevent: ping\n\n" + sse([{type: "TOOL_CALL_RESULT"}]);
-        await handleStream(streamResponse([body]), onMessage);
-        expect(events.map(e => e.type)).toEqual(["TOOL_CALL_RESULT"]);
-    });
-
-    it("rethrows errors from the message handler and stops processing", async () => {
+    it("stops the stream when the event handler throws", async () => {
         const seen: string[] = [];
-        const onMessage = (event: SSEEvent) => {
+        server.use(http.post("/api/search/chat", () =>
+            sseResponse(sse([{type: "RUN_STARTED"}, {type: "RUN_ERROR"}, {type: "after"}]))));
+
+        await expect(streamChatEvents({items: []}, (event) => {
             seen.push(event.type);
             if (event.type === "RUN_ERROR") throw new Error("agent failed");
-            return null;
-        };
-        const body = sse([{type: "RUN_STARTED"}, {type: "RUN_ERROR"}, {type: "after"}]);
-        await expect(handleStream(streamResponse([body]), onMessage)).rejects.toThrow("agent failed");
+        })).rejects.toThrow("agent failed");
         expect(seen).toEqual(["RUN_STARTED", "RUN_ERROR"]);
     });
 
-    it("throws NoResultsError when the stream yields no results", async () => {
-        const body = sse([{type: "TEXT_MESSAGE_CHUNK", delta: "hi"}, {type: "RUN_FINISHED"}]);
-        await expect(handleStream(streamResponse([body]), () => null)).rejects.toBeInstanceOf(NoResultsError);
-    });
-
-    it("returns the latest result when several are produced", async () => {
-        const first = {hits: [], summary: "first"};
-        const second = {hits: [], summary: "second"};
-        const onMessage = (event: SSEEvent) =>
-            event.type === "one" ? first : event.type === "two" ? second : null;
-        const result = await handleStream(streamResponse([sse([{type: "one"}, {type: "two"}])]), onMessage);
-        expect(result).toBe(second);
+    it("does not retry the request when the stream fails", async () => {
+        let attempts = 0;
+        server.use(http.post("/api/search/chat", () => {
+            attempts += 1;
+            return new HttpResponse(null, {status: 400});
+        }));
+        await expect(streamChatEvents({items: []}, () => {
+        })).rejects.toThrow("Error sending the request: 400");
+        expect(attempts).toBe(1);
     });
 });
 
-describe("searchWithBackend", () => {
-    const rerankedResult: BackendSearchResponse = {hits: [makeDataset()], summary: "reranked"};
+describe("searchDatasets", () => {
+    it("queries the plain search endpoint and returns the hits", async () => {
+        let url: URL | undefined;
+        server.use(http.get("/api/search/search", ({request}) => {
+            url = new URL(request.url);
+            return HttpResponse.json(searchResult);
+        }));
 
-    const agentRun = sse([
-        {type: "RUN_STARTED", thread_id: "t-1"},
-        {type: "TOOL_CALL_START", tool_call_id: "c1", tool_call_name: "search_data"},
-        {type: "TOOL_CALL_RESULT", tool_call_id: "c1", content: JSON.stringify(searchResult)},
-        {type: "TOOL_CALL_START", tool_call_id: "c2", tool_call_name: "rerank_results"},
-        {type: "TOOL_CALL_RESULT", tool_call_id: "c2", content: JSON.stringify(rerankedResult)},
-        {type: "RUN_FINISHED"},
-    ]);
-
-    it("sends the query and default model, dispatches tool results to handlers", async () => {
-        let requestBody: unknown;
-        server.use(
-            http.post("/api/search/chat", async ({request}) => {
-                requestBody = await request.json();
-                return sseResponse(agentRun);
-            }),
-        );
-        const onSearchData = vi.fn();
-        const onRerankedData = vi.fn();
-        const onEvent = vi.fn();
-
-        const result = await searchWithBackend("ocean data", undefined, {onSearchData, onRerankedData, onEvent});
-
-        expect(requestBody).toEqual({
-            items: [{type: "message", role: "user", content: [{text: "ocean data"}]}],
-            model: "cesnet/agentic",
-        });
-        // The rerank result arrived last, so it wins
-        expect(result).toEqual(rerankedResult);
-        expect(onSearchData).toHaveBeenCalledExactlyOnceWith(searchResult);
-        expect(onRerankedData).toHaveBeenCalledExactlyOnceWith(rerankedResult);
-        expect(onEvent).toHaveBeenCalledTimes(6);
+        await expect(searchDatasets("ocean data")).resolves.toEqual(searchResult);
+        expect(url?.pathname).toBe("/api/search/search");
+        expect(url?.searchParams.get("q")).toBe("ocean data");
+        expect(url?.searchParams.get("resource")).toBe("datasets");
     });
 
-    it("throws RateLimitError on 429 and reports it to onError", async () => {
-        server.use(http.post("/api/search/chat", () => new HttpResponse(null, {status: 429})));
-        const onError = vi.fn();
-        await expect(searchWithBackend("q", "m", {onError})).rejects.toBeInstanceOf(RateLimitError);
-        expect(onError.mock.calls[0][0]).toBeInstanceOf(RateLimitError);
+    it("returns an empty result set rather than failing", async () => {
+        const empty: SearchResults = {total_found: 0, hits: []};
+        server.use(http.get("/api/search/search", () => HttpResponse.json(empty)));
+        await expect(searchDatasets("nothing")).resolves.toEqual(empty);
+    });
+
+    it("throws RateLimitError on 429", async () => {
+        server.use(http.get("/api/search/search", () => new HttpResponse(null, {status: 429})));
+        await expect(searchDatasets("q")).rejects.toBeInstanceOf(RateLimitError);
     });
 
     it("throws ServerError on 5xx", async () => {
-        server.use(http.post("/api/search/chat", () => new HttpResponse(null, {status: 503})));
-        const onError = vi.fn();
-        await expect(searchWithBackend("q", "m", {onError})).rejects.toBeInstanceOf(ServerError);
-        expect(onError.mock.calls[0][0].message).toContain("503");
+        server.use(http.get("/api/search/search", () => new HttpResponse(null, {status: 503})));
+        await expect(searchDatasets("q")).rejects.toBeInstanceOf(ServerError);
     });
 
     it("throws a generic error for other non-OK statuses", async () => {
-        server.use(http.post("/api/search/chat", () => new HttpResponse(null, {status: 400})));
-        await expect(searchWithBackend("q", "m", {})).rejects.toThrow("Error sending the request: 400");
-    });
-
-    it("surfaces RUN_ERROR events as an error and stops the stream", async () => {
-        server.use(http.post("/api/search/chat", () =>
-            sseResponse(sse([
-                {type: "RUN_STARTED"},
-                {type: "RUN_ERROR", error: "model overloaded"},
-                {type: "RUN_FINISHED"},
-            ])),
-        ));
-        const onError = vi.fn();
-        const onEvent = vi.fn();
-        await expect(searchWithBackend("q", "m", {onError, onEvent})).rejects.toThrow("model overloaded");
-        expect(onError.mock.calls[0][0].message).toBe("model overloaded");
-        // RUN_FINISHED must not be processed after the error
-        expect(onEvent.mock.calls.map(c => c[0].type)).toEqual(["RUN_STARTED", "RUN_ERROR"]);
-    });
-
-    it("throws NoResultsError for a purely conversational answer", async () => {
-        server.use(http.post("/api/search/chat", () =>
-            sseResponse(sse([
-                {type: "TEXT_MESSAGE_CHUNK", delta: "Hello!"},
-                {type: "TEXT_MESSAGE_END"},
-                {type: "RUN_FINISHED"},
-            ])),
-        ));
-        await expect(searchWithBackend("hi", "m", {})).rejects.toBeInstanceOf(NoResultsError);
+        server.use(http.get("/api/search/search", () => new HttpResponse(null, {status: 400})));
+        await expect(searchDatasets("q")).rejects.toThrow("Error sending the request: 400");
     });
 });
 
@@ -272,7 +202,7 @@ describe("sendChatMessage", () => {
         expect(requestBody).not.toHaveProperty("thread_id");
     });
 
-    it("inlines prior search results into the message text", async () => {
+    it("sends prior messages as plain text", async () => {
         let text = "";
         server.use(
             http.post("/api/search/chat", async ({request}) => {
@@ -281,14 +211,60 @@ describe("sendChatMessage", () => {
                 return sseResponse(chatRun);
             }),
         );
-        const withHits: Message = {sender: "bot", content: "Found this", hits: [makeDataset()]};
-        await sendChatMessage([withHits], "m", undefined, () => {
+        const botMessage: Message = {sender: "bot", content: "Found this"};
+        await sendChatMessage([botMessage], "m", undefined, () => {
         }, () => {
         });
 
-        expect(text).toContain("Found this");
-        expect(text).toContain("[Test Dataset Title]");
-        expect(text).toContain("**Creator:** Doe, Jane");
+        expect(text).toBe("Found this");
+    });
+
+    it("does not replay local error bubbles as assistant turns", async () => {
+        let items: Array<{ role: string; content: Array<{ text: string }> }> = [];
+        server.use(
+            http.post("/api/search/chat", async ({request}) => {
+                const body = await request.json() as { items: typeof items };
+                items = body.items;
+                return sseResponse(chatRun);
+            }),
+        );
+        const messages: Message[] = [
+            {sender: "user", content: "find data"},
+            {sender: "bot", content: "Something went wrong while searching.", isError: true},
+            {sender: "user", content: "try again"},
+        ];
+        await sendChatMessage(messages, "m", undefined, () => {
+        }, () => {
+        });
+
+        expect(items.map(i => i.role)).toEqual(["user", "user"]);
+        expect(JSON.stringify(items)).not.toContain("Something went wrong");
+    });
+
+    it("drops turns with no text, so no empty assistant message is sent", async () => {
+        let items: Array<{ role: string }> = [];
+        server.use(
+            http.post("/api/search/chat", async ({request}) => {
+                const body = await request.json() as { items: typeof items };
+                items = body.items;
+                return sseResponse(chatRun);
+            }),
+        );
+        // A turn that only made a tool call has blocks but no text of its own.
+        const messages: Message[] = [
+            {sender: "user", content: "find data"},
+            {
+                sender: "bot",
+                content: "   ",
+                blocks: [{kind: "tool", toolCall: {id: "c1", name: "search_data", args: ""}}]
+            },
+            {sender: "user", content: "and now?"},
+        ];
+        await sendChatMessage(messages, "m", undefined, () => {
+        }, () => {
+        });
+
+        expect(items.map(i => i.role)).toEqual(["user", "user"]);
     });
 
     it("reports HTTP failures through onError without throwing", async () => {
@@ -301,9 +277,8 @@ describe("sendChatMessage", () => {
     });
 
     it("does not call onError after a successful stream", async () => {
-        // Chat streams never produce a BackendSearchResponse, so handleStream's
-        // NoResultsError fires on every completed chat; sendChatMessage must
-        // swallow it rather than report success as a failure.
+        // A chat stream delivers everything through onEvent; reaching the end of
+        // the stream is success, not a failure.
         server.use(http.post("/api/search/chat", () => sseResponse(chatRun)));
         const onError = vi.fn();
         await sendChatMessage([{sender: "user", content: "hi"}], "m", undefined, () => {

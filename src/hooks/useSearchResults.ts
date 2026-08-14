@@ -1,24 +1,25 @@
 import {useState, useCallback, useRef} from 'react';
 import {useNavigate} from 'react-router';
-import type {BackendSearchResponse} from '../types/commons';
-import {searchWithBackend} from '../lib/api';
+import type {SearchResults} from '../types/commons';
+import {searchDatasets} from '../lib/api';
 import {addToSearchHistory} from '../lib/history';
 
 interface UseSearchResultsReturn {
-    initialResults: BackendSearchResponse | null;
-    rerankedResults: BackendSearchResponse | null;
+    results: SearchResults | null;
     loading: boolean;
-    isProcessing: boolean;
     error: Error | null;
     performSearch: () => Promise<void>;
 }
 
-export const useSearchResults = (query: string, model: string): UseSearchResultsReturn => {
+/**
+ * Drives the plain (non-AI) results page off `GET /search`. An empty result set
+ * is a normal outcome here, not an error — the page renders its no-results view
+ * from `results.hits` being empty.
+ */
+export const useSearchResults = (query: string): UseSearchResultsReturn => {
     const navigate = useNavigate();
-    const [initialResults, setInitialResults] = useState<BackendSearchResponse | null>(null);
-    const [rerankedResults, setRerankedResults] = useState<BackendSearchResponse | null>(null);
+    const [results, setResults] = useState<SearchResults | null>(null);
     const [loading, setLoading] = useState(true);
-    const [isProcessing, setIsProcessing] = useState(false);
     const [error, setError] = useState<Error | null>(null);
     const isSearchingRef = useRef(false);
 
@@ -32,42 +33,23 @@ export const useSearchResults = (query: string, model: string): UseSearchResults
             }
 
             setLoading(true);
-            setIsProcessing(false);
             setError(null);
-            setInitialResults(null);
-            setRerankedResults(null);
+            setResults(null);
 
-            await searchWithBackend(query, model, {
-                onSearchData: (data) => {
-                    setInitialResults(data);
-                    console.log("Initial search data received:", data);
-                    setLoading(false);
-                    setIsProcessing(data.hits && data.hits.length > 0);
-                },
-                onRerankedData: (data) => {
-                    setRerankedResults(data);
-                },
-                onError: (err) => {
-                    console.error("Search stream error:", err);
-                    setError(err);
-                },
-            });
+            setResults(await searchDatasets(query));
             addToSearchHistory(query);
         } catch (err) {
             console.error("Search error:", err);
             setError(err instanceof Error ? err : new Error("An unknown error occurred."));
         } finally {
             setLoading(false);
-            setIsProcessing(false);
             isSearchingRef.current = false;
         }
-    }, [query, model, navigate]);
+    }, [query, navigate]);
 
     return {
-        initialResults,
-        rerankedResults,
+        results,
         loading,
-        isProcessing,
         error,
         performSearch,
     };

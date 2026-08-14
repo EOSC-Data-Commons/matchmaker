@@ -1,4 +1,5 @@
-import {BackendDataset, BackendSearchResponse, RepositoryStatsResponse} from '../types/commons';
+import {EventStreamContentType, fetchEventSource} from '@microsoft/fetch-event-source';
+import {SearchResults, RepositoryStatsResponse} from '../types/commons';
 import {logError, fetchWithTimeout} from './utils.ts';
 import {Message} from "@/types/chat.ts";
 
@@ -47,26 +48,33 @@ export class ServerError extends Error {
 }
 
 /**
- * Thrown when the stream completes without any dataset results (e.g. the agent
- * answered conversationally via TEXT_MESSAGE_CHUNK events instead of calling a
- * search tool). This is not a failure — it should surface as a friendly
- * "no results" view, not a red error.
+ * Runs a plain dataset search: no agent, no LLM, no streaming. The backend calls
+ * the same `search_data` function the chat agent's tool call reaches, so the hits
+ * are identical to what the agent sees — only the summary is missing, which is
+ * what /chat (the AI mode) is for.
  */
-export class NoResultsError extends Error {
-    constructor(message?: string) {
-        super(message || "No search results received");
-        this.name = "NoResultsError";
-    }
-}
+export const searchDatasets = async (
+    query: string,
+    timeoutMs: number = 30000
+): Promise<SearchResults> => {
+    const params = new URLSearchParams({q: query, resource: 'datasets'});
+    try {
+        const response = await fetchWithTimeout(
+            `${BACKEND_API_URL}/search?${params.toString()}`,
+            {method: 'GET', headers: {'Accept': 'application/json'}},
+            timeoutMs
+        );
 
-export interface SearchRequest {
-    items: Array<{
-        type: string;
-        role: 'user' | 'assistant';
-        content: Array<{ text: string }>;
-    }>;
-    model: string;
-}
+        if (response.status === 429) throw new RateLimitError();
+        if (response.status >= 500) throw new ServerError(response.status);
+        if (!response.ok) throw new Error(`Error sending the request: ${response.status}`);
+
+        return await response.json() as SearchResults;
+    } catch (error) {
+        logError(error, 'searchDatasets');
+        throw error;
+    }
+};
 
 // NOTE: you could probably reuse types defined in AG-UI TS SDK https://docs.ag-ui.com/sdk/js/core/overview
 export interface SSEEvent {
@@ -84,158 +92,64 @@ export interface SSEEvent {
     thread_id?: string;
 }
 
-export interface SSEEventHandler {
-    onSearchData?: (data: BackendSearchResponse) => void;
-    onRerankedData?: (data: BackendSearchResponse) => void;
-    onEvent?: (event: SSEEvent) => void;
-    onError?: (error: Error) => void;
-}
-
-export const searchWithBackend = async (
-    query: string,
-    model: string = 'cesnet/agentic',
-    handlers: SSEEventHandler,
-    timeoutMs: number = 60000 // Default 1 minute timeout
-): Promise<BackendSearchResponse> => {
-    const requestBody: SearchRequest = {
-        items: [{
-            type: 'message',
-            role: 'user',
-            content: [{text: query}]
-        }],
-        model: model
-    };
-
-    try {
-        const response = await fetchWithTimeout(
-            `${BACKEND_API_URL}/chat`,
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'text/event-stream',
-                    'Cache-Control': 'no-cache',
-                    'X-Accel-Buffering': 'no' // Disable buffering for Nginx proxies
-                },
-                body: JSON.stringify(requestBody),
-                cache: 'no-store'
-            },
-            timeoutMs
-        );
-
-        if (response.status === 429) {
-            throw new RateLimitError();
-        }
-
-        if (response.status >= 500) {
-            throw new ServerError(response.status);
-        }
-
-        if (!response.ok) throw new Error(`Error sending the request: ${response.status}`);
-        // if (!response.headers.get('content-type')?.includes('text/event-stream')) return response.json();
-
-        const toolCallMap = new Map<string, string>();
-
-        // Handle SSE stream based on tool_call_id
-        return handleStream(response, (event) => {
-            if (handlers?.onEvent) handlers.onEvent(event);
-
-            // Handle RUN_ERROR - unrecoverable error during agent run
-            if (event.type === 'RUN_ERROR') {
-                const errorMessage = event.message || event.error || event.content || 'Agent run failed';
-                const error = new Error(errorMessage);
-                if (handlers?.onError) handlers.onError(error);
-                throw error; // Terminate stream processing
-            }
-
-            if (event.type === 'TOOL_CALL_START' && event.tool_call_id && event.tool_call_name) {
-                toolCallMap.set(event.tool_call_id, event.tool_call_name);
-            }
-
-            if (event.type === 'TOOL_CALL_RESULT' && event.content) {
-                const searchResp = JSON.parse(event.content) as BackendSearchResponse;
-
-                const toolName = event.tool_call_id ? (toolCallMap.get(event.tool_call_id) || event.tool_call_id) : undefined;
-
-                if (toolName === 'rerank_results') {
-                    if (handlers.onRerankedData) handlers.onRerankedData(searchResp);
-                } else if (toolName === 'search_data') {
-                    if (handlers.onSearchData) handlers.onSearchData(searchResp);
-                }
-                return searchResp;
-            }
-
-            // Legacy error handling (backward compatibility)
-            if (event.type === 'error' && handlers?.onError) {
-                handlers.onError(new Error(event.content || 'Unknown error'));
-            }
-
-            return null;
-        });
-    } catch (error) {
-        logError(error, 'Search API');
-        if (handlers.onError) handlers.onError(error instanceof Error ? error : new Error(String(error)));
-        throw error;
-    }
-};
+/** Text carried by a terminal RUN_ERROR event (AG-UI RunErrorEvent). */
+const runErrorMessage = (event: SSEEvent): string =>
+    event.message || event.error || event.content || 'The search failed. Please try again.';
 
 /**
- * Generic SSE stream handler - parses data: field and calls onMessage with parsed JSON
+ * POSTs to the streaming chat endpoint and forwards every SSE event to `onEvent`.
+ * Resolves once the server closes the stream, and rejects on a RUN_ERROR — the
+ * backend's terminal error (a stalled LLM or tool call, a provider failure),
+ * which is delivered to `onEvent` first so callers can still render what arrived.
+ *
+ * SSE framing, buffering across chunk boundaries and keep-alive comments are
+ * handled by @microsoft/fetch-event-source. Two of its defaults are overridden:
+ * it never retries (one request is one agent run — a retry would restart the
+ * whole run) and it keeps streaming while the tab is hidden.
+ *
+ * `onEvent` may throw to stop the stream early (used for terminal RUN_ERROR);
+ * the error propagates out of this call.
  */
-export const handleStream = async (
-    response: Response,
-    onMessage: (data: SSEEvent) => BackendSearchResponse | null
-): Promise<BackendSearchResponse> => {
-    if (!response.body) throw new Error('Response body is not readable');
-
-    const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
-    let buffer = '';
-    let latestResults: BackendSearchResponse | null = null;
-    let runError: Error | null = null;
-
-    try {
-        while (true) {
-            const {done, value} = await reader.read();
-            if (done) break;
-            buffer += value;
-            const parts = buffer.split('\n\n');
-            buffer = parts.pop() || '';
-            for (const part of parts) {
-                if (!part.trim()) continue;
-                try {
-                    const dataLine = part.split('\n').find(line => line.startsWith('data:'));
-                    if (!dataLine) continue;
-                    const event = JSON.parse(dataLine.slice(5).trim()) as SSEEvent;
-                    try {
-                        const result = onMessage(event);
-                        if (result) latestResults = result;
-                    } catch (e) {
-                        // RUN_ERROR thrown from onMessage handler
-                        if (e instanceof Error) {
-                            runError = e;
-                            break; // Stop processing further events
-                        }
-                        throw e;
-                    }
-                } catch (e) {
-                    // Only log parse errors, not runtime errors
-                    if (!runError) {
-                        logError(e, 'Failed to parse SSE event');
-                    }
-                }
+export const streamChatEvents = async (
+    requestBody: object,
+    onEvent: (event: SSEEvent) => void
+): Promise<void> => {
+    await fetchEventSource(`${BACKEND_API_URL}/chat`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no' // Disable buffering for Nginx proxies
+        },
+        body: JSON.stringify(requestBody),
+        cache: 'no-store',
+        openWhenHidden: true,
+        onopen: async (response) => {
+            if (response.status === 429) throw new RateLimitError();
+            if (response.status >= 500) throw new ServerError(response.status);
+            if (!response.ok) throw new Error(`Error sending the request: ${response.status}`);
+            if (!response.headers.get('content-type')?.startsWith(EventStreamContentType)) {
+                throw new Error('The server did not return an event stream');
             }
-            // Break outer loop if we encountered a RUN_ERROR
-            if (runError) break;
-        }
-
-        // If we encountered a RUN_ERROR, throw it
-        if (runError) throw runError;
-
-        if (!latestResults) throw new NoResultsError();
-        return latestResults;
-    } finally {
-        reader.releaseLock();
-    }
+        },
+        onmessage: (message) => {
+            if (!message.data) return;
+            let event: SSEEvent;
+            try {
+                event = JSON.parse(message.data) as SSEEvent;
+            } catch (e) {
+                logError(e, 'Failed to parse SSE event');
+                return;
+            }
+            onEvent(event);
+            if (event.type === 'RUN_ERROR') throw new Error(runErrorMessage(event));
+        },
+        onerror: (error) => {
+            // Rethrowing rejects the promise; returning would schedule a retry.
+            throw error;
+        },
+    });
 };
 
 export const sendChatMessage = async (
@@ -243,19 +157,23 @@ export const sendChatMessage = async (
     model: string = 'cesnet/agentic',
     threadId: string | undefined,
     onEvent: (event: SSEEvent) => void,
-    onError: (error: Error) => void,
-    timeoutMs: number = 60000
+    onError: (error: Error) => void
 ) => {
-    const requestBody: Record<string, unknown> = {
-        items: messages.map(msg => ({
+    // Only real conversation turns are replayed to the model. Error bubbles are a local
+    // UI artefact ("Something went wrong…") that the assistant never said, and a turn
+    // that produced only a tool call has no text at all — sending either as an assistant
+    // message teaches the model to apologise for failures that never happened, or hands
+    // the provider an empty assistant turn.
+    const items = messages
+        .filter(msg => !msg.isError && msg.content.trim())
+        .map(msg => ({
             type: 'message',
             role: msg.sender === 'user' ? 'user' : 'assistant',
-            content: [{
-                text: (msg.hits && msg.hits.length > 0)
-                    ? formatSearchResults(msg.content, msg.hits)
-                    : msg.content
-            }]
-        })),
+            content: [{text: msg.content}]
+        }));
+
+    const requestBody: Record<string, unknown> = {
+        items,
         model: model
     };
 
@@ -264,88 +182,8 @@ export const sendChatMessage = async (
     }
 
     try {
-        const response = await fetchWithTimeout(
-            `${BACKEND_API_URL}/chat`,
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'text/event-stream',
-                    'Cache-Control': 'no-cache',
-                    'X-Accel-Buffering': 'no'
-                },
-                body: JSON.stringify(requestBody),
-                cache: 'no-store'
-            },
-            timeoutMs
-        );
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        await handleStream(response, (event) => {
-            onEvent(event);
-            // A terminal RUN_ERROR (e.g. the backend time-bounding a stalled LLM
-            // or tool call) arrives mid-stream with its text in `message`. Throw it
-            // so it propagates through handleStream to the catch below and into
-            // onError — otherwise the stream just ends with no results and gets
-            // swallowed as NoResultsError, leaving the chat spinner hanging.
-            if (event.type === 'RUN_ERROR') {
-                throw new Error(event.message || event.error || event.content || 'The search failed. Please try again.');
-            }
-            return null;
-        });
-
+        await streamChatEvents(requestBody, onEvent);
     } catch (error) {
-        // Chat streams deliver everything through onEvent and never produce a
-        // BackendSearchResponse, so handleStream's no-results check always fires.
-        // A completed stream is success here, not an error.
-        if (error instanceof NoResultsError) {
-            return;
-        }
-        if (error instanceof Error) {
-            onError(error);
-        } else {
-            onError(new Error('An unknown error occurred'));
-        }
+        onError(error instanceof Error ? error : new Error('An unknown error occurred'));
     }
 };
-
-function formatSearchResults(summary: string, hits: BackendDataset[]): string {
-    if (!summary && (!hits || hits.length === 0)) {
-        return 'No results found.';
-    }
-
-    let formatted = (summary || 'No summary available.') + '\n\n';
-
-    if (!hits || hits.length === 0) {
-        return formatted.trim();
-    }
-
-    hits.forEach((hit, index) => {
-        if (!hit) return; // Skip null/undefined entries
-
-        const source = hit._source;
-        const title = source?.titles?.[0]?.title || hit.title || 'Untitled';
-        const creator = source?.creators?.[0]?.creatorName || hit.creator || 'Unknown';
-        const date = source?.dates?.find(d => d.dateType === 'Issued')?.date || hit.publication_date || 'N/A';
-        const doi = source?.doi || hit._id || '';
-
-        formatted += `${index + 1}. [${title}](${doi})\n`;
-        formatted += `**Creator:** ${creator}\n`;
-        formatted += `**Published:** ${date}\n`;
-
-        const description = source?.descriptions?.[0]?.description || hit.description;
-        if (description) {
-            const truncated = description.length > 200
-                ? description.substring(0, 200) + '...'
-                : description;
-            formatted += `**Description:** ${truncated}\n`;
-        }
-
-        formatted += '\n';
-    });
-
-    return formatted.trim();
-}
