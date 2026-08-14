@@ -78,13 +78,20 @@ export function signPreviewUrl(url: string, now = Date.now()): string {
  *  work. */
 export type PreviewSignatureResult = "ok" | "invalid" | "expired";
 
-/** Check a signature produced by `signPreviewUrl` for exactly this URL. */
+/**
+ * Check a signature produced by `signPreviewUrl` for exactly this URL.
+ *
+ * `signature` is deliberately `unknown`: it comes from a query parameter, which
+ * Express will hand over as an array or an object if the caller repeats or
+ * indexes it. Anything that is not a string is rejected here rather than
+ * silently coerced by the string operations below.
+ */
 export function verifyPreviewUrl(
     url: string,
-    signature: string | undefined,
+    signature: unknown,
     now = Date.now(),
 ): PreviewSignatureResult {
-    if (!signature) return "invalid";
+    if (typeof signature !== "string" || !signature) return "invalid";
 
     const separator = signature.indexOf(".");
     if (separator < 0) return "invalid";

@@ -25,6 +25,15 @@ describe("preview URL signing", () => {
         }
     });
 
+    // Express yields an array for `?sig=a&sig=b` and an object for `?sig[x]=a`,
+    // so the verifier has to survive a signature that is not a string at all.
+    it("rejects a signature that arrives as something other than a string", () => {
+        const real = signPreviewUrl(URL_A);
+        for (const sig of [[real], [real, real], {toString: () => real}, 42, null, true]) {
+            expect(verifyPreviewUrl(URL_A, sig)).toBe("invalid");
+        }
+    });
+
     it("rejects an unsigned URL even when it looks plausible", () => {
         const farFuture = Date.now() + 60_000;
         expect(verifyPreviewUrl(URL_A, `${farFuture}.${Buffer.alloc(32).toString("base64url")}`)).toBe("invalid");

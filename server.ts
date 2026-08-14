@@ -41,6 +41,14 @@ const PORT = Number.parseInt(
 );
 const SEARCH_API_URL = process.env.SEARCH_API_URL || "http://127.0.0.1:8000";
 
+// Express parses `?x=a&x=b` into an array and `?x[y]=a` into an object, so a
+// query value is only a string once we have checked that it is. Everything else
+// is treated as absent rather than coerced, so no downstream code can be handed
+// something whose `.slice`/`.indexOf` mean something different than we assume.
+function queryString(value: unknown): string | undefined {
+    return typeof value === "string" ? value : undefined;
+}
+
 function getEgiToken(req: express.Request): string {
     const cookieHeader = req.headers.cookie ?? "";
     for (const part of cookieHeader.split(";")) {
@@ -320,7 +328,7 @@ app.use(express.json());
 app.get("/api/coordinator/tool/search", async (req, res) => {
     const client = getToolSrcClient();
     try {
-        const query = req.query.q as string || "";
+        const query = queryString(req.query.q) || "";
         const grpc_req: SearchToolsByTextRequest = {
             text: query,
         };
@@ -392,7 +400,7 @@ app.get("/api/coordinator/tool/get/:toolId", async (req, res) => {
 });
 
 app.get("/api/coordinator/files", async (req, res) => {
-    const handle = req.query.handle as string;
+    const handle = queryString(req.query.handle);
     if (!handle) {
         return res.status(400).json({error: "Missing handle parameter"});
     }
@@ -467,9 +475,9 @@ async function fetchPreviewUpstream(
 }
 
 app.get("/api/coordinator/file-preview", async (req, res) => {
-    const rawUrl = req.query.url as string | undefined;
-    const mode = (req.query.mode as string) === "text" ? "text" : "binary";
-    const signature = req.query.sig as string | undefined;
+    const rawUrl = queryString(req.query.url);
+    const mode = queryString(req.query.mode) === "text" ? "text" : "binary";
+    const signature = queryString(req.query.sig);
 
     // Primary control: only fetch URLs the server itself emitted from /files,
     // proven by the signature it attached there. This is what prevents request
@@ -513,7 +521,13 @@ app.get("/api/coordinator/file-preview", async (req, res) => {
         }
 
         res.status(upstream.status === 206 ? 206 : 200);
-        res.setHeader("Content-Type", upstream.headers.get("content-type") ?? "application/octet-stream");
+        // Zenodo sends `content-type` twice, and fetch joins repeated headers
+        // into "image/png, image/png". Forwarded as-is that becomes the type of
+        // the blob the client builds, which no viewer recognises — the PDF
+        // iframe in particular refuses it. A media type never contains a comma,
+        // so the first value is the whole answer.
+        const upstreamType = upstream.headers.get("content-type")?.split(",")[0].trim();
+        res.setHeader("Content-Type", upstreamType || "application/octet-stream");
         res.setHeader("Accept-Ranges", "bytes");
         const contentRange = upstream.headers.get("content-range");
         if (contentRange) res.setHeader("Content-Range", contentRange);
