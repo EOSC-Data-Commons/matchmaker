@@ -36,8 +36,12 @@ export const FilePreviewModal = ({file, onClose}: FilePreviewModalProps) => {
     // The signed preview link outlives a long browsing session but not forever;
     // reloading re-fetches the file list and with it a fresh signature.
     const PREVIEW_EXPIRED = 'Preview link expired — reload the page to preview this file.';
-    const messageForStatus = (status: number) =>
-        status === 410 ? PREVIEW_EXPIRED : PREVIEW_UNAVAILABLE;
+    const PREVIEW_THROTTLED = 'Too many previews at once — wait a moment and try again.';
+    const messageForStatus = (status: number) => {
+        if (status === 410) return PREVIEW_EXPIRED;
+        if (status === 429) return PREVIEW_THROTTLED;
+        return PREVIEW_UNAVAILABLE;
+    };
 
     // close on Escape
     useEffect(() => {
