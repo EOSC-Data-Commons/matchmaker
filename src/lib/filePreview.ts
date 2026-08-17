@@ -37,8 +37,10 @@ export const getPreviewKind = (file: FileMeta): PreviewKind => {
     return 'none';
 };
 
+/** Previewing needs both a download URL and the server's signature for it, since
+ *  the proxy will not fetch an unsigned URL. */
 export const isPreviewable = (file: FileMeta): boolean =>
-    !!file.downloadUrl && getPreviewKind(file) !== 'none';
+    !!file.downloadUrl && !!file.previewSig && getPreviewKind(file) !== 'none';
 
 /** Guess the column separator from the first line — Dataverse NL data is often ';'-delimited. */
 const sniffDelimiter = (sample: string): string => {

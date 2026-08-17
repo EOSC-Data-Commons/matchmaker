@@ -186,6 +186,32 @@ a coordinator server runs as a binary (as grpc server) which hides the backend s
 Majorly maintained by @unkcpz as [request packager](https://github.com/EOSC-Data-Commons/req-packager) (a.k.a.
 coordinator under matchmaker context)
 
+## File preview
+
+The eye icon on a dataset file opens a preview. Despite living under `/api/coordinator/*`,
+`GET /api/coordinator/file-preview` is implemented in `server.ts` and is not proxied to the coordinator: the UI server
+fetches the repository's download URL itself and streams back a capped chunk (64 KB for text and CSV, 25 MB for images
+and PDFs, with `Range` passed through so the browser PDF viewer can seek). Previews therefore leave from the server's IP
+rather than the user's, which is what lets them work at all, since repository download endpoints send no CORS headers.
+
+The proxy only fetches URLs it signed itself. `/api/coordinator/files` attaches a `previewSig` to every file it returns
+(`src/lib/server/previewSigning.ts`) and the preview route verifies it. This must not be replaced with an in-memory
+allowlist: production runs pm2 in cluster mode, so the worker that serves `/files` is usually not the one that serves
+`/file-preview`. Signatures last 24 hours; an expired one returns 410 and the UI asks the user to reload, anything
+unsigned or tampered with returns 403.
+
+A signature proves the server issued the URL, not that the URL is safe to fetch, since `/files` signs whatever download
+URL the coordinator returns for a caller-supplied dataset handle. `src/lib/server/previewUrlGuard.ts` therefore resolves
+the hostname and requires every resolved address to be public, checked again on each redirect hop, so a name pointing at
+loopback, RFC1918 or `169.254.169.254` is refused.
+
+### Deployment settings
+
+| Setting              | Why it matters                                                                                                                                                                                                                                                                                                                            |
+|----------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `PREVIEW_URL_SECRET` | Signing key. Only needed if the frontend runs as more than one container: the pm2 workers inside a single container agree on a generated key by themselves. Use a random 32+ byte string.                                                                                                                                                 |
+| `trust proxy`        | The 100 requests per minute preview limit keys on `req.ip`. Behind a reverse proxy that is the proxy's address, so every user shares one bucket unless Express is told the real topology. Configure it deliberately, since trusting forwarded headers from an untrusted hop lets a caller forge their source address and evade the limit. |
+
 ## How to Search
 
 1. Open the application in your web browser

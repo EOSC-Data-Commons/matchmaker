@@ -4,6 +4,7 @@ import {ModelSelector} from "./ModelSelector.tsx";
 import {getSearchHistory} from "../lib/history.ts";
 import {loginWithReturn} from "../lib/authRedirect.ts";
 import useMatomo from "../hooks/useMatomo";
+import {useMediaQuery} from "../hooks/useMediaQuery.ts";
 
 
 const SHOW_MODEL_SELECTOR = import.meta.env.VITE_SHOW_MODEL_SELECTOR === 'true';
@@ -26,6 +27,8 @@ interface SearchInputProps {
     onSearch: (query: string, model: string, aiMode?: boolean) => void;
     loading?: boolean;
     placeholder?: string;
+    // Used below `sm`, where the field is too narrow for the full placeholder.
+    placeholderShort?: string;
     className?: string;
     clearOnSearch?: boolean;
     buttonText?: React.ReactNode;
@@ -43,6 +46,7 @@ export const SearchInput = ({
                                 onSearch,
                                 loading = false,
                                 placeholder = "Search for data... e.g., 'climate data for the last decade'",
+                                placeholderShort = "Search for data...",
                                 className = "",
                                 initialModel,
                                 clearOnSearch = false,
@@ -64,6 +68,13 @@ export const SearchInput = ({
     const {trackEvent} = useMatomo();
 
     const effectiveAiMode = isLoggedIn && aiMode;
+
+    // The leading icon and the submit button leave ~190px for text on a phone,
+    // which truncates the full placeholders mid-phrase.
+    const isNarrow = useMediaQuery('(max-width: 639px)');
+    const effectivePlaceholder = effectiveAiMode
+        ? (isNarrow ? "Ask about datasets..." : "Ask a question about datasets...")
+        : (isNarrow ? placeholderShort : placeholder);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -170,7 +181,7 @@ export const SearchInput = ({
                             setShowHistory(true);
                         }}
                         onBlur={() => setFocused(false)}
-                        placeholder={effectiveAiMode ? "Ask a question about datasets..." : placeholder}
+                        placeholder={effectivePlaceholder}
                         className="flex-1 min-w-0 h-full bg-transparent text-base text-gray-800 placeholder:text-gray-500 font-light focus:outline-none"
                     />
 

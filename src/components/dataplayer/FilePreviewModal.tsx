@@ -2,7 +2,7 @@ import {useEffect, useMemo, useState} from 'react';
 import {createPortal} from 'react-dom';
 import {LoaderIcon, X} from 'lucide-react';
 import {FileMeta} from '@/types/dataplayerTypes';
-import {fetchTextPreview, filePreviewUrl} from '@/lib/coordinatorApi';
+import {fetchTextPreview, filePreviewUrl, PreviewError} from '@/lib/coordinatorApi';
 import {CSV_PREVIEW_ROWS, getPreviewKind, parseCsvRows} from '@/lib/filePreview';
 
 interface FilePreviewModalProps {
@@ -19,6 +19,10 @@ const displayName = (file: FileMeta) => {
 export const FilePreviewModal = ({file, onClose}: FilePreviewModalProps) => {
     const kind = getPreviewKind(file);
     const downloadUrl = file.downloadUrl ?? '';
+    const previewSig = file.previewSig;
+    // What the proxy needs, kept stable so the fetch effects below don't re-run
+    // on every render of the parent.
+    const target = useMemo(() => ({downloadUrl, previewSig}), [downloadUrl, previewSig]);
 
     const [text, setText] = useState<string | null>(null);
     const [truncated, setTruncated] = useState(false);
@@ -29,6 +33,15 @@ export const FilePreviewModal = ({file, onClose}: FilePreviewModalProps) => {
     const [error, setError] = useState<string | null>(null);
 
     const PREVIEW_UNAVAILABLE = 'Preview not available — download the file instead.';
+    // The signed preview link outlives a long browsing session but not forever;
+    // reloading re-fetches the file list and with it a fresh signature.
+    const PREVIEW_EXPIRED = 'Preview link expired — reload the page to preview this file.';
+    const PREVIEW_THROTTLED = 'Too many previews at once — wait a moment and try again.';
+    const messageForStatus = (status: number) => {
+        if (status === 410) return PREVIEW_EXPIRED;
+        if (status === 429) return PREVIEW_THROTTLED;
+        return PREVIEW_UNAVAILABLE;
+    };
 
     // close on Escape
     useEffect(() => {
@@ -46,15 +59,15 @@ export const FilePreviewModal = ({file, onClose}: FilePreviewModalProps) => {
         if (kind !== 'text' && kind !== 'csv') return;
         let cancelled = false;
 
-        fetchTextPreview(downloadUrl)
+        fetchTextPreview(target)
             .then(({text, truncated}) => {
                 if (cancelled) return;
                 setText(text);
                 setTruncated(truncated);
             })
-            .catch(() => {
+            .catch((err: unknown) => {
                 if (cancelled) return;
-                setError(PREVIEW_UNAVAILABLE);
+                setError(err instanceof PreviewError ? messageForStatus(err.status) : PREVIEW_UNAVAILABLE);
             })
             .finally(() => {
                 if (!cancelled) setLoading(false);
@@ -63,7 +76,7 @@ export const FilePreviewModal = ({file, onClose}: FilePreviewModalProps) => {
         return () => {
             cancelled = true;
         };
-    }, [downloadUrl, kind]);
+    }, [target, kind]);
 
     // fetch image/pdf bytes via the proxy as a blob. A rejected preview comes
     // back as a non-OK JSON payload ({"error": ...}); loading it directly into
@@ -74,16 +87,18 @@ export const FilePreviewModal = ({file, onClose}: FilePreviewModalProps) => {
         let cancelled = false;
         let objectUrl: string | null = null;
 
-        fetch(filePreviewUrl(downloadUrl, 'binary'))
+        fetch(filePreviewUrl(target, 'binary'))
             .then(async (res) => {
-                if (!res.ok) throw new Error(PREVIEW_UNAVAILABLE);
+                if (!res.ok) throw new PreviewError(res.status, PREVIEW_UNAVAILABLE);
                 const blob = await res.blob();
                 if (cancelled) return;
                 objectUrl = URL.createObjectURL(blob);
                 setBinaryUrl(objectUrl);
             })
-            .catch(() => {
-                if (!cancelled) setError(PREVIEW_UNAVAILABLE);
+            .catch((err: unknown) => {
+                if (!cancelled) {
+                    setError(err instanceof PreviewError ? messageForStatus(err.status) : PREVIEW_UNAVAILABLE);
+                }
             })
             .finally(() => {
                 if (!cancelled) setLoading(false);
@@ -93,7 +108,7 @@ export const FilePreviewModal = ({file, onClose}: FilePreviewModalProps) => {
             cancelled = true;
             if (objectUrl) URL.revokeObjectURL(objectUrl);
         };
-    }, [downloadUrl, kind]);
+    }, [target, kind]);
 
     const csv = useMemo(() => {
         if (kind !== 'csv' || text == null) return null;

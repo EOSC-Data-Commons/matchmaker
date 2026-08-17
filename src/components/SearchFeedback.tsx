@@ -26,7 +26,7 @@ export const SearchFeedback = ({query}: SearchFeedbackProps) => {
 
     return (
         <div
-            className="mt-8 py-4 flex items-center justify-center gap-3 text-sm text-gray-500 border-t border-gray-200">
+            className="mt-8 py-4 flex flex-wrap items-center justify-center gap-3 text-sm text-gray-500 border-t border-gray-200">
             <span>Were these results helpful?</span>
             <button
                 type="button"

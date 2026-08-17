@@ -44,16 +44,37 @@ export async function fetchFilesMetaByDatasetHandle(handle: string): Promise<Fil
     return files;
 }
 
-/** Same-origin proxy URL for previewing a remote datafile (used by <img>/<iframe> src). */
-export function filePreviewUrl(downloadUrl: string, mode: "text" | "binary" = "binary"): string {
-    return `/api/coordinator/file-preview?mode=${mode}&url=${encodeURIComponent(downloadUrl)}`;
+/** A preview request the proxy will reject, carrying the status so the UI can
+ *  tell "we cannot preview this" apart from "your signed link has expired". */
+export class PreviewError extends Error {
+    constructor(readonly status: number, message: string) {
+        super(message);
+        this.name = "PreviewError";
+    }
+}
+
+/** The parts of a FileMeta the preview proxy needs. */
+export type PreviewTarget = Pick<FileMeta, "downloadUrl" | "previewSig">;
+
+/**
+ * Same-origin proxy URL for previewing a remote datafile (used by <img>/<iframe> src).
+ * `previewSig` is the server's authorisation for this exact URL; without it the
+ * proxy refuses to fetch anything.
+ */
+export function filePreviewUrl(file: PreviewTarget, mode: "text" | "binary" = "binary"): string {
+    const params = new URLSearchParams({
+        mode,
+        url: file.downloadUrl ?? "",
+        sig: file.previewSig ?? "",
+    });
+    return `/api/coordinator/file-preview?${params}`;
 }
 
 /** Fetch the first chunk of a text/CSV file as a string, flagging if it was truncated. */
-export async function fetchTextPreview(downloadUrl: string): Promise<{ text: string; truncated: boolean }> {
-    const res = await fetch(filePreviewUrl(downloadUrl, "text"));
+export async function fetchTextPreview(file: PreviewTarget): Promise<{ text: string; truncated: boolean }> {
+    const res = await fetch(filePreviewUrl(file, "text"));
     if (!res.ok) {
-        throw new Error(`Failed to fetch preview: ${res.status} ${res.statusText}`);
+        throw new PreviewError(res.status, `Failed to fetch preview: ${res.status} ${res.statusText}`);
     }
     const text = await res.text();
     const truncated = res.headers.get("X-Preview-Truncated") === "1";

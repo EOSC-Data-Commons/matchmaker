@@ -1,5 +1,6 @@
 import compression from "compression";
 import express from "express";
+import rateLimit from "express-rate-limit";
 import morgan from "morgan";
 import path from "path";
 import {createProxyMiddleware} from "http-proxy-middleware";
@@ -23,6 +24,9 @@ import {
     mapToolKindToTyp,
 } from "./src/lib/server/grpcClient";
 
+import {signPreviewUrl, verifyPreviewUrl} from "./src/lib/server/previewSigning";
+import {isSafePublicUrl, resolvesToPublicAddress} from "./src/lib/server/previewUrlGuard";
+
 import type {
     ApiKeysResponse,
     FileMeta,
@@ -38,6 +42,14 @@ const PORT = Number.parseInt(
     process.env.PORT || (DEVELOPMENT ? "5173" : "3000"),
 );
 const SEARCH_API_URL = process.env.SEARCH_API_URL || "http://127.0.0.1:8000";
+
+// Express parses `?x=a&x=b` into an array and `?x[y]=a` into an object, so a
+// query value is only a string once we have checked that it is. Everything else
+// is treated as absent rather than coerced, so no downstream code can be handed
+// something whose `.slice`/`.indexOf` mean something different than we assume.
+function queryString(value: unknown): string | undefined {
+    return typeof value === "string" ? value : undefined;
+}
 
 function getEgiToken(req: express.Request): string {
     const cookieHeader = req.headers.cookie ?? "";
@@ -318,7 +330,7 @@ app.use(express.json());
 app.get("/api/coordinator/tool/search", async (req, res) => {
     const client = getToolSrcClient();
     try {
-        const query = req.query.q as string || "";
+        const query = queryString(req.query.q) || "";
         const grpc_req: SearchToolsByTextRequest = {
             text: query,
         };
@@ -389,13 +401,8 @@ app.get("/api/coordinator/tool/get/:toolId", async (req, res) => {
     }
 });
 
-// SSRF guard for the preview proxy: it will only ever fetch a download URL that
-// the server itself produced (from datahugger) and handed to the client below.
-// A user can therefore never steer the proxy at an arbitrary or internal host.
-const PREVIEWABLE_URLS = new Set<string>();
-
 app.get("/api/coordinator/files", async (req, res) => {
-    const handle = req.query.handle as string;
+    const handle = queryString(req.query.handle);
     if (!handle) {
         return res.status(400).json({error: "Missing handle parameter"});
     }
@@ -406,8 +413,11 @@ app.get("/api/coordinator/files", async (req, res) => {
         const token = getEgiToken(req);
         // XXX: where error goes if url is invalid?? Should we give this to user??
         const files = await fetchDatasetFilesFromDatahuggerByUrl(handle, token);
+        // SSRF guard for the preview proxy: sign every download URL we emit so
+        // the proxy can later prove a URL came from us, without holding state
+        // that a sibling pm2 worker would not see.
         for (const file of files) {
-            if (file.downloadUrl) PREVIEWABLE_URLS.add(file.downloadUrl);
+            if (file.downloadUrl) file.previewSig = signPreviewUrl(file.downloadUrl);
         }
         res.json(files);
     } catch (err) {
@@ -423,23 +433,26 @@ app.get("/api/coordinator/files", async (req, res) => {
 const PREVIEW_TEXT_MAX_BYTES = 64 * 1024;
 const PREVIEW_BINARY_MAX_BYTES = 25 * 1024 * 1024;
 
-// Defense-in-depth on top of the PREVIEWABLE_URLS allowlist: reject anything
-// that isn't plain http(s) pointing at a public host (blocks an upstream URL
-// that somehow resolves to a loopback/link-local/private literal).
-function isSafePublicUrl(raw: string): boolean {
-    let url: URL;
-    try {
-        url = new URL(raw);
-    } catch {
-        return false;
-    }
-    if (url.protocol !== "https:" && url.protocol !== "http:") return false;
-
-    const host = url.hostname.toLowerCase();
-    if (host === "localhost" || host === "0.0.0.0" || host.endsWith(".local")) return false;
-    if (/^(127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host)) return false;
-    return true;
+/** The target resolved somewhere we refuse to connect to; reported as a 403. */
+class BlockedTargetError extends Error {
 }
+
+// This route is unauthenticated and makes an outbound request to a third party
+// on every call, so an abusive caller spends the server's reputation with the
+// repository rather than their own — Zenodo throttles by source IP, and every
+// preview leaves from ours. The allowance is deliberately roomy: the browser's
+// PDF viewer fires a burst of Range requests for a single document.
+//
+// NOTE: keyed on `req.ip`. Behind a reverse proxy, that is the proxy's address
+// unless Express is told to trust it, which would put every user in one bucket.
+// See the file-preview section in AGENTS.md before deploying behind one.
+const previewRateLimit = rateLimit({
+    windowMs: 60_000,
+    limit: 100,
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
+    message: {error: "Too many preview requests, try again shortly"},
+});
 
 // Follow redirects ourselves so each hop's target is re-validated — a repository
 // may legitimately redirect a download to CDN/object storage, but we must never
@@ -451,28 +464,40 @@ async function fetchPreviewUpstream(
 ): Promise<Response> {
     let current = startUrl;
     for (let hop = 0; hop <= maxRedirects; hop++) {
+        // Every hop, including the first: the signature says we issued this URL,
+        // not that it points anywhere safe, and a hostname only reveals where it
+        // really goes once resolved.
+        if (!isSafePublicUrl(current) || !(await resolvesToPublicAddress(new URL(current).hostname))) {
+            throw new BlockedTargetError(`Preview blocked: ${current} is not a public host`);
+        }
+
         const resp = await fetch(current, {headers, redirect: "manual"});
         if (resp.status < 300 || resp.status >= 400) return resp;
 
         const location = resp.headers.get("location");
         if (!location) return resp;
 
-        const next = new URL(location, current).toString();
-        if (!isSafePublicUrl(next)) {
-            throw new Error("Preview redirect blocked: unsafe target");
-        }
-        current = next;
+        current = new URL(location, current).toString();
     }
     throw new Error("Preview exceeded maximum redirects");
 }
 
-app.get("/api/coordinator/file-preview", async (req, res) => {
-    const rawUrl = req.query.url as string | undefined;
-    const mode = (req.query.mode as string) === "text" ? "text" : "binary";
+app.get("/api/coordinator/file-preview", previewRateLimit, async (req, res) => {
+    const rawUrl = queryString(req.query.url);
+    const mode = queryString(req.query.mode) === "text" ? "text" : "binary";
+    const signature = queryString(req.query.sig);
 
-    // Primary control: only fetch URLs the server itself emitted from /files.
-    // This is what prevents request forgery — the URL is not trusted from the user.
-    if (!rawUrl || !PREVIEWABLE_URLS.has(rawUrl) || !isSafePublicUrl(rawUrl)) {
+    // Primary control: only fetch URLs the server itself emitted from /files,
+    // proven by the signature it attached there. This is what prevents request
+    // forgery — the URL is not trusted from the user.
+    if (!rawUrl || !isSafePublicUrl(rawUrl)) {
+        return res.status(403).json({error: "URL not permitted for preview"});
+    }
+    const signatureCheck = verifyPreviewUrl(rawUrl, signature);
+    if (signatureCheck === "expired") {
+        return res.status(410).json({error: "Preview link expired"});
+    }
+    if (signatureCheck !== "ok") {
         return res.status(403).json({error: "URL not permitted for preview"});
     }
 
@@ -504,7 +529,13 @@ app.get("/api/coordinator/file-preview", async (req, res) => {
         }
 
         res.status(upstream.status === 206 ? 206 : 200);
-        res.setHeader("Content-Type", upstream.headers.get("content-type") ?? "application/octet-stream");
+        // Zenodo sends `content-type` twice, and fetch joins repeated headers
+        // into "image/png, image/png". Forwarded as-is that becomes the type of
+        // the blob the client builds, which no viewer recognises — the PDF
+        // iframe in particular refuses it. A media type never contains a comma,
+        // so the first value is the whole answer.
+        const upstreamType = upstream.headers.get("content-type")?.split(",")[0].trim();
+        res.setHeader("Content-Type", upstreamType || "application/octet-stream");
         res.setHeader("Accept-Ranges", "bytes");
         const contentRange = upstream.headers.get("content-range");
         if (contentRange) res.setHeader("Content-Range", contentRange);
@@ -512,6 +543,9 @@ app.get("/api/coordinator/file-preview", async (req, res) => {
         return res.end(Buffer.from(await upstream.arrayBuffer()));
     } catch (err) {
         console.error("Preview proxy error:", err);
+        if (err instanceof BlockedTargetError) {
+            return res.status(403).json({error: "URL not permitted for preview"});
+        }
         res.status(500).json({error: "Failed to fetch preview"});
     }
 });
