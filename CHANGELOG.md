@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.1] - 17/08/2026
+
+File previews work again, and the chat is usable on a phone:
+
+- Fixed file previews failing with "Preview not available, download the file instead" for files that were perfectly
+  previewable. Before opening a file, the server checked its download URL against a list it kept in memory, but the
+  deployment runs several worker processes, so the worker handling the preview usually had no record of a URL the worker
+  that listed the files had seen. Download URLs are now signed instead, which any worker can verify.
+- Fixed image and PDF previews being sent to the browser with a doubled content type (Zenodo sends the header twice),
+  which no viewer recognises. The PDF viewer in particular refuses to open a document labelled that way.
+- Preview problems now explain themselves rather than sharing one message: a preview link that has gone stale asks you
+  to reload the page, and previewing many files in quick succession asks you to wait a moment.
+- The preview (eye) icon no longer appears on files the server would turn down anyway.
+- The chat conversation list is now a drawer on phones and small screens, opened from a button in the header and closed
+  by picking a conversation, tapping outside it, or pressing Escape. On wider screens it stays where it was.
+- The per-conversation options button is now visible on touch screens, where there is no hover to reveal it.
+- The search field no longer cuts its placeholder off mid-phrase on a narrow screen: it shows a shorter prompt instead (
+  "Search for data...", or "Ask about datasets..." in AI Mode).
+- Headings, message spacing and the "Were these results helpful?" row now fit narrow screens instead of overflowing.
+
+For deployment: preview requests are limited to 100 per minute per IP address. If the frontend sits behind a reverse
+proxy, set Express's `trust proxy` to match your topology, otherwise that limit is shared by everyone rather than
+applied per user. The preview proxy also refuses URLs whose hostname resolves to a private, loopback or link-local
+address, rechecked on every redirect hop, so a dataset pointing at an internal service cannot be used to reach it. Set
+`PREVIEW_URL_SECRET` (any random 32+ byte string) only if the frontend runs as more than one container: workers inside a
+single container agree on a key by themselves. Dependencies: `express-rate-limit` added, `nanoid` moved from 3.3.17 to
+3.3.18, and the unused `@mjackson/node-fetch-server` dropped.
+
 ## [0.10.0] - 14/08/2026
 
 Searching and asking the AI are now two separate things, so a plain search no longer waits on the AI:
