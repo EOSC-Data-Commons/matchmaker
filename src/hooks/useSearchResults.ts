@@ -3,7 +3,7 @@ import {useNavigate} from 'react-router';
 import type {SearchResults} from '../types/commons';
 import {searchDatasets} from '../lib/api';
 import {addToSearchHistory} from '../lib/history';
-import {errorKind} from '../lib/analytics';
+import {errorKind, trackPageView, trackSiteSearch} from '../lib/analytics';
 import useMatomo from './useMatomo';
 
 interface UseSearchResultsReturn {
@@ -52,9 +52,18 @@ export const useSearchResults = (query: string): UseSearchResultsReturn => {
             trackEvent('Search', 'results_returned', query, hitCount);
             trackEvent('Search', 'latency_ms', query, elapsedMs);
             if (hitCount === 0) trackEvent('Search', 'zero_results', query);
+
+            // The action for this route: MatomoTracker held back the pageview so
+            // the hit count could be attached here, which is what feeds Matomo's
+            // "Search Keywords with No Results" report.
+            trackSiteSearch(query, 'datasets', hitCount);
         } catch (err) {
             console.error("Search error:", err);
             trackEvent('Search', 'error', errorKind(err));
+            // A failed search has no meaningful hit count, and recording zero
+            // would file it under no-result keywords. Fall back to the pageview
+            // that was suppressed so the visit does not lose the action.
+            trackPageView();
             setError(err instanceof Error ? err : new Error("An unknown error occurred."));
         } finally {
             setLoading(false);

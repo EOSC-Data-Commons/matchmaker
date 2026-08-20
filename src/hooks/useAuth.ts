@@ -2,6 +2,7 @@ import {useState, useEffect} from 'react';
 import {UserInfo} from '@/types/user.ts';
 import {consumePostLoginRedirect} from '@/lib/authRedirect.ts';
 import useMatomo from '@/hooks/useMatomo.ts';
+import {CustomDimension, setCustomDimension} from '@/lib/analytics.ts';
 
 export type {UserInfo};
 
@@ -17,6 +18,9 @@ export function useAuth() {
                 if (response.ok) {
                     const userData = await response.json();
                     setUser(userData);
+                    // Visit-scoped, so it attaches to the visit even though auth
+                    // resolves after the first pageview has already gone out.
+                    setCustomDimension(CustomDimension.AuthState, 'signed_in');
 
                     // If the user just came back from an interactive login that
                     // was triggered on another page, return them to it.
@@ -35,6 +39,7 @@ export function useAuth() {
                         window.location.replace(target);
                     }
                 } else {
+                    setCustomDimension(CustomDimension.AuthState, 'anonymous');
                     setUser(null);
                 }
             } catch (error) {

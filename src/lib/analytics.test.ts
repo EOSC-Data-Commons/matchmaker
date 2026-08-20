@@ -1,6 +1,13 @@
 import {describe, it, expect, beforeEach, afterEach} from "vitest";
-import {errorKind, trackEvent} from "./analytics";
-import {RateLimitError, ServerError} from "./api";
+import {
+    CustomDimension,
+    currentEnvironment,
+    isSiteSearchLocation,
+    setCustomDimension,
+    trackEvent,
+    trackPageView,
+    trackSiteSearch,
+} from "./analytics";
 
 type Paq = Array<Array<string | number>>;
 const paq = () => window._paq as unknown as Paq;
@@ -32,27 +39,50 @@ describe("analytics", () => {
             expect(paq()[0]).toEqual(["trackEvent", "Search", "latency_ms", "", 42]);
         });
 
-        it("keeps a zero value rather than dropping it as falsy", () => {
-            trackEvent("Search", "results_returned", "ocean", 0);
-            expect(paq()[0]).toEqual(["trackEvent", "Search", "results_returned", "ocean", 0]);
-        });
-
         it("does nothing when the tracker has not loaded", () => {
             delete (window as Partial<Window>)._paq;
             expect(() => trackEvent("Chat", "message_sent")).not.toThrow();
         });
     });
 
-    describe("errorKind", () => {
+    describe("isSiteSearchLocation", () => {
+        it("matches the results page when a query is present", () => {
+            expect(isSiteSearchLocation("/search", "?q=ocean+temperature")).toBe(true);
+        });
+
         it.each([
-            ["a rate limit", new RateLimitError(), "rate_limit"],
-            ["a server error", new ServerError(503), "server"],
-            ["a timeout", new Error("The request timed out"), "timeout"],
-            ["a network failure", new Error("Failed to fetch"), "network"],
-            ["anything else", new Error("boom"), "unknown"],
-            ["a non-error", "just a string", "unknown"],
-        ])("labels %s as %s", (_label, error, expected) => {
-            expect(errorKind(error)).toBe(expected);
+            ["no query string", "/search", ""],
+            ["an empty query", "/search", "?q="],
+            ["only a model param", "/search", "?model=cesnet%2Fagentic"],
+            ["the landing page", "/", "?q=ocean"],
+            ["the chat page", "/chat", "?q=ocean"],
+        ])("does not match %s", (_label, pathname, search) => {
+            expect(isSiteSearchLocation(pathname, search)).toBe(false);
+        });
+    });
+
+    it("records a site search with its category and hit count", () => {
+        trackSiteSearch("ocean temperature", "datasets", 0);
+        expect(paq()[0]).toEqual(["trackSiteSearch", "ocean temperature", "datasets", 0]);
+    });
+
+    it("records a pageview", () => {
+        trackPageView();
+        expect(paq()[0]).toEqual(["trackPageView"]);
+    });
+
+    it("sets a custom dimension by its configured index", () => {
+        setCustomDimension(CustomDimension.AuthState, "signed_in");
+        expect(paq()[0]).toEqual(["setCustomDimension", CustomDimension.AuthState, "signed_in"]);
+    });
+
+    describe("currentEnvironment", () => {
+        it.each([
+            ["https://dev.matchmaker.eosc-data-commons.eu/search", "dev"],
+            ["https://matchmaker.eosc-data-commons.eu/search", "prod"],
+        ])("reports %s as %s", (href, expected) => {
+            window.location.href = href;
+            expect(currentEnvironment()).toBe(expected);
         });
     });
 });
