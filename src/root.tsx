@@ -7,11 +7,12 @@ import {
     isRouteErrorResponse,
     useRouteError,
 } from "react-router";
-import React from 'react';
+import React, {useEffect} from 'react';
 import "./index.css";
 import MatomoTracker from "./components/MatomoTracker";
 import {ErrorBoundary as AppErrorBoundary} from "./components/ErrorBoundary";
 import favicon from "./assets/favicon.ico";
+import {trackEvent} from "./lib/analytics.ts";
 
 export function Layout({children}: { children: React.ReactNode }) {
     return (
@@ -50,6 +51,20 @@ export default function App() {
 
 export function ErrorBoundary() {
     const error = useRouteError();
+
+    // Pairs with the 'Error/react_boundary' event from the component boundary:
+    // between them every client-side crash is now counted. Route responses are
+    // reported by status alone to keep the report to a handful of rows.
+    useEffect(() => {
+        trackEvent(
+            'Error',
+            'route_error',
+            isRouteErrorResponse(error)
+                ? String(error.status)
+                : (error instanceof Error ? error.message : 'unknown'),
+        );
+    }, [error]);
+
     let message = "Oops!";
     let details = "An unexpected error occurred.";
     let stack: string | undefined;

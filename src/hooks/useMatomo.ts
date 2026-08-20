@@ -1,12 +1,10 @@
-const useMatomo = () => {
-    const trackEvent = (category: string, action: string, name?: string, value?: number) => {
-        if (typeof window === 'undefined' || !window._paq) return;
-        const cmd: Array<string | number> = ['trackEvent', category, action];
-        if (name !== undefined) cmd.push(name);
-        if (value !== undefined) cmd.push(value);
-        window._paq.push(cmd);
-    };
-    return {trackEvent};
-};
+import {trackEvent} from '@/lib/analytics.ts';
+
+/**
+ * Component-facing handle on Matomo event tracking. `trackEvent` is a
+ * module-level function, so its identity is stable across renders and it is safe
+ * to list in a hook dependency array.
+ */
+const useMatomo = () => ({trackEvent});
 
 export default useMatomo;

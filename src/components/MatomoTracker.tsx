@@ -13,6 +13,10 @@ const MatomoTracker = () => {
     useEffect(() => {
         window._paq = window._paq || [];
         window._paq.push(['enableLinkTracking']);
+        // Without this, Matomo derives time-on-page from the gap between
+        // pageviews, so the last page of every visit counts as zero seconds.
+        // With a bounce rate near 43% that understates time on site badly.
+        window._paq.push(['enableHeartBeatTimer', 15]);
         (function () {
             const u = "https://egi.matomo.cloud/";
             window._paq.push(['setTrackerUrl', u + 'matomo.php']);
@@ -37,5 +41,3 @@ const MatomoTracker = () => {
 };
 
 export default MatomoTracker;
-
-

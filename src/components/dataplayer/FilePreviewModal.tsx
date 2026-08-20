@@ -4,6 +4,7 @@ import {LoaderIcon, X} from 'lucide-react';
 import {FileMeta} from '@/types/dataplayerTypes';
 import {fetchTextPreview, filePreviewUrl, PreviewError} from '@/lib/coordinatorApi';
 import {CSV_PREVIEW_ROWS, getPreviewKind, parseCsvRows} from '@/lib/filePreview';
+import {trackEvent} from '@/lib/analytics.ts';
 
 interface FilePreviewModalProps {
     file: FileMeta;
@@ -32,6 +33,12 @@ export const FilePreviewModal = ({file, onClose}: FilePreviewModalProps) => {
     const [loading, setLoading] = useState(kind !== 'none');
     const [error, setError] = useState<string | null>(null);
 
+    // Preview and download are the two ways a user actually reaches the data, so
+    // both are counted; `kind` says which previewers are worth the maintenance.
+    useEffect(() => {
+        trackEvent('FilePreview', 'opened', kind);
+    }, [kind]);
+
     const PREVIEW_UNAVAILABLE = 'Preview not available — download the file instead.';
     // The signed preview link outlives a long browsing session but not forever;
     // reloading re-fetches the file list and with it a fresh signature.
@@ -41,6 +48,11 @@ export const FilePreviewModal = ({file, onClose}: FilePreviewModalProps) => {
         if (status === 410) return PREVIEW_EXPIRED;
         if (status === 429) return PREVIEW_THROTTLED;
         return PREVIEW_UNAVAILABLE;
+    };
+    // Status is the useful signal here: 410 means the signed link aged out and
+    // 429 means the preview rate limit is biting, and those want different fixes.
+    const reportPreviewFailure = (err: unknown) => {
+        trackEvent('FilePreview', 'failed', err instanceof PreviewError ? String(err.status) : 'unknown');
     };
 
     // close on Escape
@@ -67,6 +79,7 @@ export const FilePreviewModal = ({file, onClose}: FilePreviewModalProps) => {
             })
             .catch((err: unknown) => {
                 if (cancelled) return;
+                reportPreviewFailure(err);
                 setError(err instanceof PreviewError ? messageForStatus(err.status) : PREVIEW_UNAVAILABLE);
             })
             .finally(() => {
@@ -97,6 +110,7 @@ export const FilePreviewModal = ({file, onClose}: FilePreviewModalProps) => {
             })
             .catch((err: unknown) => {
                 if (!cancelled) {
+                    reportPreviewFailure(err);
                     setError(err instanceof PreviewError ? messageForStatus(err.status) : PREVIEW_UNAVAILABLE);
                 }
             })
@@ -250,7 +264,10 @@ export const FilePreviewModal = ({file, onClose}: FilePreviewModalProps) => {
                     {downloadUrl && (
                         <button
                             type="button"
-                            onClick={() => window.open(downloadUrl, '_blank')}
+                            onClick={() => {
+                                trackEvent('FilePreview', 'downloaded', kind);
+                                window.open(downloadUrl, '_blank');
+                            }}
                             className="text-eosc-light-blue hover:text-blue-500 font-light transition-colors border border-eosc-light-blue hover:border-eosc-dark-blue px-3 py-1.5 rounded-md text-sm bg-white hover:bg-gray-50 cursor-pointer"
                         >
                             Download

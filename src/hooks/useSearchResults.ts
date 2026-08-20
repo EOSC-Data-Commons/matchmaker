@@ -3,6 +3,8 @@ import {useNavigate} from 'react-router';
 import type {SearchResults} from '../types/commons';
 import {searchDatasets} from '../lib/api';
 import {addToSearchHistory} from '../lib/history';
+import {errorKind} from '../lib/analytics';
+import useMatomo from './useMatomo';
 
 interface UseSearchResultsReturn {
     results: SearchResults | null;
@@ -18,6 +20,7 @@ interface UseSearchResultsReturn {
  */
 export const useSearchResults = (query: string): UseSearchResultsReturn => {
     const navigate = useNavigate();
+    const {trackEvent} = useMatomo();
     const [results, setResults] = useState<SearchResults | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
@@ -36,16 +39,28 @@ export const useSearchResults = (query: string): UseSearchResultsReturn => {
             setError(null);
             setResults(null);
 
-            setResults(await searchDatasets(query));
+            const startedAt = Date.now();
+            const searchResults = await searchDatasets(query);
+            const elapsedMs = Date.now() - startedAt;
+
+            setResults(searchResults);
             addToSearchHistory(query);
+
+            // Outcome, not just intent: 'submitted' is fired by SearchInput, so
+            // pairing it with these gives the success/zero/error breakdown.
+            const hitCount = searchResults.hits?.length ?? 0;
+            trackEvent('Search', 'results_returned', query, hitCount);
+            trackEvent('Search', 'latency_ms', query, elapsedMs);
+            if (hitCount === 0) trackEvent('Search', 'zero_results', query);
         } catch (err) {
             console.error("Search error:", err);
+            trackEvent('Search', 'error', errorKind(err));
             setError(err instanceof Error ? err : new Error("An unknown error occurred."));
         } finally {
             setLoading(false);
             isSearchingRef.current = false;
         }
-    }, [query, navigate]);
+    }, [query, navigate, trackEvent]);
 
     return {
         results,
