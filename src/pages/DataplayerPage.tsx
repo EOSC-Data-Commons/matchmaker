@@ -22,6 +22,8 @@ import {ToolSelectionStep} from '@/components/dataplayer/ToolSelectionStep';
 import {SlotsMappingAndFilesSetStep} from '@/components/dataplayer/slotsMappingAndFilesSetStep';
 import {MonitoringStep} from '@/components/dataplayer/MonitoringStep';
 import {FilesList} from '@/components/dataplayer/FilesList';
+import useMatomo from '@/hooks/useMatomo.ts';
+import {errorKind} from '@/lib/analytics.ts';
 
 export interface TaskStatusResponse {
     status: TaskStatus;
@@ -39,6 +41,7 @@ export const DataplayerPage = () => {
     const navigate = useNavigate();
 
     const {user, loading: userLoading} = useAuth();
+    const {trackEvent} = useMatomo();
 
     // Step management
     const [currentStep, setCurrentStep] = useState<StepType>('select-analysis');
@@ -150,6 +153,7 @@ export const DataplayerPage = () => {
 
         setSelectedToolId(tool_id);
         setFilesError(null);
+        trackEvent('Dataplayer', 'tool_selected', tool_id);
 
         try {
             setCurrentStep('map-files');
@@ -163,6 +167,11 @@ export const DataplayerPage = () => {
     const {taskId, taskResult, launch, resetTask} = useTaskLauncher();
     const handleSubmit = async () => {
         if (!selectedToolId) return;
+
+        // The launch is the point of the whole page, so its outcome is the one
+        // funnel step worth measuring end to end.
+        const launchStartedAt = Date.now();
+        trackEvent('Dataplayer', 'run_submitted', selectedToolId);
 
         try {
             setCurrentStep("submitting");
@@ -188,12 +197,14 @@ export const DataplayerPage = () => {
                 },
 
                 onSuccess: () => {
+                    trackEvent('Dataplayer', 'run_succeeded', selectedToolId, Date.now() - launchStartedAt);
                     setCurrentStep("monitoring");
                     setStatusMessage("Virtual Research Environment task completed!");
                 },
 
                 onError: (err) => {
                     console.error(err);
+                    trackEvent('Dataplayer', 'run_failed', errorKind(err));
                     setStatusMessage(err instanceof Error ? err.message : "Failed to launch the tool. Please try again.");
                     setStatusType("EXCEPTION");
                     // Stay on the monitoring step so the EXCEPTION is actually rendered.
@@ -204,6 +215,7 @@ export const DataplayerPage = () => {
             });
         } catch (err) {
             console.error(err);
+            trackEvent('Dataplayer', 'run_failed', errorKind(err));
             setStatusMessage(err instanceof Error ? err.message : "Unknown error");
             setStatusType("EXCEPTION");
             setCurrentStep("monitoring");

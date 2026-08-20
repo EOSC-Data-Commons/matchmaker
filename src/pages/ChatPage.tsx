@@ -15,6 +15,8 @@ import {SearchInput} from "@/components/SearchInput.tsx";
 import {DeleteConversationDialog} from "@/components/DeleteConversationDialog.tsx";
 import {ConversationSidebarItem} from "@/components/ConversationSidebarItem.tsx";
 import {SearchFeedback} from "@/components/SearchFeedback.tsx";
+import useMatomo from "@/hooks/useMatomo.ts";
+import {errorKind} from "@/lib/analytics.ts";
 
 type ChatLocationState = {
     initialQuery?: string;
@@ -29,11 +31,16 @@ const isChatLocationState = (state: unknown): state is ChatLocationState => {
     return hasValidInitialQuery && hasValidInitialModel;
 };
 
+/** Total number of search hits returned by a bot message's tool calls. */
+const countHits = (msg: Message): number =>
+    (msg.blocks ?? []).reduce((acc, b) => acc + (b.kind === 'tool' ? (b.toolCall.hits?.length ?? 0) : 0), 0);
+
 const ChatPage: FC = () => {
     const {id: urlId} = useParams();
     const navigate = useNavigate();
     const location = useLocation();
     const {user, loading: userLoading} = useAuth();
+    const {trackEvent} = useMatomo();
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
     const [loading, setLoading] = useState(true);
@@ -251,6 +258,9 @@ const ChatPage: FC = () => {
         if (!messageText.trim()) return;
         if (isSending) return; // Prevent concurrent sends
 
+        trackEvent('Chat', 'message_sent', model);
+        const runStartedAt = Date.now();
+
         const userMessage: Message = {sender: 'user', content: messageText};
 
         const currentConversation = selectedConversation || {
@@ -286,8 +296,11 @@ const ChatPage: FC = () => {
         };
 
         // The bubble goes into `streamed` too — a later publish would otherwise drop it.
-        const appendErrorBubble = (text: string) => {
-            streamed = [...finalizeStream(streamed), {sender: 'bot', content: text, isError: true}];
+        // Takes the raw error rather than the formatted text so the failure can be
+        // classified for analytics in the one place every failure path converges on.
+        const appendErrorBubble = (error: unknown) => {
+            trackEvent('Chat', 'run_error', errorKind(error));
+            streamed = [...finalizeStream(streamed), {sender: 'bot', content: errorText(error), isError: true}];
             publish();
             setIsSending(false);
         };
@@ -306,21 +319,34 @@ const ChatPage: FC = () => {
                     }
                     if (event.type !== 'RUN_ERROR' && event.error) {
                         console.error("Event error:", event.error);
-                        appendErrorBubble(errorText(new Error(event.error)));
+                        appendErrorBubble(new Error(event.error));
                         return;
+                    }
+                    if (event.type === 'TOOL_CALL_START' && event.tool_call_name) {
+                        trackEvent('Chat', 'tool_call', event.tool_call_name);
                     }
                     streamed = applyChatEvent(streamed, event);
                     publish();
-                    if (event.type === 'RUN_FINISHED') setIsSending(false);
+                    if (event.type === 'RUN_FINISHED') {
+                        // Latency and hit count are the two things the chat funnel
+                        // could not be judged on before: whether the agent answered,
+                        // and whether it found anything.
+                        const finished = streamed[streamed.length - 1];
+                        trackEvent('Chat', 'run_latency_ms', model, Date.now() - runStartedAt);
+                        if (finished?.sender === 'bot') {
+                            trackEvent('Chat', 'results_returned', model, countHits(finished));
+                        }
+                        setIsSending(false);
+                    }
                 },
                 (error) => {
                     console.error("Failed to send message", error);
-                    appendErrorBubble(errorText(error));
+                    appendErrorBubble(error);
                 }
             );
         } catch (e) {
             console.error("Failed to send message", e);
-            appendErrorBubble(errorText(e));
+            appendErrorBubble(e);
         } finally {
             // A stream that ends without RUN_FINISHED would otherwise leave the
             // message flagged as still streaming.
@@ -371,10 +397,6 @@ const ChatPage: FC = () => {
             );
         });
     };
-
-    /** Total number of search hits returned by a bot message's tool calls. */
-    const countHits = (msg: Message): number =>
-        (msg.blocks ?? []).reduce((acc, b) => acc + (b.kind === 'tool' ? (b.toolCall.hits?.length ?? 0) : 0), 0);
 
     return (
         <div className="flex flex-col h-dvh bg-white overflow-hidden">
