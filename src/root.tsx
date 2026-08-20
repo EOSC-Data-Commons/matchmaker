@@ -53,15 +53,16 @@ export function ErrorBoundary() {
     const error = useRouteError();
 
     // Pairs with the 'Error/react_boundary' event from the component boundary:
-    // between them every client-side crash is now counted. Route responses are
-    // reported by status alone to keep the report to a handful of rows.
+    // between them every client-side crash is now counted. Reported as a status
+    // code or a constructor name, never a raw message, which can carry request
+    // ids or user input and would give every failure its own report row.
     useEffect(() => {
         trackEvent(
             'Error',
             'route_error',
             isRouteErrorResponse(error)
                 ? String(error.status)
-                : (error instanceof Error ? error.message : 'unknown'),
+                : (error instanceof Error ? error.name || 'Error' : 'unknown'),
         );
     }, [error]);
 

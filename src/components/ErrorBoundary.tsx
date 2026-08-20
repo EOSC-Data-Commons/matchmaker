@@ -26,7 +26,12 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
         // A crash is otherwise invisible: the user sees the fallback and leaves,
         // and nothing but their own console records it. This stays a class
         // component (hooks cannot catch render errors), hence the plain helper.
-        trackEvent('Error', 'react_boundary', error.message || error.name);
+        //
+        // The constructor name, never the message: messages here can carry a
+        // dataset title, a file path or a query the user typed, none of which
+        // belongs in Matomo, and every distinct one would be its own report row.
+        // `logError` above keeps the full detail in the browser console.
+        trackEvent('Error', 'react_boundary', error.name || 'Error');
     }
 
     render() {

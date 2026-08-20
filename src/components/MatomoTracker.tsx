@@ -4,7 +4,9 @@ import {siteSearchKeyword, trackPageView} from '@/lib/analytics.ts';
 
 declare global {
     interface Window {
-        _paq: Array<Array<string | number> | ((this: void) => void)>;
+        // Booleans are part of Matomo's own command vocabulary: trackSiteSearch
+        // takes `false` for an omitted category or an unknown result count.
+        _paq: Array<Array<string | number | boolean> | ((this: void) => void)>;
     }
 }
 

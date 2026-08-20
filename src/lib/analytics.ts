@@ -3,7 +3,7 @@ import {RateLimitError, ServerError} from './api.ts';
 /** No-ops until `MatomoTracker` has installed `window._paq`, and on the server. */
 const push = (cmd: Array<string | number | boolean>) => {
     if (typeof window === 'undefined' || !window._paq) return;
-    window._paq.push(cmd as Array<string | number>);
+    window._paq.push(cmd);
 };
 
 /**
