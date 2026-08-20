@@ -1,5 +1,5 @@
 import {describe, it, expect, beforeEach, afterEach} from "vitest";
-import {errorKind, trackEvent} from "./analytics";
+import {errorKind, siteSearchKeyword, trackEvent, trackPageView, trackSiteSearch} from "./analytics";
 import {RateLimitError, ServerError} from "./api";
 
 type Paq = Array<Array<string | number>>;
@@ -41,6 +41,36 @@ describe("analytics", () => {
             delete (window as Partial<Window>)._paq;
             expect(() => trackEvent("Chat", "message_sent")).not.toThrow();
         });
+    });
+
+    describe("siteSearchKeyword", () => {
+        it("returns the keyword on the results page", () => {
+            expect(siteSearchKeyword("/search", "?q=ocean+temperature")).toBe("ocean temperature");
+        });
+
+        it("ignores other params so a filter change keeps the same keyword", () => {
+            expect(siteSearchKeyword("/search", "?q=ocean&creator=Doe")).toBe("ocean");
+        });
+
+        it.each([
+            ["no query string", "/search", ""],
+            ["an empty query", "/search", "?q="],
+            ["only a model param", "/search", "?model=cesnet%2Fagentic"],
+            ["the landing page", "/", "?q=ocean"],
+            ["the chat page", "/chat", "?q=ocean"],
+        ])("returns null for %s", (_label, pathname, search) => {
+            expect(siteSearchKeyword(pathname, search)).toBeNull();
+        });
+    });
+
+    it("records a site search with its hit count and no category", () => {
+        trackSiteSearch("ocean temperature", false, 0);
+        expect(paq()[0]).toEqual(["trackSiteSearch", "ocean temperature", false, 0]);
+    });
+
+    it("records a pageview", () => {
+        trackPageView();
+        expect(paq()[0]).toEqual(["trackPageView"]);
     });
 
     describe("errorKind", () => {
