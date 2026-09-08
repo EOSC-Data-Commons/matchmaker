@@ -120,6 +120,18 @@ export function getRepository(hit: BackendDataset): RepoIdentity | null {
 }
 
 /**
+ * The single identity to name as "where this dataset comes from" when there is room for
+ * only one: the owner of an aggregated record (the aggregator itself when the owner is
+ * unknown), otherwise the source repository. Used by the chat's inline citations and
+ * the "Cited from" strip, which cannot fit the two-logo cluster.
+ */
+export function getProvenanceSource(hit: BackendDataset): RepoIdentity | null {
+    const aggregator = getAggregator(hit);
+    if (aggregator) return getOwner(hit) ?? aggregator;
+    return getRepository(hit);
+}
+
+/**
  * The institution that owns the dataset (left badge for aggregated records), from the DataCite
  * organizational creator with a URL nameIdentifier. Returns null when no such creator exists (e.g.
  * OneData records whose creators are only personal) — the badge then shows a neutral placeholder.

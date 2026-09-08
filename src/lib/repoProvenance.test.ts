@@ -1,5 +1,5 @@
 import {describe, it, expect} from "vitest";
-import {getAggregator, getOwner, getRepository} from "./repoProvenance";
+import {getAggregator, getOwner, getProvenanceSource, getRepository} from "./repoProvenance";
 import type {BackendDataset} from "../types/commons";
 
 // Minimal hit builder — only the provenance-relevant fields matter here.
@@ -95,5 +95,22 @@ describe("getOwner", () => {
                 nameIdentifiers: [{nameIdentifierScheme: "ORCID", nameIdentifier: "0009-0005-7532-6624"}],
             }],
         }))).toBeNull();
+    });
+});
+
+describe("getProvenanceSource", () => {
+    it("names the source repository of a directly harvested record", () => {
+        expect(getProvenanceSource(hit({_repo: "HAL"}))?.name).toBe("HAL Open Science");
+        // Unknown code: still named, as text.
+        expect(getProvenanceSource(hit({_repo: "EMPIAR"}))?.name).toBe("EMPIAR");
+    });
+
+    it("names the owner of an aggregated record, or the aggregator when the owner is unknown", () => {
+        expect(getProvenanceSource(hit({_repo: "ONE", creators: bgeeCreator}))?.name).toBe("Bgee");
+        expect(getProvenanceSource(hit({_repo: "ONE", creators: personalCreator}))?.name).toBe("Onedata");
+    });
+
+    it("is null when nothing is known", () => {
+        expect(getProvenanceSource(hit({}))).toBeNull();
     });
 });
