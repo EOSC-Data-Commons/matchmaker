@@ -1,7 +1,7 @@
-import {Fragment, JSX} from "react";
+import {Fragment, JSX, useMemo} from "react";
 import type {BackendDataset} from "../types/commons.ts";
-import {lookupDataset} from "../lib/datasetCitations.ts";
-import {trimTrailingPartialLink} from "../lib/utils.ts";
+import {lookupDataset, type DatasetCitation} from "../lib/datasetCitations.ts";
+import {sanitizeLinkHref, trimTrailingPartialLink} from "../lib/utils.ts";
 import {DatasetReference} from "./DatasetReference.tsx";
 
 interface MessageMarkdownProps {
@@ -10,27 +10,25 @@ interface MessageMarkdownProps {
     datasets: Map<string, BackendDataset>;
     // True while this text is still streaming in.
     streaming?: boolean;
-    isLoggedIn?: boolean;
+    // The message's numbered citations (see collectCitations); a link to a cited
+    // dataset gets its [n] marker. Without them a matched link is a bare pill.
+    citations?: DatasetCitation[];
+    // Called with the reference number when a [n] marker is activated.
+    onCite?: (number: number) => void;
 }
-
-const sanitizeLinkHref = (href: string): string | null => {
-    const trimmed = href.trim();
-    if (!trimmed) return null;
-    try {
-        const parsed = new URL(trimmed);
-        return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.toString() : null;
-    } catch {
-        return null;
-    }
-};
 
 /**
  * Renders the subset of Markdown the assistant produces: links, bold, and
  * ordered/unordered list lines. A link pointing at one of the thread's search
- * hits becomes an interactive dataset citation; any other link stays an ordinary
+ * hits becomes a numbered dataset citation; any other link stays an ordinary
  * external link.
  */
-export const MessageMarkdown = ({text, datasets, streaming = false, isLoggedIn = false}: MessageMarkdownProps) => {
+export const MessageMarkdown = ({text, datasets, streaming = false, citations = [], onCite}: MessageMarkdownProps) => {
+    const numbers = useMemo(
+        () => new Map(citations.map(citation => [citation.dataset, citation.number])),
+        [citations]
+    );
+
     const renderInline = (line: string, lineIndex: number) => {
         // Handles **[label](url)**, [label](url), and **bold** in a single pass.
         const tokenRegex = /\*\*\[(.+?)]\((.+?)\)\*\*|\[(.+?)]\((.+?)\)|\*\*(.+?)\*\*/g;
@@ -60,7 +58,8 @@ export const MessageMarkdown = ({text, datasets, streaming = false, isLoggedIn =
                         key={`md-${lineIndex}-${tokenIndex++}`}
                         dataset={dataset}
                         label={label}
-                        isLoggedIn={isLoggedIn}
+                        number={numbers.get(dataset)}
+                        onJump={onCite}
                     />
                 ) : (
                     <a
@@ -93,7 +92,13 @@ export const MessageMarkdown = ({text, datasets, streaming = false, isLoggedIn =
         return nodes.map((node, idx) => <Fragment key={`md-frag-${lineIndex}-${idx}`}>{node}</Fragment>);
     };
 
-    const content = streaming ? trimTrailingPartialLink(text) : text;
+    // Every line becomes its own `min-h-6` paragraph below, so a raw blank line is
+    // 24px of empty space. The agent pads its text with newlines around tool calls,
+    // which stacked up into large gaps; collapse a run of blanks to the single break
+    // it means and drop the padding at the edges, leaving the block spacing to the caller.
+    const content = (streaming ? trimTrailingPartialLink(text) : text)
+        .replace(/\n{3,}/g, '\n\n')
+        .replace(/^\n+|\n+$/g, '');
 
     return (
         <>

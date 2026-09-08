@@ -9,8 +9,7 @@ import {buildDatasetUrlMap} from "@/lib/datasetCitations.ts";
 import {getUserInitials} from "@/lib/userUtils.ts";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 import {ChevronDown, ChevronUp, Loader2, Menu, MessageSquare, Plus, Send, User, X} from "lucide-react";
-import {MessageMarkdown} from "@/components/MessageMarkdown.tsx";
-import {ToolCallEntry} from "@/components/ToolCallEntry.tsx";
+import {BotMessageBody} from "@/components/BotMessageBody.tsx";
 import {SearchInput} from "@/components/SearchInput.tsx";
 import {DeleteConversationDialog} from "@/components/DeleteConversationDialog.tsx";
 import {ConversationSidebarItem} from "@/components/ConversationSidebarItem.tsx";
@@ -61,9 +60,19 @@ const ChatPage: FC = () => {
     // To prevent processing initial state multiple times
     const initialQueryProcessed = useRef(false);
 
-    // Whether the view is following the bottom of the thread; false once the user
-    // scrolls up, so streamed content does not yank them back down.
+    // Whether the view is following the streamed content; false once the user
+    // scrolls away from it, so new content does not yank them back.
     const followingRef = useRef(true);
+    // True once the current run's answer text has been followed, so the final
+    // update of the run does not pull the reference list into view.
+    const answerFollowedRef = useRef(false);
+
+    // While an answer streams, BotMessageBody marks the end of its newest text.
+    // The view follows that mark rather than the end of the thread: the reference
+    // list under the answer grows with it and would otherwise fill the viewport
+    // while the words being written sit above the fold.
+    const streamingAnchor = () =>
+        messagesContainerRef.current?.querySelector<HTMLElement>('[data-streaming-end]') ?? null;
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView?.({behavior: "smooth"});
@@ -71,13 +80,32 @@ const ChatPage: FC = () => {
 
     const scrollToBottomIfFollowing = () => {
         if (!followingRef.current) return;
-        requestAnimationFrame(() => messagesEndRef.current?.scrollIntoView?.({block: 'end'}));
+        requestAnimationFrame(() => {
+            const anchor = streamingAnchor();
+            if (anchor) {
+                anchor.scrollIntoView?.({block: 'end'});
+                answerFollowedRef.current = true;
+                return;
+            }
+            // The answer has ended: leave the reader where its text ended.
+            if (answerFollowedRef.current) return;
+            messagesEndRef.current?.scrollIntoView?.({block: 'end'});
+        });
     };
 
     const handleScroll = () => {
-        if (!messagesContainerRef.current) return;
-        const {scrollTop, scrollHeight, clientHeight} = messagesContainerRef.current;
+        const container = messagesContainerRef.current;
+        if (!container) return;
+        const {scrollTop, scrollHeight, clientHeight} = container;
         const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+        const anchor = streamingAnchor();
+        if (anchor) {
+            // Following the answer: its newest text is within the view or just below it.
+            const gap = anchor.getBoundingClientRect().bottom - container.getBoundingClientRect().bottom;
+            followingRef.current = gap < 100 && gap > -clientHeight;
+            setShowScrollButton(!isNearBottom && !followingRef.current);
+            return;
+        }
         followingRef.current = isNearBottom;
         setShowScrollButton(!isNearBottom);
     };
@@ -276,6 +304,7 @@ const ChatPage: FC = () => {
             messages: updatedMessages,
         });
         setIsSending(true);
+        answerFollowedRef.current = false;
         setTimeout(scrollToBottom, 50);
 
         // Turn a stream failure into a user-facing error bubble instead of a
@@ -368,35 +397,6 @@ const ChatPage: FC = () => {
     const messages = selectedConversation?.messages ?? [];
     const lastMessage = messages[messages.length - 1];
     const lastMessageIsStreaming = !!lastMessage?.isStreaming && (lastMessage.blocks?.length ?? 0) > 0;
-
-    /** Bot message body: tool calls and text in the order the agent produced them. */
-    const renderBotMessage = (msg: Message, msgIndex: number) => {
-        const blocks = msg.blocks ?? (msg.content ? [{kind: 'text' as const, text: msg.content}] : []);
-        const lastTextIndex = blocks.reduce((acc, b, i) => (b.kind === 'text' ? i : acc), -1);
-
-        return blocks.map((block, blockIndex) => {
-            if (block.kind === 'tool') {
-                return (
-                    <ToolCallEntry
-                        key={`tool-${msgIndex}-${block.toolCall.id}`}
-                        toolCall={block.toolCall}
-                        isLoggedIn={!!user}
-                    />
-                );
-            }
-            if (!block.text.trim()) return null;
-            return (
-                <div key={`text-${msgIndex}-${blockIndex}`}>
-                    <MessageMarkdown
-                        text={block.text}
-                        datasets={datasetsByUrl}
-                        streaming={msg.isStreaming && blockIndex === lastTextIndex}
-                        isLoggedIn={!!user}
-                    />
-                </div>
-            );
-        });
-    };
 
     return (
         <div className="flex flex-col h-dvh bg-white overflow-hidden">
@@ -606,7 +606,8 @@ const ChatPage: FC = () => {
                                                                 <span>Collapse</span>
                                                             </button>
                                                         </div>
-                                                        {renderBotMessage(msg, index)}
+                                                        <BotMessageBody message={msg} datasets={datasetsByUrl}
+                                                                        isLoggedIn={!!user}/>
                                                     </div>
                                                 )}
                                             </div>

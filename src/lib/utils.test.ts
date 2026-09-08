@@ -1,5 +1,16 @@
 import {describe, it, expect, vi, afterEach} from "vitest";
-import {getUserErrorMessage, stripHtml, stripMarkdown, fetchWithTimeout, prettyJson, trimTrailingPartialLink, formatFileSize, describeResultCount} from "./utils";
+import {
+    getUserErrorMessage,
+    stripHtml,
+    stripMarkdown,
+    fetchWithTimeout,
+    prettyJson,
+    trimTrailingPartialLink,
+    formatFileSize,
+    describeResultCount,
+    formatPublicationDate,
+    sanitizeLinkHref
+} from "./utils";
 
 describe("describeResultCount", () => {
     it("signals more results without quoting the inflated match total", () => {
@@ -161,5 +172,51 @@ describe("trimTrailingPartialLink", () => {
             "See [Global Carbon](https://doi.org/1)",
         );
         expect(trimTrailingPartialLink("no links here")).toBe("no links here");
+    });
+});
+
+describe("formatPublicationDate", () => {
+    it("keeps a bare year and dots a full date", () => {
+        expect(formatPublicationDate("2023")).toBe("2023");
+        expect(formatPublicationDate("2023-05-17")).toBe("2023.05.17");
+    });
+
+    it("reads the ISO prefix rather than parsing, so a timezone cannot shift the day", () => {
+        expect(formatPublicationDate("2023-05-01T23:00:00+05:00")).toBe("2023.05.01");
+        expect(formatPublicationDate("2023-05-01T00:30:00-06:00")).toBe("2023.05.01");
+    });
+
+    it("returns an unparseable date unchanged instead of throwing", () => {
+        expect(() => formatPublicationDate("n/a")).not.toThrow();
+        expect(formatPublicationDate("n/a")).toBe("n/a");
+        expect(formatPublicationDate("")).toBe("");
+        expect(formatPublicationDate("unknown")).toBe("unknown");
+    });
+
+    it("still formats a non-ISO date the backend can produce", () => {
+        expect(formatPublicationDate("May 17, 2023")).toBe("2023.05.17");
+    });
+});
+
+describe("sanitizeLinkHref", () => {
+    it("passes http and https through", () => {
+        expect(sanitizeLinkHref("https://doi.org/10.5281/zenodo.1")).toBe("https://doi.org/10.5281/zenodo.1");
+        expect(sanitizeLinkHref("http://example.org/ds")).toBe("http://example.org/ds");
+        expect(sanitizeLinkHref("  https://example.org/ds  ")).toBe("https://example.org/ds");
+    });
+
+    it("rejects schemes that would run or embed content", () => {
+        expect(sanitizeLinkHref("javascript:alert(1)")).toBeNull();
+        expect(sanitizeLinkHref("JavaScript:alert(1)")).toBeNull();
+        expect(sanitizeLinkHref("data:text/html,<script>alert(1)</script>")).toBeNull();
+        expect(sanitizeLinkHref("vbscript:msgbox(1)")).toBeNull();
+    });
+
+    it("rejects values that are not URLs at all", () => {
+        expect(sanitizeLinkHref("ds-1")).toBeNull();
+        expect(sanitizeLinkHref("")).toBeNull();
+        expect(sanitizeLinkHref("   ")).toBeNull();
+        expect(sanitizeLinkHref(null)).toBeNull();
+        expect(sanitizeLinkHref(undefined)).toBeNull();
     });
 });

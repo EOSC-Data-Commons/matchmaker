@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.2] - 08/09/2026
+
+Datasets in an AI answer are now cited the way a paper cites its references:
+
+- A dataset mentioned in an answer is a small link that names the repository it comes from and opens the dataset's
+  page in a new tab. Ctrl+click (Cmd+click on a Mac) opens it in a background tab, so several can be opened in a row.
+  Nothing pops up on hover any more.
+- Each mention starts with a bracketed number, [1], [2] and so on, in order of first mention. Clicking the number
+  jumps to that dataset in a new "Datasets cited in this answer" list under the answer and highlights it.
+- The list shows every cited dataset as a compact row: its number, the repository logo, title, year and authors, and
+  the same Play, Source and Cite buttons as a search result. Expand a row to see the full description, subjects and
+  relevance score. The list can be hidden, and comes back when a number is clicked.
+- A "Cited from" line above the list shows which repositories the cited datasets come from, with a count for each.
+- The list fills in while the answer is still streaming, and a number never changes once it has been assigned.
+- Matomo records clicks on a cited dataset's link and on the bracketed numbers, as `citation_source_clicked` and
+  `citation_marker_clicked` under the Dataset and Chat categories.
+
 ## [0.10.1] - 17/08/2026
 
 File previews work again, and the chat is usable on a phone:

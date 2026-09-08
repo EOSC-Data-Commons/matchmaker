@@ -1,3 +1,4 @@
+import type {BackendDataset} from "@/types/commons.ts";
 // Logger utility for error handling and messaging
 
 // Define isDev based on Vite's import.meta.env or Node's process.env
@@ -181,3 +182,44 @@ export function prettyJson(raw: string): string {
         return trimmed;
     }
 }
+
+/** A dataset's publication date: the full date when the backend has one, otherwise the year. */
+export const publicationDateOf = (hit: BackendDataset): string | null =>
+    hit.publication_date || hit._source.publicationYear || null;
+
+/**
+ * A bare year stays as it is; a full date renders as YYYY.MM.DD. The value comes from the
+ * backend unvalidated, so an ISO prefix is read straight off the string rather than parsed
+ * (parsing shifts a date that carries a timezone offset onto the neighbouring day), and a
+ * string that is no date at all is shown as it came instead of throwing mid-render.
+ */
+export const formatPublicationDate = (dateStr: string): string => {
+    const trimmed = dateStr.trim();
+    if (/^\d{4}$/.test(trimmed)) return trimmed;
+
+    const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(trimmed);
+    if (iso) return `${iso[1]}.${iso[2]}.${iso[3]}`;
+
+    const parsed = new Date(trimmed);
+    if (Number.isNaN(parsed.getTime())) return trimmed;
+    // Local components, not toISOString(): a format like "May 17, 2023" parses to local
+    // midnight, which UTC would render as the day before west of Greenwich.
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${parsed.getFullYear()}.${pad(parsed.getMonth() + 1)}.${pad(parsed.getDate())}`;
+};
+
+/**
+ * An href safe to hand to the DOM: http(s) only, so a `javascript:` or `data:` URL coming
+ * from backend data cannot become a live link. Returns null when the value is not a usable
+ * web address, leaving the caller to render the label without linking it.
+ */
+export const sanitizeLinkHref = (href: string | null | undefined): string | null => {
+    const trimmed = href?.trim();
+    if (!trimmed) return null;
+    try {
+        const parsed = new URL(trimmed);
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.toString() : null;
+    } catch {
+        return null;
+    }
+};

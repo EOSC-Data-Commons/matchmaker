@@ -1,5 +1,5 @@
 import {describe, it, expect, vi, beforeEach} from "vitest";
-import {render, screen, waitFor} from "@testing-library/react";
+import {render, screen, waitFor, within} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {MemoryRouter, Route, Routes} from "react-router";
 import {http, HttpResponse} from "msw";
@@ -83,7 +83,7 @@ describe("ChatPage", () => {
         expect(screen.getByText("Let me look that up.")).toBeInTheDocument();
     });
 
-    it("renders a cited dataset as an interactive reference and other links as plain links", async () => {
+    it("renders a cited dataset as a numbered reference with a list entry, and other links as plain links", async () => {
         const user = userEvent.setup();
         renderChat();
 
@@ -96,10 +96,16 @@ describe("ChatPage", () => {
         expect(external).toHaveAttribute("target", "_blank");
         expect(external).toHaveAttribute("rel", "noopener noreferrer");
 
-        // Matched link: a chip that reveals the dataset card when clicked.
-        const citation = await screen.findByRole("button", {name: /Ocean temps/});
-        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-        await user.click(citation);
-        expect(await screen.findByRole("dialog")).toHaveTextContent("Ocean Temperatures 2023");
+        // Matched link: a pill linking straight to the source, followed by its [1] marker.
+        const pill = await screen.findByRole("link", {name: /Ocean temps/});
+        expect(pill).toHaveAttribute("href", DATASET_URL);
+        expect(screen.getByRole("button", {name: /Reference 1: Ocean Temperatures 2023/})).toHaveTextContent("[1]");
+
+        // The reference list under the answer carries the same number and the card's actions.
+        const references = screen.getByRole("region", {name: "Datasets cited in this answer"});
+        expect(within(references).getByText("[1]")).toBeInTheDocument();
+        expect(within(references).getByText("Ocean Temperatures 2023")).toBeInTheDocument();
+        expect(within(references).getByRole("link", {name: /source of dataset Ocean Temperatures 2023/}))
+            .toHaveAttribute("href", hit._id);
     });
 });

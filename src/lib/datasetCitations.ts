@@ -1,4 +1,4 @@
-import type {Message} from "@/types/chat.ts";
+import type {Message, MessageBlock} from "@/types/chat.ts";
 import type {BackendDataset} from "@/types/commons.ts";
 
 /**
@@ -45,3 +45,38 @@ export const buildDatasetUrlMap = (messages: Message[]): Map<string, BackendData
 
 export const lookupDataset = (map: Map<string, BackendDataset>, href: string): BackendDataset | null =>
     map.get(normalizeDatasetUrl(href)) ?? null;
+
+export interface DatasetCitation {
+    // 1-based position in the message's reference list, by order of first mention.
+    number: number;
+    dataset: BackendDataset;
+}
+
+// The link forms MessageMarkdown renders: [label](url), also inside **bold**.
+const MARKDOWN_LINK = /\[(.+?)]\((.+?)\)/g;
+
+/**
+ * Numbers the datasets an assistant message cites, in order of first mention across
+ * its text blocks, so the answer can carry [n] markers and a matching reference list.
+ * A dataset cited twice keeps its first number; links that resolve to no search hit
+ * are not citations. A link still streaming in has no closing parenthesis yet, so it
+ * is simply not counted until it is complete, which keeps earlier numbers stable.
+ */
+export const collectCitations = (blocks: MessageBlock[], datasets: Map<string, BackendDataset>): DatasetCitation[] => {
+    const citations: DatasetCitation[] = [];
+    const seen = new Set<string>();
+    for (const block of blocks) {
+        if (block.kind !== 'text') continue;
+        const pattern = new RegExp(MARKDOWN_LINK.source, 'g');
+        let match: RegExpExecArray | null;
+        while ((match = pattern.exec(block.text)) !== null) {
+            const key = normalizeDatasetUrl(match[2]);
+            if (seen.has(key)) continue;
+            const dataset = datasets.get(key);
+            if (!dataset) continue;
+            seen.add(key);
+            citations.push({number: citations.length + 1, dataset});
+        }
+    }
+    return citations;
+};

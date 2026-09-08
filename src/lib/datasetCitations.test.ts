@@ -1,9 +1,9 @@
 import {describe, it, expect} from "vitest";
 import {makeDataset} from "@/test/fixtures/datasets";
 import type {SSEEvent} from "@/lib/api";
-import type {Message} from "@/types/chat";
+import type {Message, MessageBlock} from "@/types/chat";
 import {applyChatEvent} from "./chatMessages";
-import {buildDatasetUrlMap, lookupDataset, normalizeDatasetUrl} from "./datasetCitations";
+import {buildDatasetUrlMap, collectCitations, lookupDataset, normalizeDatasetUrl} from "./datasetCitations";
 
 const DATASET_URL = "https://doi.org/10.5281/zenodo.1234567";
 const hit = makeDataset({dataset_url: DATASET_URL});
@@ -37,5 +37,34 @@ describe("dataset URL resolution", () => {
             {type: "TOOL_CALL_RESULT", tool_call_id: "c1", content: JSON.stringify({hits: [makeDataset()]})},
         ]);
         expect(buildDatasetUrlMap(messages).size).toBe(0);
+    });
+});
+
+describe("collectCitations", () => {
+    const SECOND_URL = "https://doi.org/10.5281/zenodo.7654321";
+    const second = makeDataset({dataset_url: SECOND_URL, _id: SECOND_URL});
+    const datasets = new Map([
+        [normalizeDatasetUrl(DATASET_URL), hit],
+        [normalizeDatasetUrl(SECOND_URL), second],
+    ]);
+    const text = (t: string): MessageBlock => ({kind: "text", text: t});
+
+    it("numbers cited datasets by first mention across the message's text blocks", () => {
+        const citations = collectCitations([
+            text(`Start with [B](${SECOND_URL}) then **[A](${DATASET_URL})**.`),
+            {kind: "tool", toolCall: {id: "c1", name: "search_data", args: ""}},
+            // Repeats, one with the URL rewritten the way the model sometimes does.
+            text(`Again [B](${SECOND_URL}) and [A](http://dx.doi.org/10.5281/ZENODO.1234567/).`),
+        ], datasets);
+        expect(citations.map(c => [c.number, c.dataset])).toEqual([[1, second], [2, hit]]);
+    });
+
+    it("ignores links that resolve to no search hit", () => {
+        expect(collectCitations([text("See [the docs](https://example.org/docs).")], datasets)).toEqual([]);
+    });
+
+    it("does not count a link that is still streaming in", () => {
+        const citations = collectCitations([text(`Found [A](${DATASET_URL}) and [B](https://doi.org/10.5281/zen`)], datasets);
+        expect(citations.map(c => c.dataset)).toEqual([hit]);
     });
 });

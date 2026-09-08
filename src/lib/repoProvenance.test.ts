@@ -1,5 +1,5 @@
 import {describe, it, expect} from "vitest";
-import {getAggregator, getOwner, getRepository} from "./repoProvenance";
+import {getAggregator, getOwner, getProvenanceSource, getRepository} from "./repoProvenance";
 import type {BackendDataset} from "../types/commons";
 
 // Minimal hit builder — only the provenance-relevant fields matter here.
@@ -39,6 +39,21 @@ describe("getRepository", () => {
     it("maps known repo codes to a logo", () => {
         expect(getRepository(hit({_repo: "DANS"}))).toMatchObject({code: "DANS", name: "DANS"});
         expect(getRepository(hit({_repo: "hal"}))?.name).toBe("HAL Open Science");
+        expect(getRepository(hit({_repo: "EMPIAR"}))).toMatchObject({
+            code: "EMPIAR",
+            name: "EMPIAR",
+            logo: "https://www.ebi.ac.uk/em_static/empiar/EMPIAR_logo_2017_black_font.png",
+        });
+    });
+
+    // The repository codes the /stats endpoint reports as active, minus ONE (Onedata),
+    // which is an aggregator and so resolves through getAggregator instead. Each of these
+    // reaches the badge, where a missing logo shows as bare text next to the others' marks.
+    it("has a logo for every active repository", () => {
+        const active = ["DANS", "PANOSC", "HAL", "MDDB", "EMPIAR", "SWISSUBASE",
+            "ZENODO", "DABAR", "DATAVERSELV", "FINBIF", "DASCH"];
+        const missing = active.filter(code => !getRepository(hit({_repo: code}))?.logo);
+        expect(missing).toEqual([]);
     });
 
     it("links to the record's own landing page", () => {
@@ -95,5 +110,23 @@ describe("getOwner", () => {
                 nameIdentifiers: [{nameIdentifierScheme: "ORCID", nameIdentifier: "0009-0005-7532-6624"}],
             }],
         }))).toBeNull();
+    });
+});
+
+describe("getProvenanceSource", () => {
+    it("names the source repository of a directly harvested record", () => {
+        expect(getProvenanceSource(hit({_repo: "HAL"}))?.name).toBe("HAL Open Science");
+        expect(getProvenanceSource(hit({_repo: "EMPIAR"}))?.name).toBe("EMPIAR");
+        // Unknown code: still named, as text.
+        expect(getProvenanceSource(hit({_repo: "FOO"}))?.name).toBe("FOO");
+    });
+
+    it("names the owner of an aggregated record, or the aggregator when the owner is unknown", () => {
+        expect(getProvenanceSource(hit({_repo: "ONE", creators: bgeeCreator}))?.name).toBe("Bgee");
+        expect(getProvenanceSource(hit({_repo: "ONE", creators: personalCreator}))?.name).toBe("Onedata");
+    });
+
+    it("is null when nothing is known", () => {
+        expect(getProvenanceSource(hit({}))).toBeNull();
     });
 });

@@ -1,81 +1,88 @@
-import {useRef, useState} from "react";
 import {FileText} from "lucide-react";
 import type {BackendDataset} from "../types/commons.ts";
-import {SearchResultItem} from "./SearchResultItem.tsx";
+import {getProvenanceSource} from "../lib/repoProvenance.ts";
+import {sanitizeLinkHref} from "../lib/utils.ts";
+import useMatomo from "../hooks/useMatomo";
 
 interface DatasetReferenceProps {
     // The dataset this citation resolved to (matched on the link's href).
     dataset: BackendDataset;
     // Link text chosen by the model (e.g. "Global Carbon Budget"); falls back to the dataset title.
     label?: string;
-    isLoggedIn?: boolean;
+    // Position in the message's reference list. Omitted when the message has no list.
+    number?: number;
+    // Called with the reference number when the [n] marker is activated.
+    onJump?: (number: number) => void;
 }
 
 /**
- * Inline citation-style reference to a dataset from the search results.
- * Renders a small interactive chip; hovering or clicking reveals the dataset card.
+ * Inline citation of a dataset from the search results, in the style of a numbered
+ * reference. The dataset name is a pill that links straight to the source, so a plain
+ * click opens it and a modifier-click opens it in a background tab; the pill names the
+ * repository the data comes from. The bracketed [n] in front of it jumps to the
+ * dataset's entry in the message's reference list, where the card details and
+ * actions live; leading with the number is what pairs the pill with that entry.
+ * Nothing opens on hover.
  */
-export const DatasetReference = ({dataset, label, isLoggedIn = false}: DatasetReferenceProps) => {
-    const [open, setOpen] = useState(false);
-    const [pinned, setPinned] = useState(false);
-    const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-    const cancelClose = () => {
-        if (closeTimer.current) {
-            clearTimeout(closeTimer.current);
-            closeTimer.current = null;
-        }
-    };
-
-    const scheduleClose = () => {
-        cancelClose();
-        closeTimer.current = setTimeout(() => setOpen(false), 150);
-    };
+export const DatasetReference = ({dataset, label, number, onJump}: DatasetReferenceProps) => {
+    const {trackEvent} = useMatomo();
 
     const title = dataset.title || dataset._source?.titles?.[0]?.title || 'dataset';
-    const chipText = label || title;
-    const visible = open || pinned;
+    // Both the URL and the id are backend data, so neither is trusted as a link target.
+    const href = sanitizeLinkHref(dataset.dataset_url || dataset._id);
+    const source = getProvenanceSource(dataset);
+    const reference = number === undefined
+        ? null
+        : `Reference ${number}: ${title}${source ? ` (${source.name})` : ''}`;
+
+    // Inline (not inline-flex) so a long title wraps across lines with the text;
+    // box-decoration-clone keeps the pill background/border on every wrapped line.
+    const pillClass = 'mx-0.5 rounded bg-blue-50 px-1.5 py-px text-xs font-medium text-blue-700 '
+        + 'border border-blue-200 [box-decoration-break:clone]';
+    const pill = (
+        <>
+            <FileText className="inline-block h-3 w-3 mr-1 align-[-0.125em]"/>
+            {label || title}
+            {source && (
+                <span className="ml-1.5 border-l border-blue-200 pl-1.5 font-normal text-gray-500">
+                    {source.name}
+                </span>
+            )}
+        </>
+    );
 
     return (
-        <span className="relative">
-            <span
-                role="button"
-                tabIndex={0}
-                onClick={() => {
-                    setPinned(p => !p);
-                    setOpen(true);
-                }}
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        setPinned(p => !p);
-                        setOpen(true);
-                    }
-                }}
-                onMouseEnter={() => {
-                    cancelClose();
-                    setOpen(true);
-                }}
-                onMouseLeave={scheduleClose}
-                title={title}
-                // Inline (not inline-flex) so a long title wraps across lines with the text;
-                // box-decoration-clone keeps the pill background/border on every wrapped line.
-                className="mx-0.5 rounded bg-blue-50 px-1.5 py-px text-xs font-medium text-blue-700 border border-blue-200 hover:bg-blue-100 hover:border-blue-300 transition-colors cursor-pointer [box-decoration-break:clone]"
-            >
-                <FileText className="inline-block h-3 w-3 mr-1 align-[-0.125em]"/>
-                {chipText}
-            </span>
-
-            {visible && (
-                <div
-                    onMouseEnter={cancelClose}
-                    onMouseLeave={scheduleClose}
-                    className="absolute z-30 left-0 top-full mt-1 w-[min(90vw,480px)] text-left"
-                    role="dialog"
+        <>
+            {reference && (
+                <button
+                    type="button"
+                    onClick={() => {
+                        trackEvent('Chat', 'citation_marker_clicked');
+                        onJump?.(number!);
+                    }}
+                    title={reference}
+                    aria-label={reference}
+                    className="mr-0.5 rounded px-0.5 text-[13px] font-semibold text-blue-700 tabular-nums whitespace-nowrap hover:bg-blue-50 hover:underline cursor-pointer"
                 >
-                    <SearchResultItem hit={dataset} isLoggedIn={isLoggedIn}/>
-                </div>
+                    [{number}]
+                </button>
             )}
-        </span>
+            {href ? (
+                <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={title}
+                    onClick={() => trackEvent('Dataset', 'citation_source_clicked', title)}
+                    className={`${pillClass} hover:bg-blue-100 hover:border-blue-300 transition-colors`}
+                >
+                    {pill}
+                </a>
+            ) : (
+                // No usable source URL: the citation still names the dataset, it just does
+                // not pretend to be clickable.
+                <span title={title} className={pillClass}>{pill}</span>
+            )}
+        </>
     );
 };

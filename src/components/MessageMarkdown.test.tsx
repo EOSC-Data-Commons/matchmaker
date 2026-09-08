@@ -1,25 +1,43 @@
-import {describe, it, expect} from "vitest";
+import {describe, it, expect, vi} from "vitest";
 import {render, screen} from "@testing-library/react";
-import {MemoryRouter} from "react-router";
+import userEvent from "@testing-library/user-event";
 import {makeDataset} from "@/test/fixtures/datasets";
 import type {BackendDataset} from "@/types/commons";
-import {normalizeDatasetUrl} from "@/lib/datasetCitations";
+import {normalizeDatasetUrl, type DatasetCitation} from "@/lib/datasetCitations";
 import {MessageMarkdown} from "./MessageMarkdown";
 
 const DATASET_URL = "https://doi.org/10.5281/zenodo.1234567";
-const hit = makeDataset({dataset_url: DATASET_URL, title: "Ocean Temperatures 2023"});
+const hit = makeDataset({dataset_url: DATASET_URL, title: "Ocean Temperatures 2023", _source: {_repo: "Zenodo"}});
 const datasets = new Map<string, BackendDataset>([[normalizeDatasetUrl(DATASET_URL), hit]]);
 
-const renderMarkdown = (text: string, streaming = false) => render(
-    // SearchResultItem (rendered by a dataset citation) reads the search params.
-    <MemoryRouter><MessageMarkdown text={text} datasets={datasets} streaming={streaming}/></MemoryRouter>,
+const renderMarkdown = (
+    text: string,
+    streaming = false,
+    citations?: DatasetCitation[],
+    onCite?: (number: number) => void,
+) => render(
+    <MessageMarkdown text={text} datasets={datasets} streaming={streaming} citations={citations} onCite={onCite}/>,
 );
 
 describe("MessageMarkdown", () => {
-    it("renders a link to a known dataset as a citation chip", () => {
+    it("renders a link to a known dataset as a pill linking to the source, tagged with its repository", () => {
         renderMarkdown(`See [Ocean temps](${DATASET_URL}) for details.`);
-        expect(screen.getByRole("button", {name: /Ocean temps/})).toBeInTheDocument();
-        expect(screen.queryByRole("link")).not.toBeInTheDocument();
+        const pill = screen.getByRole("link", {name: /Ocean temps/});
+        expect(pill).toHaveAttribute("href", DATASET_URL);
+        expect(pill).toHaveAttribute("target", "_blank");
+        expect(pill).toHaveAttribute("rel", "noopener noreferrer");
+        expect(pill).toHaveTextContent("Zenodo");
+        // Without the message's citations there is no reference list to point at.
+        expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    });
+
+    it("follows a cited dataset with a [n] marker that reports its reference number", async () => {
+        const onCite = vi.fn();
+        renderMarkdown(`See [Ocean temps](${DATASET_URL}).`, false, [{number: 3, dataset: hit}], onCite);
+        const marker = screen.getByRole("button", {name: "Reference 3: Ocean Temperatures 2023 (Zenodo)"});
+        expect(marker).toHaveTextContent("[3]");
+        await userEvent.click(marker);
+        expect(onCite).toHaveBeenCalledWith(3);
     });
 
     it("renders an unknown link as a safe external link", () => {
@@ -44,6 +62,24 @@ describe("MessageMarkdown", () => {
         expect(screen.getByRole("link", {name: "the docs"}).className).toContain("font-semibold");
         expect(screen.getByText("•")).toBeInTheDocument();
         expect(screen.getByText("1.")).toBeInTheDocument();
+    });
+
+    // A blank line renders as an empty `min-h-6` paragraph, so unnormalized padding
+    // around the agent's text showed up as large white gaps between tool calls.
+    it("keeps one blank line as a paragraph break and drops the rest", () => {
+        const emptyParagraphs = (container: HTMLElement) =>
+            Array.from(container.querySelectorAll("p")).filter(p => p.textContent === "").length;
+
+        const padded = renderMarkdown("\n\nI'll search for datasets.\n\n\n\n").container;
+        expect(padded.querySelectorAll("p")).toHaveLength(1);
+        expect(emptyParagraphs(padded)).toBe(0);
+
+        const runOfBlanks = renderMarkdown("First paragraph.\n\n\n\nSecond paragraph.").container;
+        expect(emptyParagraphs(runOfBlanks)).toBe(1);
+
+        // A single deliberate break still separates the two paragraphs.
+        const singleBreak = renderMarkdown("First paragraph.\n\nSecond paragraph.").container;
+        expect(emptyParagraphs(singleBreak)).toBe(1);
     });
 
     it("hides a trailing partial link only while streaming", () => {
