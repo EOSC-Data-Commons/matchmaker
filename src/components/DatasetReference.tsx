@@ -1,6 +1,7 @@
 import {FileText} from "lucide-react";
 import type {BackendDataset} from "../types/commons.ts";
 import {getProvenanceSource} from "../lib/repoProvenance.ts";
+import {sanitizeLinkHref} from "../lib/utils.ts";
 import useMatomo from "../hooks/useMatomo";
 
 interface DatasetReferenceProps {
@@ -27,11 +28,28 @@ export const DatasetReference = ({dataset, label, number, onJump}: DatasetRefere
     const {trackEvent} = useMatomo();
 
     const title = dataset.title || dataset._source?.titles?.[0]?.title || 'dataset';
-    const href = dataset.dataset_url || dataset._id;
+    // Both the URL and the id are backend data, so neither is trusted as a link target.
+    const href = sanitizeLinkHref(dataset.dataset_url || dataset._id);
     const source = getProvenanceSource(dataset);
     const reference = number === undefined
         ? null
         : `Reference ${number}: ${title}${source ? ` (${source.name})` : ''}`;
+
+    // Inline (not inline-flex) so a long title wraps across lines with the text;
+    // box-decoration-clone keeps the pill background/border on every wrapped line.
+    const pillClass = 'mx-0.5 rounded bg-blue-50 px-1.5 py-px text-xs font-medium text-blue-700 '
+        + 'border border-blue-200 [box-decoration-break:clone]';
+    const pill = (
+        <>
+            <FileText className="inline-block h-3 w-3 mr-1 align-[-0.125em]"/>
+            {label || title}
+            {source && (
+                <span className="ml-1.5 border-l border-blue-200 pl-1.5 font-normal text-gray-500">
+                    {source.name}
+                </span>
+            )}
+        </>
+    );
 
     return (
         <>
@@ -49,24 +67,22 @@ export const DatasetReference = ({dataset, label, number, onJump}: DatasetRefere
                     [{number}]
                 </button>
             )}
-            <a
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={title}
-                onClick={() => trackEvent('Dataset', 'citation_source_clicked', title)}
-                // Inline (not inline-flex) so a long title wraps across lines with the text;
-                // box-decoration-clone keeps the pill background/border on every wrapped line.
-                className="mx-0.5 rounded bg-blue-50 px-1.5 py-px text-xs font-medium text-blue-700 border border-blue-200 hover:bg-blue-100 hover:border-blue-300 transition-colors [box-decoration-break:clone]"
-            >
-                <FileText className="inline-block h-3 w-3 mr-1 align-[-0.125em]"/>
-                {label || title}
-                {source && (
-                    <span className="ml-1.5 border-l border-blue-200 pl-1.5 font-normal text-gray-500">
-                        {source.name}
-                    </span>
-                )}
-            </a>
+            {href ? (
+                <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={title}
+                    onClick={() => trackEvent('Dataset', 'citation_source_clicked', title)}
+                    className={`${pillClass} hover:bg-blue-100 hover:border-blue-300 transition-colors`}
+                >
+                    {pill}
+                </a>
+            ) : (
+                // No usable source URL: the citation still names the dataset, it just does
+                // not pretend to be clickable.
+                <span title={title} className={pillClass}>{pill}</span>
+            )}
         </>
     );
 };

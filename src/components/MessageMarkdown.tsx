@@ -1,7 +1,7 @@
 import {Fragment, JSX, useMemo} from "react";
 import type {BackendDataset} from "../types/commons.ts";
 import {lookupDataset, type DatasetCitation} from "../lib/datasetCitations.ts";
-import {trimTrailingPartialLink} from "../lib/utils.ts";
+import {sanitizeLinkHref, trimTrailingPartialLink} from "../lib/utils.ts";
 import {DatasetReference} from "./DatasetReference.tsx";
 
 interface MessageMarkdownProps {
@@ -16,17 +16,6 @@ interface MessageMarkdownProps {
     // Called with the reference number when a [n] marker is activated.
     onCite?: (number: number) => void;
 }
-
-const sanitizeLinkHref = (href: string): string | null => {
-    const trimmed = href.trim();
-    if (!trimmed) return null;
-    try {
-        const parsed = new URL(trimmed);
-        return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.toString() : null;
-    } catch {
-        return null;
-    }
-};
 
 /**
  * Renders the subset of Markdown the assistant produces: links, bold, and

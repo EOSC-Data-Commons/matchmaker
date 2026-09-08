@@ -2,7 +2,7 @@ import type {BackendDataset} from "../types/commons.ts";
 import {CalendarIcon, UserIcon, ExternalLinkIcon, TagIcon, Rocket} from "lucide-react";
 import {ProportionalStar} from './ProportionalStar';
 import {CitationExport} from './CitationExport';
-import {formatPublicationDate, publicationDateOf, stripHtml} from "../lib/utils";
+import {formatPublicationDate, publicationDateOf, sanitizeLinkHref, stripHtml} from "../lib/utils";
 import {loginWithReturn} from "../lib/authRedirect";
 import {useState} from 'react';
 import {useSearchParams} from 'react-router';
@@ -162,6 +162,9 @@ export const DatasetActions = ({hit, isLoggedIn = false, compact = false}: Datas
 
     const size = compact ? 'px-2.5 py-1 text-xs' : 'px-3 py-1.5 text-sm';
     const icon = compact ? 'h-3.5 w-3.5' : 'h-4 w-4';
+    // The id doubles as the dataset's source URL, but it is backend data: link to it only
+    // once it is known to be an http(s) address, otherwise leave the button out.
+    const sourceHref = sanitizeLinkHref(hit._id);
 
     return (
         <div className={`flex ${compact ? 'gap-2' : 'space-x-4'}`}>
@@ -180,13 +183,15 @@ export const DatasetActions = ({hit, isLoggedIn = false, compact = false}: Datas
                     </div>
                 )}
             </div>
-            <a href={hit._id} target="_blank" rel="noopener noreferrer"
-               onClick={() => trackEvent('Dataset', 'source_clicked', hit.title)}
-               aria-label={`Redirect to the source of dataset ${hit.title}`}
-               className={`inline-flex items-center justify-center gap-1 rounded-md bg-blue-600 ${size} font-medium text-white shadow-sm hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-colors cursor-pointer`}>
-                <ExternalLinkIcon className={icon}/>
-                <span className="leading-none">Source</span>
-            </a>
+            {sourceHref && (
+                <a href={sourceHref} target="_blank" rel="noopener noreferrer"
+                   onClick={() => trackEvent('Dataset', 'source_clicked', hit.title)}
+                   aria-label={`Redirect to the source of dataset ${hit.title}`}
+                   className={`inline-flex items-center justify-center gap-1 rounded-md bg-blue-600 ${size} font-medium text-white shadow-sm hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-colors cursor-pointer`}>
+                    <ExternalLinkIcon className={icon}/>
+                    <span className="leading-none">Source</span>
+                </a>
+            )}
             <CitationExport dataset={hit} compact={compact}/>
         </div>
     );
