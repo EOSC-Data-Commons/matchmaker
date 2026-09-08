@@ -48,9 +48,11 @@ const PLATFORM_HOSTS: { suffix: string; code: string }[] = [
 
 // ── Source repositories (single logo when harvested directly, no aggregator) ──
 // Keyed by the upstream `_repo` code. Official EOSC CDN assets from the Confluence "Data Model" page
-// where they actually resolve. PaNOSC and EMPIAR use the project's own logo (PaNOSC's CDN copy 302s
-// to the homepage — not uploaded; EMPIAR has no CDN asset). MDDB has no working asset yet (CDN SVG
-// missing) so it falls back to text.
+// where they actually resolve. PaNOSC, EMPIAR, MDDB and DataverseLV have no usable CDN asset, so they
+// hotlink the project's own logo instead: PaNOSC's CDN copy 302s to the homepage (never uploaded),
+// EMPIAR has none, and the MDDB / DataverseLV marks are SVG, which the CDN's WordPress rejects on
+// upload. A hotlinked URL can move without notice; LogoImg falls back to the repository name as text
+// when an image fails to load, so that degrades quietly rather than breaking the badge.
 const REPOSITORIES: Record<string, { name: string; logo: string | null }> = {
     DANS: {name: "DANS", logo: `${CDN}/2025/04/DANS.png`},
     HAL: {name: "HAL Open Science", logo: `${CDN}/2025/07/HAL.png`},
@@ -69,8 +71,14 @@ const REPOSITORIES: Record<string, { name: string; logo: string | null }> = {
         name: "EMPIAR",
         logo: "https://www.ebi.ac.uk/em_static/empiar/EMPIAR_logo_2017_black_font.png"
     },
-    MDDB: {name: "MDDB", logo: null},
-    DATAVERSELV: {name: "DataverseLV", logo: null}, // https://dataverse.lv/en/
+    MDDB: {
+        name: "MDDB",
+        logo: "https://mddbr.eu/wp-content/uploads/2023/06/MDDB_Logo_colour.svg"
+    },
+    DATAVERSELV: {
+        name: "DataverseLV",
+        logo: "https://dataverse.lv/wp-content/uploads/2025/03/dataverseLV-1.svg"
+    },
 };
 
 // ── Owner logos (left, for aggregated records) ───────────────────────────────

@@ -46,6 +46,16 @@ describe("getRepository", () => {
         });
     });
 
+    // The repository codes the /stats endpoint reports as active, minus ONE (Onedata),
+    // which is an aggregator and so resolves through getAggregator instead. Each of these
+    // reaches the badge, where a missing logo shows as bare text next to the others' marks.
+    it("has a logo for every active repository", () => {
+        const active = ["DANS", "PANOSC", "HAL", "MDDB", "EMPIAR", "SWISSUBASE",
+            "ZENODO", "DABAR", "DATAVERSELV", "FINBIF", "DASCH"];
+        const missing = active.filter(code => !getRepository(hit({_repo: code}))?.logo);
+        expect(missing).toEqual([]);
+    });
+
     it("links to the record's own landing page", () => {
         expect(getRepository(hit({_repo: "HAL", _id: "https://hal.inrae.fr/hal-1"}))?.href)
             .toBe("https://hal.inrae.fr/hal-1");
