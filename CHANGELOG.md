@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.10.2] - 08/09/2026
+## [0.10.3] - 08/09/2026
 
 Datasets in an AI answer are now cited the way a paper cites its references:
 
