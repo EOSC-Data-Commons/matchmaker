@@ -9,8 +9,7 @@ import {buildDatasetUrlMap} from "@/lib/datasetCitations.ts";
 import {getUserInitials} from "@/lib/userUtils.ts";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
 import {ChevronDown, ChevronUp, Loader2, Menu, MessageSquare, Plus, Send, User, X} from "lucide-react";
-import {MessageMarkdown} from "@/components/MessageMarkdown.tsx";
-import {ToolCallEntry} from "@/components/ToolCallEntry.tsx";
+import {BotMessageBody} from "@/components/BotMessageBody.tsx";
 import {SearchInput} from "@/components/SearchInput.tsx";
 import {DeleteConversationDialog} from "@/components/DeleteConversationDialog.tsx";
 import {ConversationSidebarItem} from "@/components/ConversationSidebarItem.tsx";
@@ -369,35 +368,6 @@ const ChatPage: FC = () => {
     const lastMessage = messages[messages.length - 1];
     const lastMessageIsStreaming = !!lastMessage?.isStreaming && (lastMessage.blocks?.length ?? 0) > 0;
 
-    /** Bot message body: tool calls and text in the order the agent produced them. */
-    const renderBotMessage = (msg: Message, msgIndex: number) => {
-        const blocks = msg.blocks ?? (msg.content ? [{kind: 'text' as const, text: msg.content}] : []);
-        const lastTextIndex = blocks.reduce((acc, b, i) => (b.kind === 'text' ? i : acc), -1);
-
-        return blocks.map((block, blockIndex) => {
-            if (block.kind === 'tool') {
-                return (
-                    <ToolCallEntry
-                        key={`tool-${msgIndex}-${block.toolCall.id}`}
-                        toolCall={block.toolCall}
-                        isLoggedIn={!!user}
-                    />
-                );
-            }
-            if (!block.text.trim()) return null;
-            return (
-                <div key={`text-${msgIndex}-${blockIndex}`}>
-                    <MessageMarkdown
-                        text={block.text}
-                        datasets={datasetsByUrl}
-                        streaming={msg.isStreaming && blockIndex === lastTextIndex}
-                        isLoggedIn={!!user}
-                    />
-                </div>
-            );
-        });
-    };
-
     return (
         <div className="flex flex-col h-dvh bg-white overflow-hidden">
             <DeleteConversationDialog
@@ -606,7 +576,8 @@ const ChatPage: FC = () => {
                                                                 <span>Collapse</span>
                                                             </button>
                                                         </div>
-                                                        {renderBotMessage(msg, index)}
+                                                        <BotMessageBody message={msg} datasets={datasetsByUrl}
+                                                                        isLoggedIn={!!user}/>
                                                     </div>
                                                 )}
                                             </div>
