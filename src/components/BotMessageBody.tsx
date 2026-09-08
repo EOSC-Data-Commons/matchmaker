@@ -47,6 +47,7 @@ export const BotMessageBody = ({message, datasets, isLoggedIn}: BotMessageBodyPr
                     );
                 }
                 if (!block.text.trim()) return null;
+                const streaming = !!message.isStreaming && blockIndex === lastTextIndex;
                 return (
                     <div key={`text-${blockIndex}`}>
                         <MessageMarkdown
@@ -54,8 +55,10 @@ export const BotMessageBody = ({message, datasets, isLoggedIn}: BotMessageBodyPr
                             datasets={datasets}
                             citations={citations}
                             onCite={onCite}
-                            streaming={message.isStreaming && blockIndex === lastTextIndex}
+                            streaming={streaming}
                         />
+                        {/* Where the words being written end; the chat page keeps this in view. */}
+                        {streaming && <div data-streaming-end aria-hidden="true"/>}
                     </div>
                 );
             })}

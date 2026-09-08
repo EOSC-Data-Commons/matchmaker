@@ -60,9 +60,19 @@ const ChatPage: FC = () => {
     // To prevent processing initial state multiple times
     const initialQueryProcessed = useRef(false);
 
-    // Whether the view is following the bottom of the thread; false once the user
-    // scrolls up, so streamed content does not yank them back down.
+    // Whether the view is following the streamed content; false once the user
+    // scrolls away from it, so new content does not yank them back.
     const followingRef = useRef(true);
+    // True once the current run's answer text has been followed, so the final
+    // update of the run does not pull the reference list into view.
+    const answerFollowedRef = useRef(false);
+
+    // While an answer streams, BotMessageBody marks the end of its newest text.
+    // The view follows that mark rather than the end of the thread: the reference
+    // list under the answer grows with it and would otherwise fill the viewport
+    // while the words being written sit above the fold.
+    const streamingAnchor = () =>
+        messagesContainerRef.current?.querySelector<HTMLElement>('[data-streaming-end]') ?? null;
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView?.({behavior: "smooth"});
@@ -70,13 +80,32 @@ const ChatPage: FC = () => {
 
     const scrollToBottomIfFollowing = () => {
         if (!followingRef.current) return;
-        requestAnimationFrame(() => messagesEndRef.current?.scrollIntoView?.({block: 'end'}));
+        requestAnimationFrame(() => {
+            const anchor = streamingAnchor();
+            if (anchor) {
+                anchor.scrollIntoView?.({block: 'end'});
+                answerFollowedRef.current = true;
+                return;
+            }
+            // The answer has ended: leave the reader where its text ended.
+            if (answerFollowedRef.current) return;
+            messagesEndRef.current?.scrollIntoView?.({block: 'end'});
+        });
     };
 
     const handleScroll = () => {
-        if (!messagesContainerRef.current) return;
-        const {scrollTop, scrollHeight, clientHeight} = messagesContainerRef.current;
+        const container = messagesContainerRef.current;
+        if (!container) return;
+        const {scrollTop, scrollHeight, clientHeight} = container;
         const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+        const anchor = streamingAnchor();
+        if (anchor) {
+            // Following the answer: its newest text is within the view or just below it.
+            const gap = anchor.getBoundingClientRect().bottom - container.getBoundingClientRect().bottom;
+            followingRef.current = gap < 100 && gap > -clientHeight;
+            setShowScrollButton(!isNearBottom && !followingRef.current);
+            return;
+        }
         followingRef.current = isNearBottom;
         setShowScrollButton(!isNearBottom);
     };
@@ -275,6 +304,7 @@ const ChatPage: FC = () => {
             messages: updatedMessages,
         });
         setIsSending(true);
+        answerFollowedRef.current = false;
         setTimeout(scrollToBottom, 50);
 
         // Turn a stream failure into a user-facing error bubble instead of a
