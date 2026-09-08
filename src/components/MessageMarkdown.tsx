@@ -103,7 +103,13 @@ export const MessageMarkdown = ({text, datasets, streaming = false, citations = 
         return nodes.map((node, idx) => <Fragment key={`md-frag-${lineIndex}-${idx}`}>{node}</Fragment>);
     };
 
-    const content = streaming ? trimTrailingPartialLink(text) : text;
+    // Every line becomes its own `min-h-6` paragraph below, so a raw blank line is
+    // 24px of empty space. The agent pads its text with newlines around tool calls,
+    // which stacked up into large gaps; collapse a run of blanks to the single break
+    // it means and drop the padding at the edges, leaving the block spacing to the caller.
+    const content = (streaming ? trimTrailingPartialLink(text) : text)
+        .replace(/\n{3,}/g, '\n\n')
+        .replace(/^\n+|\n+$/g, '');
 
     return (
         <>

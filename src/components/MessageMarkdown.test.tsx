@@ -64,6 +64,24 @@ describe("MessageMarkdown", () => {
         expect(screen.getByText("1.")).toBeInTheDocument();
     });
 
+    // A blank line renders as an empty `min-h-6` paragraph, so unnormalized padding
+    // around the agent's text showed up as large white gaps between tool calls.
+    it("keeps one blank line as a paragraph break and drops the rest", () => {
+        const emptyParagraphs = (container: HTMLElement) =>
+            Array.from(container.querySelectorAll("p")).filter(p => p.textContent === "").length;
+
+        const padded = renderMarkdown("\n\nI'll search for datasets.\n\n\n\n").container;
+        expect(padded.querySelectorAll("p")).toHaveLength(1);
+        expect(emptyParagraphs(padded)).toBe(0);
+
+        const runOfBlanks = renderMarkdown("First paragraph.\n\n\n\nSecond paragraph.").container;
+        expect(emptyParagraphs(runOfBlanks)).toBe(1);
+
+        // A single deliberate break still separates the two paragraphs.
+        const singleBreak = renderMarkdown("First paragraph.\n\nSecond paragraph.").container;
+        expect(emptyParagraphs(singleBreak)).toBe(1);
+    });
+
     it("hides a trailing partial link only while streaming", () => {
         renderMarkdown("Found [Ocean te", true);
         expect(screen.getByText("Found")).toBeInTheDocument();
