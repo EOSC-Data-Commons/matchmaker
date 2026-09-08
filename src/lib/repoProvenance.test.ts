@@ -39,6 +39,11 @@ describe("getRepository", () => {
     it("maps known repo codes to a logo", () => {
         expect(getRepository(hit({_repo: "DANS"}))).toMatchObject({code: "DANS", name: "DANS"});
         expect(getRepository(hit({_repo: "hal"}))?.name).toBe("HAL Open Science");
+        expect(getRepository(hit({_repo: "EMPIAR"}))).toMatchObject({
+            code: "EMPIAR",
+            name: "EMPIAR",
+            logo: "https://www.ebi.ac.uk/em_static/empiar/EMPIAR_logo_2017_imagemark.png",
+        });
     });
 
     it("links to the record's own landing page", () => {
@@ -101,8 +106,9 @@ describe("getOwner", () => {
 describe("getProvenanceSource", () => {
     it("names the source repository of a directly harvested record", () => {
         expect(getProvenanceSource(hit({_repo: "HAL"}))?.name).toBe("HAL Open Science");
-        // Unknown code: still named, as text.
         expect(getProvenanceSource(hit({_repo: "EMPIAR"}))?.name).toBe("EMPIAR");
+        // Unknown code: still named, as text.
+        expect(getProvenanceSource(hit({_repo: "FOO"}))?.name).toBe("FOO");
     });
 
     it("names the owner of an aggregated record, or the aggregator when the owner is unknown", () => {

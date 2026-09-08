@@ -48,8 +48,9 @@ const PLATFORM_HOSTS: { suffix: string; code: string }[] = [
 
 // ── Source repositories (single logo when harvested directly, no aggregator) ──
 // Keyed by the upstream `_repo` code. Official EOSC CDN assets from the Confluence "Data Model" page
-// where they actually resolve. PaNOSC uses the project's own logo (its CDN copy 302s to the homepage
-// — not uploaded). MDDB has no working asset yet (CDN SVG missing) so it falls back to text.
+// where they actually resolve. PaNOSC and EMPIAR use the project's own logo (PaNOSC's CDN copy 302s
+// to the homepage — not uploaded; EMPIAR has no CDN asset). MDDB has no working asset yet (CDN SVG
+// missing) so it falls back to text.
 const REPOSITORIES: Record<string, { name: string; logo: string | null }> = {
     DANS: {name: "DANS", logo: `${CDN}/2025/04/DANS.png`},
     HAL: {name: "HAL Open Science", logo: `${CDN}/2025/07/HAL.png`},
@@ -64,6 +65,10 @@ const REPOSITORIES: Record<string, { name: string; logo: string | null }> = {
     FINBIF: {name: "FinBIF", logo: `${CDN}/2025/07/FinBif.png`},
     DASCH: {name: "DaSCH", logo: `${CDN}/2025/07/DASCH.png`},
     EODC: {name: "EODC", logo: `${CDN}/2025/07/EODC-lightblue.png`},
+    EMPIAR: {
+        name: "EMPIAR",
+        logo: "https://www.ebi.ac.uk/em_static/empiar/EMPIAR_logo_2017_black_font.png"
+    },
     MDDB: {name: "MDDB", logo: null},
     DATAVERSELV: {name: "DataverseLV", logo: null}, // https://dataverse.lv/en/
 };
