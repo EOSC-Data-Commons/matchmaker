@@ -6,6 +6,8 @@ import useMatomo from '../hooks/useMatomo';
 
 interface CitationExportProps {
     dataset: BackendDataset;
+    // Smaller button, to sit in a list row next to Play and Source.
+    compact?: boolean;
 }
 
 type CitationFormat = 'bibtex' | 'ris' | 'csljson';
@@ -22,7 +24,7 @@ const GENERATORS: Record<CitationFormat, (d: BackendDataset) => string> = {
     csljson: generateCSLJSON
 };
 
-export const CitationExport = ({dataset}: CitationExportProps) => {
+export const CitationExport = ({dataset, compact = false}: CitationExportProps) => {
     const [open, setOpen] = useState(false);
     const [format, setFormat] = useState<CitationFormat>('bibtex');
     const [copied, setCopied] = useState(false);
@@ -115,9 +117,9 @@ export const CitationExport = ({dataset}: CitationExportProps) => {
                 }}
                 aria-haspopup="true"
                 aria-expanded={open}
-                className="inline-flex items-center justify-center gap-1 rounded-md bg-gray-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-gray-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-600 transition-colors cursor-pointer"
+                className={`inline-flex items-center justify-center gap-1 rounded-md bg-gray-600 ${compact ? 'px-2.5 py-1 text-xs' : 'px-3 py-1.5 text-sm'} font-medium text-white shadow-sm hover:bg-gray-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-600 transition-colors cursor-pointer`}
             >
-                <BookOpenIcon className="h-4 w-4"/>
+                <BookOpenIcon className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'}/>
                 <span className="leading-none">Cite</span>
             </button>
 

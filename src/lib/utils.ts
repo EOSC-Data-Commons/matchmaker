@@ -1,3 +1,4 @@
+import type {BackendDataset} from "@/types/commons.ts";
 // Logger utility for error handling and messaging
 
 // Define isDev based on Vite's import.meta.env or Node's process.env
@@ -181,3 +182,11 @@ export function prettyJson(raw: string): string {
         return trimmed;
     }
 }
+
+/** A dataset's publication date: the full date when the backend has one, otherwise the year. */
+export const publicationDateOf = (hit: BackendDataset): string | null =>
+    hit.publication_date || hit._source.publicationYear || null;
+
+/** A bare year stays as it is; a full date renders as YYYY.MM.DD. */
+export const formatPublicationDate = (dateStr: string): string =>
+    /^\d{4}$/.test(dateStr) ? dateStr : new Date(dateStr).toISOString().slice(0, 10).replace(/-/g, '.');
