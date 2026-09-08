@@ -42,7 +42,7 @@ describe("getRepository", () => {
         expect(getRepository(hit({_repo: "EMPIAR"}))).toMatchObject({
             code: "EMPIAR",
             name: "EMPIAR",
-            logo: "https://www.ebi.ac.uk/em_static/empiar/EMPIAR_logo_2017_imagemark.png",
+            logo: "https://www.ebi.ac.uk/em_static/empiar/EMPIAR_logo_2017_black_font.png",
         });
     });
 
