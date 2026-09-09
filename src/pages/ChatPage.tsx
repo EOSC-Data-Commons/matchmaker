@@ -13,6 +13,7 @@ import {BotMessageBody} from "@/components/BotMessageBody.tsx";
 import {SearchInput} from "@/components/SearchInput.tsx";
 import {DeleteConversationDialog} from "@/components/DeleteConversationDialog.tsx";
 import {ConversationSidebarItem} from "@/components/ConversationSidebarItem.tsx";
+import {CopyMessageButton} from "@/components/CopyMessageButton.tsx";
 import {SearchFeedback} from "@/components/SearchFeedback.tsx";
 import useMatomo from "@/hooks/useMatomo.ts";
 import {errorKind} from "@/lib/analytics.ts";
@@ -191,6 +192,20 @@ const ChatPage: FC = () => {
             setSelectedConversation(null);
         }
     }, [urlId, handleSelectConversation]);
+
+    // Opening a conversation starts at its most recent message. Every thread shares
+    // one scroll container, so without this it keeps the offset of the thread just
+    // left — clamped to the new content, which lands the reader mid-conversation —
+    // along with whether that thread's bottom was being followed.
+    useEffect(() => {
+        const container = messagesContainerRef.current;
+        if (!container) return;
+        followingRef.current = true;
+        answerFollowedRef.current = false;
+        // Set rather than animated: a smooth scroll would travel from the previous
+        // thread's offset, which is not a position in this one.
+        container.scrollTop = container.scrollHeight;
+    }, [selectedConversation?.id]);
 
     useEffect(() => {
         const state = location.state;
@@ -548,7 +563,10 @@ const ChatPage: FC = () => {
                                 </div>
                             ) : (
                                 selectedConversation.messages.map((msg, index) => (
-                                    <div key={index}
+                                    // Keyed by conversation as well as position: on the index alone React
+                                    // reuses these components when the thread changes, and the message
+                                    // keeps the previous conversation's open citation.
+                                    <div key={`${selectedConversation.id}-${index}`}
                                          className={`w-full flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                                         <div
                                             className={`group flex gap-2 md:gap-3 max-w-full md:max-w-[85%] min-w-0 ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
@@ -611,6 +629,7 @@ const ChatPage: FC = () => {
                                                     </div>
                                                 )}
                                             </div>
+                                            {msg.sender === 'user' && <CopyMessageButton text={msg.content}/>}
                                         </div>
                                     </div>
                                 ))

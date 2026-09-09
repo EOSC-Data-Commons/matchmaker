@@ -1,5 +1,6 @@
-import {describe, it, expect} from "vitest";
-import {render, screen} from "@testing-library/react";
+import {describe, it, expect, vi} from "vitest";
+import {fireEvent, render, screen} from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import {makeDataset} from "@/test/fixtures/datasets";
 import {DatasetReference} from "./DatasetReference";
 
@@ -34,8 +35,50 @@ describe("DatasetReference", () => {
         expect(screen.getByTitle("Test Dataset Title")).toBeInTheDocument();
     });
 
-    it("keeps the [n] marker working when the pill cannot be linked", () => {
-        render(<DatasetReference dataset={makeDataset({dataset_url: "javascript:alert(1)"})} number={2}/>);
-        expect(screen.getByRole("button", {name: /^Reference 2:/})).toHaveTextContent("[2]");
+    it("still leads to the reference when the pill cannot be linked", async () => {
+        const onJump = vi.fn();
+        render(
+            <DatasetReference dataset={makeDataset({dataset_url: "javascript:alert(1)"})} number={2} onJump={onJump}/>,
+        );
+        const pill = screen.getByRole("button", {name: /Test Dataset Title/});
+        expect(pill).toHaveTextContent("[2]");
+        await userEvent.click(pill);
+        expect(onJump).toHaveBeenCalledWith(2);
+    });
+
+    // The pill is one control with one apparent action, but it stays a real link so the
+    // browser's own ways of opening a source keep working.
+    const clickWith = (init: MouseEventInit) => {
+        const pill = screen.getByRole("link", {name: /Ocean Temperatures 2023/});
+        return fireEvent(pill, new MouseEvent("click", {bubbles: true, cancelable: true, ...init}));
+    };
+
+    it("jumps to the reference on a plain click rather than following the link", () => {
+        const onJump = vi.fn();
+        render(
+            <DatasetReference
+                dataset={makeDataset({dataset_url: DATASET_URL, title: "Ocean Temperatures 2023"})}
+                number={1}
+                onJump={onJump}
+            />,
+        );
+        // dispatchEvent reports false once preventDefault has stopped the navigation.
+        expect(clickWith({})).toBe(false);
+        expect(onJump).toHaveBeenCalledWith(1);
+    });
+
+    it("leaves a modifier-click to the browser, so sources can be opened in background tabs", () => {
+        const onJump = vi.fn();
+        render(
+            <DatasetReference
+                dataset={makeDataset({dataset_url: DATASET_URL, title: "Ocean Temperatures 2023"})}
+                number={1}
+                onJump={onJump}
+            />,
+        );
+        for (const modifier of [{ctrlKey: true}, {metaKey: true}, {shiftKey: true}]) {
+            expect(clickWith(modifier)).toBe(true);
+        }
+        expect(onJump).not.toHaveBeenCalled();
     });
 });

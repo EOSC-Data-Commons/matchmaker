@@ -96,10 +96,10 @@ describe("ChatPage", () => {
         expect(external).toHaveAttribute("target", "_blank");
         expect(external).toHaveAttribute("rel", "noopener noreferrer");
 
-        // Matched link: a pill linking straight to the source, followed by its [1] marker.
+        // Matched link: one pill carrying its [1] and linking to the source.
         const pill = await screen.findByRole("link", {name: /Ocean temps/});
         expect(pill).toHaveAttribute("href", DATASET_URL);
-        expect(screen.getByRole("button", {name: /Reference 1: Ocean Temperatures 2023/})).toHaveTextContent("[1]");
+        expect(pill).toHaveTextContent("[1]");
 
         // The reference list under the answer carries the same number and the card's actions.
         const references = screen.getByRole("region", {name: "Datasets cited in this answer"});
@@ -107,5 +107,84 @@ describe("ChatPage", () => {
         expect(within(references).getByText("Ocean Temperatures 2023")).toBeInTheDocument();
         expect(within(references).getByRole("link", {name: /source of dataset Ocean Temperatures 2023/}))
             .toHaveAttribute("href", hit._id);
+    });
+
+    it("copies a user message to the clipboard", async () => {
+        const user = userEvent.setup();
+        renderChat();
+
+        await user.type(await screen.findByRole("textbox"), "ocean data");
+        await user.click(screen.getByRole("button", {name: /send/i}));
+
+        await user.click(await screen.findByRole("button", {name: "Copy message"}));
+        expect(await navigator.clipboard.readText()).toBe("ocean data");
+    });
+
+    it("does not carry one conversation's open citation into another", async () => {
+        server.use(
+            http.get("/api/search/conversations", () => HttpResponse.json([
+                {thread_id: "t-9", label: "Earlier chat"},
+            ])),
+            http.get("/api/search/conversation/t-9", () => HttpResponse.json({
+                thread_id: "t-9",
+                label: "Earlier chat",
+                items: [
+                    {type: "message", role: "user", content: "earlier question"},
+                    {type: "tool_call", id: "c9", name: "search_data", arguments: {}},
+                    {type: "tool_result", call_id: "c9", content: JSON.stringify({hits: [hit]})},
+                    {type: "message", role: "assistant", content: `See [Ocean temps](${DATASET_URL}).`},
+                ],
+            })),
+        );
+        const user = userEvent.setup();
+        renderChat();
+
+        await user.type(await screen.findByRole("textbox"), "ocean data");
+        await user.click(screen.getByRole("button", {name: /send/i}));
+
+        // Open the reference from this answer's citation.
+        await user.click(await screen.findByRole("link", {name: /Ocean temps/}));
+        expect(await screen.findByRole("button", {name: /Hide details of Ocean Temperatures 2023/}))
+            .toBeInTheDocument();
+
+        // The other conversation cites the same dataset, and starts with it closed.
+        await user.click(await screen.findByText("Earlier chat"));
+        expect(await screen.findByText("earlier question")).toBeInTheDocument();
+        expect(screen.queryByRole("button", {name: /Hide details of/})).not.toBeInTheDocument();
+        expect(screen.getByRole("button", {name: /Show details of Ocean Temperatures 2023/})).toBeInTheDocument();
+    });
+
+    it("opens a conversation at its most recent message", async () => {
+        // jsdom lays nothing out, so the container has to be told it overflows.
+        Object.defineProperty(HTMLElement.prototype, "scrollHeight", {configurable: true, value: 900});
+        try {
+            server.use(
+                http.get("/api/search/conversations", () => HttpResponse.json([
+                    {thread_id: "t-9", label: "Earlier chat"},
+                ])),
+                http.get("/api/search/conversation/t-9", () => HttpResponse.json({
+                    thread_id: "t-9",
+                    label: "Earlier chat",
+                    items: [{type: "message", role: "user", content: "earlier question"}],
+                })),
+            );
+            const user = userEvent.setup();
+            renderChat();
+
+            await user.type(await screen.findByRole("textbox"), "ocean data");
+            await user.click(screen.getByRole("button", {name: /send/i}));
+            await screen.findByRole("link", {name: /Ocean temps/});
+
+            // The messages scroll in their own container, the scrollable ancestor of
+            // every bubble. Leave it part-way up the thread, as a reader would.
+            const container = screen.getByText("ocean data").closest(".overflow-y-auto") as HTMLElement;
+            container.scrollTop = 120;
+
+            await user.click(await screen.findByText("Earlier chat"));
+            await screen.findByText("earlier question");
+            expect(container.scrollTop).toBe(900);
+        } finally {
+            Reflect.deleteProperty(HTMLElement.prototype, "scrollHeight");
+        }
     });
 });

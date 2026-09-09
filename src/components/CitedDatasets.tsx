@@ -56,12 +56,17 @@ interface CitedDatasetRowProps {
     citation: DatasetCitation;
     isLoggedIn: boolean;
     highlighted: boolean;
+    expanded: boolean;
+    onToggle: (number: number) => void;
     register: (number: number, element: HTMLLIElement | null) => void;
 }
 
-/** A compact reference entry; the chevron expands it into the full card details. */
-const CitedDatasetRow = ({citation, isLoggedIn, highlighted, register}: CitedDatasetRowProps) => {
-    const [expanded, setExpanded] = useState(false);
+/**
+ * A compact reference entry; the chevron expands it into the full card details.
+ * Whether it is expanded is the list's business, not the row's: arriving here from
+ * a citation opens the row, so the description is one click away rather than two.
+ */
+const CitedDatasetRow = ({citation, isLoggedIn, highlighted, expanded, onToggle, register}: CitedDatasetRowProps) => {
     const {number, dataset} = citation;
 
     const creators: SearchHitSrcCreator[] = dataset._source.creators ?? [];
@@ -91,7 +96,7 @@ const CitedDatasetRow = ({citation, isLoggedIn, highlighted, register}: CitedDat
                 <DatasetActions hit={dataset} isLoggedIn={isLoggedIn} compact/>
                 <button
                     type="button"
-                    onClick={() => setExpanded(v => !v)}
+                    onClick={() => onToggle(number)}
                     aria-expanded={expanded}
                     aria-label={expanded ? `Hide details of ${dataset.title}` : `Show details of ${dataset.title}`}
                     className={`inline-flex h-7 w-7 items-center justify-center rounded-md border border-gray-200 text-gray-500 hover:bg-gray-50 cursor-pointer transition-transform ${expanded ? 'rotate-180' : ''}`}
@@ -112,8 +117,8 @@ const CitedDatasetRow = ({citation, isLoggedIn, highlighted, register}: CitedDat
 /**
  * The reference list under an assistant answer: every dataset the answer cites, in
  * the order of its [n] markers, as compact rows with the card's actions. A `jump`
- * request from a marker scrolls its row into view and highlights it briefly, opening
- * the list first if the reader had hidden it.
+ * request from a citation scrolls its row into view, highlights it briefly and opens
+ * it, reopening the list first if the reader had hidden it.
  */
 export const CitedDatasets = ({citations, isLoggedIn = false, jump = null}: CitedDatasetsProps) => {
     // The list is open unless the reader hid it, and a marker clicked after that
@@ -121,10 +126,36 @@ export const CitedDatasets = ({citations, isLoggedIn = false, jump = null}: Cite
     const [hiddenAt, setHiddenAt] = useState<number | null>(null);
     // The jump whose highlight has already faded.
     const [fadedJump, setFadedJump] = useState(0);
+    // Rows the reader expanded by hand, and the jump whose row they have since
+    // collapsed. Both are kept so the jump's own expansion can be derived rather
+    // than written from the effect below, which would re-render every jump twice.
+    const [expandedByReader, setExpandedByReader] = useState<Set<number>>(new Set());
+    const [collapsedJump, setCollapsedJump] = useState<number | null>(null);
     const rows = useRef(new Map<number, HTMLLIElement>());
 
     const open = hiddenAt === null || (jump !== null && jump.seq > hiddenAt);
     const highlighted = jump !== null && jump.seq > fadedJump ? jump.number : null;
+    const expandedByJump = (number: number) =>
+        jump !== null && jump.seq !== collapsedJump && jump.number === number;
+
+    const toggleRow = (number: number) => {
+        // Collapsing the row this jump opened: remember it, so it stays closed.
+        if (expandedByJump(number)) {
+            setCollapsedJump(jump!.seq);
+            setExpandedByReader(prev => {
+                const next = new Set(prev);
+                next.delete(number);
+                return next;
+            });
+            return;
+        }
+        setExpandedByReader(prev => {
+            const next = new Set(prev);
+            if (next.has(number)) next.delete(number);
+            else next.add(number);
+            return next;
+        });
+    };
 
     useEffect(() => {
         if (!jump) return;
@@ -177,6 +208,8 @@ export const CitedDatasets = ({citations, isLoggedIn = false, jump = null}: Cite
                             citation={citation}
                             isLoggedIn={isLoggedIn}
                             highlighted={highlighted === citation.number}
+                            expanded={expandedByJump(citation.number) || expandedByReader.has(citation.number)}
+                            onToggle={toggleRow}
                             register={register}
                         />
                     ))}

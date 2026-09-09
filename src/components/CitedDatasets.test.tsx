@@ -73,6 +73,19 @@ describe("CitedDatasets", () => {
         expect(items[1].className).toContain("bg-blue-100");
     });
 
+    it("opens the row it jumps to, and lets the reader close it again", async () => {
+        const user = userEvent.setup();
+        const {rerender} = renderList();
+        Element.prototype.scrollIntoView = vi.fn();
+        expect(screen.queryByText(/^x{300}\.\.\.$/)).not.toBeInTheDocument();
+
+        rerender(<MemoryRouter><CitedDatasets citations={citations} jump={{number: 2, seq: 1}}/></MemoryRouter>);
+        expect(screen.getByText(/^x{300}\.\.\.$/)).toBeInTheDocument();
+
+        await user.click(screen.getByRole("button", {name: "Hide details of Soil Moisture 2021"}));
+        expect(screen.queryByText(/^x{300}\.\.\.$/)).not.toBeInTheDocument();
+    });
+
     it("renders nothing without citations", () => {
         const {container} = renderList(<CitedDatasets citations={[]}/>);
         expect(container).toBeEmptyDOMElement();
