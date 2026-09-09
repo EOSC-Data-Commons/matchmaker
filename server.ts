@@ -42,6 +42,9 @@ const PORT = Number.parseInt(
     process.env.PORT || (DEVELOPMENT ? "5173" : "3000"),
 );
 const SEARCH_API_URL = process.env.SEARCH_API_URL || "http://127.0.0.1:8000";
+// FAIR assessment proxy (dans-labs/fair-assessment-proxy). Not hosted yet, so this
+// points at the local docker-compose stack; set FAIR_API_URL once it is deployed.
+const FAIR_API_URL = process.env.FAIR_API_URL || "http://127.0.0.1:8080";
 
 // Express parses `?x=a&x=b` into an array and `?x[y]=a` into an object, so a
 // query value is only a string once we have checked that it is. Everything else
@@ -106,6 +109,32 @@ app.use(
         on: {
             error: (err, _req, res) => {
                 console.error("Auth API proxy error:", err);
+                (res as express.Response).status(500).send("Proxy error");
+            },
+        },
+    }),
+);
+
+// FAIR assessment proxy. Registered before `express.json()` for the same reason as
+// `/auth`: the body parser would drain the request stream and POST /assessments
+// would hang with no body ever reaching the service.
+//
+// Same-origin keeps the browser out of CORS entirely. The service does send
+// `Access-Control-Allow-Origin: *`, so calling it directly works in dev, but that
+// stops being true the moment it is hosted somewhere other than localhost.
+app.use(
+    "/api/fair",
+    createProxyMiddleware({
+        target: FAIR_API_URL,
+        changeOrigin: true,
+        // `app.use` has already stripped the "/api/fair" mount prefix by the time the
+        // middleware runs, so the rewrite matches "^/" and prepends the service's own
+        // prefix — the same shape as the "/auth" proxy above. Matching "^/api/fair"
+        // here would never fire and every request would reach the service unprefixed.
+        pathRewrite: {"^/": "/api/v1/"},
+        on: {
+            error: (err, _req, res) => {
+                console.error("FAIR API proxy error:", err);
                 (res as express.Response).status(500).send("Proxy error");
             },
         },
