@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.5] - 10/09/2026
+
+- The Data Sandbox now shows how well a dataset follows the FAIR principles, the standard for whether research data
+  is Findable, Accessible, Interoperable and Reusable. The card sits under Files and links out to the principles
+  themselves for anyone meeting them for the first time.
+- Everything the assessors reported is on the page, with nothing to unfold. All 15 FAIR criteria are listed, and
+  every individual check is shown, including the ones that passed. There is a filter for narrowing to what did not
+  pass, but it is off by default.
+- Each criterion is quoted from the FAIR Guiding Principles (Wilkinson et al., 2016) and attributed, with a plainer
+  reading underneath it for anyone meeting FAIR for the first time. The plain reading is labelled as ours rather
+  than as part of the standard.
+- Each score says how much evidence it rests on. A dataset can score 100% on Reusable from a single measured
+  criterion, which reads very differently from 100% across all three, and the card now makes that visible.
+- Two assessors are reported next to each other, F-UJI and FAIR Champion, instead of being combined into one grade.
+  They often disagree about the same criterion, and a single number would hide which checks are actually in dispute.
+- The card records when the assessment ran, which version of each assessor produced it, and whether it read published
+  or gateway metadata. A link opens the assessors' untouched output, so every figure on the card can be checked
+  against its source.
+- A criterion that nothing could measure reads as "not assessed" rather than as a score of zero.
+- The assessment does not run on its own. Opening the page only checks whether the dataset has been assessed before,
+  and shows that result straight away when it has, noting that it is an earlier one. Otherwise there is a "Check FAIR
+  score" button, since a fresh assessment takes upwards of a minute and most visits to the page are about launching a
+  tool rather than grading the data.
+- Datasets without a DOI are assessed by F-UJI alone, and the card says so. FAIR Champion needs a resolvable
+  identifier and reports nothing without one, so it is skipped rather than left to time out.
+
 ## [0.10.4] - 09/09/2026
 
 - A dataset cited in an AI answer is now a single control instead of two. The bracketed number and the dataset name
