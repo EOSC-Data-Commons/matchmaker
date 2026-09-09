@@ -154,6 +154,16 @@ export async function getReport(assessmentId: string): Promise<FairReport> {
     }
 }
 
+/**
+ * Link to an assessment's untouched assessor output.
+ *
+ * The card offers this so a reader can check any claim it makes against what F-UJI
+ * and FAIR Champion actually returned, rather than taking our summary on trust.
+ */
+export function rawReportUrl(assessmentId: string): string {
+    return `${FAIR_API_URL}/assessments/${encodeURIComponent(assessmentId)}/raw`;
+}
+
 /** Lists every assessment recorded for a PID, newest first. */
 export async function listAssessments(pid: string): Promise<AssessmentSummary[]> {
     try {
