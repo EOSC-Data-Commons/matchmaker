@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.10.4] - 08/09/2026
+## [0.10.4] - 09/09/2026
 
 - A dataset cited in an AI answer is now a single control instead of two. The bracketed number and the dataset name
   sit in one pill, and clicking anywhere on it takes you to that dataset in the "Datasets cited in this answer" list,
