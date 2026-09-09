@@ -1,5 +1,5 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from "vitest";
-import {render, screen, waitFor} from "@testing-library/react";
+import {render, screen, waitFor, within} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {http, HttpResponse} from "msw";
 import {server} from "@/test/msw/server";
@@ -71,6 +71,13 @@ const withStoredReport = (over: Partial<FairReport> = {}) =>
     server.use(
         http.get("/api/fair/assessments/", () => HttpResponse.json([summary()])),
         http.get("/api/fair/assessments/a1/report", () => HttpResponse.json(report(over))),
+        http.get("/api/fair/assessments/a1", () => HttpResponse.json({
+            ...summary(),
+            results: [
+                {assessor: "fuji", assessor_version: "3.5.0"},
+                {assessor: "fair_champion", assessor_version: "0.5.8"},
+            ],
+        })),
     );
 
 describe("FairAssessmentCard", () => {
@@ -107,14 +114,15 @@ describe("FairAssessmentCard", () => {
 
         expect(await screen.findByText("94.4% overall")).toBeInTheDocument();
         expect(screen.getByText("83.3% overall")).toBeInTheDocument();
-        expect(screen.getByText(/from an earlier assessment/i)).toBeInTheDocument();
+        expect(screen.getByText(/showing an earlier assessment/i)).toBeInTheDocument();
     });
 
     it("shows an unmeasurable principle as not assessed rather than zero", async () => {
         // F-UJI returns a: null routinely; rendering that as 0% would libel the dataset.
         withStoredReport();
         render(<FairAssessmentCard pid={DOI}/>);
-        expect(await screen.findByText("not assessed")).toBeInTheDocument();
+        const fuji = await screen.findByRole("group", {name: "F-UJI"});
+        expect(within(fuji).getByText("not assessed")).toBeInTheDocument();
     });
 
     it("warns that only F-UJI runs without a DOI", async () => {
@@ -123,36 +131,105 @@ describe("FairAssessmentCard", () => {
         expect(await screen.findByText(/no DOI, so only F-UJI/i)).toBeInTheDocument();
     });
 
-    it("reveals the criteria grid and failing guidance on demand", async () => {
+    it("shows every check, passing ones included, with nothing to expand", async () => {
+        // The card reports on openness; hiding most of its own evidence behind a
+        // toggle would undercut the thing it measures.
         withStoredReport();
         render(<FairAssessmentCard pid={DOI}/>);
 
-        const toggle = await screen.findByRole("button", {name: /show details/i});
-        // Only the failing check is counted, not the passing one.
-        expect(toggle).toHaveTextContent("1 issues");
-        await userEvent.click(toggle);
-
-        expect(screen.getByText(/does not contain its own identifier/i)).toBeInTheDocument();
+        expect(await screen.findByText(/does not contain its own identifier/i)).toBeInTheDocument();
         expect(screen.getByText("Add the identifier to the metadata record.")).toBeInTheDocument();
-        // Passing checks stay out of the guidance list.
-        expect(screen.queryByText("Data is assigned a persistent identifier")).not.toBeInTheDocument();
+        // The passing check is present too, not filtered away.
+        expect(screen.getByText("Data is assigned a persistent identifier")).toBeInTheDocument();
+        expect(screen.queryByRole("button", {name: /show details/i})).not.toBeInTheDocument();
     });
 
-    it("exposes each assessor's own verdict, since the consensus is pessimistic", async () => {
+    it("counts the checks it is showing", async () => {
         withStoredReport();
         render(<FairAssessmentCard pid={DOI}/>);
-        await userEvent.click(await screen.findByRole("button", {name: /show details/i}));
+        expect(await screen.findByText(/2 checks, 1 not passing/)).toBeInTheDocument();
+    });
 
-        // F3 is a consensus fail only because Champion failed it; F-UJI passed.
-        const cell = screen.getByTitle(/^F3 — Fail/);
-        expect(cell).toHaveAttribute("title", expect.stringContaining("F-UJI: pass"));
-        expect(cell).toHaveAttribute("title", expect.stringContaining("FAIR Champion: fail"));
+    it("can narrow to failures on request, without that being the default", async () => {
+        withStoredReport();
+        render(<FairAssessmentCard pid={DOI}/>);
+
+        const filter = await screen.findByLabelText(/only show what did not pass/i);
+        expect(filter).not.toBeChecked();
+
+        await userEvent.click(filter);
+        expect(screen.queryByText("Data is assigned a persistent identifier")).not.toBeInTheDocument();
+        expect(screen.getByText(/does not contain its own identifier/i)).toBeInTheDocument();
+    });
+
+    it("states each assessor's verdict as text, not only on hover", async () => {
+        // Tooltips are unreachable by keyboard and screen reader, and invisible on
+        // touch, so the per-assessor verdicts live in a table instead.
+        withStoredReport();
+        render(<FairAssessmentCard pid={DOI}/>);
+
+        const table = await screen.findByRole("table");
+        const row = within(table).getByText("F3").closest("tr")!;
+        // F-UJI passed F3 while FAIR Champion failed it: both verdicts are readable.
+        expect(within(row).getByText("Pass")).toBeInTheDocument();
+        expect(within(row).getByText("Fail")).toBeInTheDocument();
+    });
+
+    it("quotes each criterion from the standard and attributes it", async () => {
+        withStoredReport();
+        render(<FairAssessmentCard pid={DOI}/>);
+        expect(await screen.findByText(/globally unique and persistent identifier/i)).toBeInTheDocument();
+        // Including criteria no assessor reported on, so their absence is visible.
+        expect(screen.getByText(/meet domain-relevant community standards/i)).toBeInTheDocument();
+        expect(screen.getByText(/Wilkinson et al., 2016/)).toBeInTheDocument();
+        expect(screen.getByRole("link", {name: /GO FAIR Foundation/i}))
+            .toHaveAttribute("href", "https://www.gofair.foundation/fair-principles");
+    });
+
+    it("marks the plain-language reading as ours, not the standard's", async () => {
+        withStoredReport();
+        render(<FairAssessmentCard pid={DOI}/>);
+        expect(await screen.findByText(/our plain-language reading of it, not part of the standard/i))
+            .toBeInTheDocument();
+    });
+
+    it("says how much evidence each score rests on", async () => {
+        withStoredReport();
+        render(<FairAssessmentCard pid={DOI}/>);
+        // F-UJI reported on F1 and F3 in this fixture; the other two went unmeasured.
+        const fuji = await screen.findByRole("group", {name: "F-UJI"});
+        expect(within(fuji).getByText(/from 2 of 4 criteria/)).toBeInTheDocument();
+        // The fixture has only F cells, so Accessible, Interoperable and Reusable each
+        // say nothing was measured rather than showing a 0%.
+        expect(within(fuji).getAllByText(/nothing measured of 3 criteria/)).toHaveLength(3);
+    });
+
+    it("shows when the assessment ran and which assessor versions produced it", async () => {
+        withStoredReport();
+        render(<FairAssessmentCard pid={DOI}/>);
+        expect(await screen.findByText(/F-UJI 3.5.0, FAIR Champion 0.5.8/)).toBeInTheDocument();
+        expect(screen.getByText(/Assessed 9 September 2026/)).toBeInTheDocument();
+    });
+
+    it("links to the untouched assessor output", async () => {
+        withStoredReport();
+        render(<FairAssessmentCard pid={DOI}/>);
+        const link = await screen.findByRole("link", {name: /full assessor output/i});
+        expect(link).toHaveAttribute("href", "/api/fair/assessments/a1/raw");
+    });
+
+    it("marks the derived criteria as not separately scored", async () => {
+        withStoredReport();
+        render(<FairAssessmentCard pid={DOI}/>);
+        // A1 and R1 are combined from their refinements, so counting them would
+        // count those refinements twice.
+        expect((await screen.findAllByText(/not scored separately/i)).length).toBe(2);
     });
 
     it("flags a partial result when one assessor failed", async () => {
         withStoredReport({status: "completed_with_errors"});
         render(<FairAssessmentCard pid={DOI}/>);
-        expect(await screen.findByText(/based on partial results/i)).toBeInTheDocument();
+        expect(await screen.findByText(/covers only the one that did/i)).toBeInTheDocument();
     });
 
     it("runs an assessment when asked and shows the result", async () => {
@@ -172,7 +249,7 @@ describe("FairAssessmentCard", () => {
 
         expect(await screen.findByText("94.4% overall")).toBeInTheDocument();
         // A run in this session is not labelled as a stored one.
-        expect(screen.queryByText(/from an earlier assessment/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/showing an earlier assessment/i)).not.toBeInTheDocument();
     });
 
     it("surfaces a failure with a way to retry", async () => {

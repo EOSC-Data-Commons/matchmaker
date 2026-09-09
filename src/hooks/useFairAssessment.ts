@@ -4,6 +4,7 @@ import {
     assessorsForPid,
     createAssessment,
     findLatestCompleted,
+    getAssessment,
     getReport,
     isDoi,
     waitForAssessment,
@@ -24,6 +25,12 @@ export type FairState =
 export interface UseFairAssessment {
     state: FairState;
     report: FairReport | null;
+    /**
+     * The run behind the report: when it finished, which assessor versions produced
+     * it, and against which metadata. The report endpoint carries none of that, and
+     * a FAIR score without its provenance is not one a reader can check.
+     */
+    assessment: Assessment | null;
     error: string | null;
     /** Which assessors have reported so far, so a slow run can show partial progress. */
     finishedAssessors: AssessorId[];
@@ -42,6 +49,7 @@ interface InternalState {
     pid: string | null;
     phase: FairState;
     report: FairReport | null;
+    assessment: Assessment | null;
     error: string | null;
     finishedAssessors: AssessorId[];
     fromCache: boolean;
@@ -51,6 +59,7 @@ const initialState = (pid: string | null): InternalState => ({
     pid,
     phase: pid ? 'checking' : 'idle',
     report: null,
+    assessment: null,
     error: null,
     finishedAssessors: [],
     fromCache: false,
@@ -105,10 +114,13 @@ export function useFairAssessment(pid: string | null): UseFairAssessment {
                         : prev));
                     return;
                 }
-                const previous = await getReport(existing.id);
+                const [previous, record] = await Promise.all([
+                    getReport(existing.id),
+                    getAssessment(existing.id),
+                ]);
                 if (cancelled || !liveRef.current) return;
                 setState(prev => (prev.pid === pid && prev.phase === 'checking'
-                    ? {...prev, phase: 'ready', report: previous, fromCache: true}
+                    ? {...prev, phase: 'ready', report: previous, assessment: record, fromCache: true}
                     : prev));
             } catch {
                 // A failed lookup is not worth showing: the user can still run an
@@ -149,9 +161,12 @@ export function useFairAssessment(pid: string | null): UseFairAssessment {
                     const existing = await findLatestCompleted(pid);
                     if (!alive()) return;
                     if (existing) {
-                        const previous = await getReport(existing.id);
+                        const [previous, record] = await Promise.all([
+                            getReport(existing.id),
+                            getAssessment(existing.id),
+                        ]);
                         if (!alive()) return;
-                        update({phase: 'ready', report: previous, fromCache: true});
+                        update({phase: 'ready', report: previous, assessment: record, fromCache: true});
                         return;
                     }
                 }
@@ -172,9 +187,9 @@ export function useFairAssessment(pid: string | null): UseFairAssessment {
                 });
                 if (!alive()) return;
 
-                const fresh = await getReport(id);
+                const [fresh, record] = await Promise.all([getReport(id), getAssessment(id)]);
                 if (!alive()) return;
-                update({phase: 'ready', report: fresh});
+                update({phase: 'ready', report: fresh, assessment: record});
             } catch (err) {
                 if (!alive()) return;
                 if (err instanceof DOMException && err.name === 'AbortError') return;
@@ -193,6 +208,7 @@ export function useFairAssessment(pid: string | null): UseFairAssessment {
     return {
         state: state.phase,
         report: state.report,
+        assessment: state.assessment,
         error: state.error,
         finishedAssessors: state.finishedAssessors,
         plannedAssessors: pid ? assessorsForPid(pid) : [],

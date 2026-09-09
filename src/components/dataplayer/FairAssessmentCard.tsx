@@ -1,155 +1,262 @@
 import {useState} from 'react';
-import {AlertCircle, ChevronDown, ChevronUp, Gauge, LoaderIcon, RefreshCw} from 'lucide-react';
+import {AlertCircle, ExternalLink, Gauge, LoaderIcon, RefreshCw} from 'lucide-react';
 import {useFairAssessment} from '@/hooks/useFairAssessment.ts';
+import {rawReportUrl} from '@/lib/fairApi.ts';
+import {
+    CELL_PLAIN,
+    CELL_PRINCIPLES,
+    DERIVED_CELLS,
+    PRINCIPLE_BLURBS,
+    PRINCIPLE_CELLS,
+    PRINCIPLE_NAMES,
+    cellLabel,
+    scoreBasis,
+} from '@/lib/fairScoring.ts';
 import type {
+    Assessment,
     AssessorId,
-    FairCell,
     FairCellResult,
     FairGuidance,
-    FairOutcome,
+    FairPrinciple,
     FairReport,
     FairScores,
+    GuidanceOutcome,
 } from '@/types/fairTypes.ts';
 
-const ASSESSOR_NAMES: Record<AssessorId, string> = {
+const FAIR_PRINCIPLES_URL = 'https://www.gofair.foundation/fair-principles';
+
+const ASSESSOR_NAMES: Record<string, string> = {
     fuji: 'F-UJI',
     fair_champion: 'FAIR Champion',
 };
 
-const PRINCIPLE_LABELS = {
-    f: 'Findable',
-    a: 'Accessible',
-    i: 'Interoperable',
-    r: 'Reusable',
-} as const;
+const assessorName = (id: AssessorId) => ASSESSOR_NAMES[id] ?? id;
 
-/** Which criteria belong to each principle, matching the proxy's PRINCIPLE_CELLS. */
-const PRINCIPLE_CELLS: Record<keyof typeof PRINCIPLE_LABELS, FairCell[]> = {
-    f: ['f1', 'f2', 'f3', 'f4'],
-    a: ['a1', 'a1_1', 'a1_2', 'a2'],
-    i: ['i1', 'i2', 'i3'],
-    r: ['r1', 'r1_1', 'r1_2', 'r1_3'],
+const OUTCOME_STYLES: Record<GuidanceOutcome, string> = {
+    pass: 'bg-green-100 text-green-800 border-green-300',
+    partial: 'bg-amber-100 text-amber-900 border-amber-300',
+    fail: 'bg-red-100 text-red-800 border-red-300',
+    indeterminate: 'bg-gray-100 text-gray-600 border-gray-300',
+    error: 'bg-red-50 text-red-700 border-red-200',
+    not_applicable: 'bg-gray-100 text-gray-600 border-gray-300',
+    unavailable: 'bg-gray-100 text-gray-600 border-gray-300',
 };
 
-/** `a1_1` reads as "A1.1", which is how the FAIR principles are normally written. */
-const cellLabel = (cell: FairCell) => cell.toUpperCase().replace(/_/g, '.');
-
-const OUTCOME_STYLES: Record<FairOutcome, string> = {
-    pass: 'bg-green-100 text-green-800 border-green-200',
-    partial: 'bg-amber-100 text-amber-800 border-amber-200',
-    fail: 'bg-red-100 text-red-800 border-red-200',
-    indeterminate: 'bg-gray-100 text-gray-500 border-gray-200',
-};
-
-const OUTCOME_LABELS: Record<FairOutcome, string> = {
+const OUTCOME_LABELS: Record<GuidanceOutcome, string> = {
     pass: 'Pass',
     partial: 'Partial',
     fail: 'Fail',
     indeterminate: 'Not assessed',
+    error: 'Error',
+    not_applicable: 'Not applicable',
+    unavailable: 'Unavailable',
 };
+
+/** Failures first: the order a reader most likely wants, without dropping anything. */
+const OUTCOME_ORDER: GuidanceOutcome[] =
+    ['fail', 'partial', 'error', 'indeterminate', 'unavailable', 'not_applicable', 'pass'];
+
+const OutcomeChip = ({outcome}: { outcome: GuidanceOutcome }) => (
+    <span className={`inline-block rounded border px-1.5 py-0.5 text-[11px] font-medium ${OUTCOME_STYLES[outcome]}`}>
+        {OUTCOME_LABELS[outcome]}
+    </span>
+);
 
 const scoreColor = (score: number) =>
     score >= 75 ? 'bg-green-500' : score >= 50 ? 'bg-amber-500' : 'bg-red-500';
 
-/**
- * One principle's score.
- *
- * A null score means nothing was measurable, which is not a zero: F-UJI routinely
- * returns null for Accessible. Showing an empty bar there would read as a failure.
- */
-const ScoreBar = ({label, score}: { label: string; score: number | null }) => (
-    <div className="flex items-center gap-2">
-        <span className="w-24 shrink-0 text-xs text-gray-600">{label}</span>
-        <div className="h-1.5 grow rounded-full bg-gray-100">
-            {score !== null && (
-                <div className={`h-1.5 rounded-full ${scoreColor(score)}`} style={{width: `${score}%`}}/>
-            )}
-        </div>
-        <span className="w-20 shrink-0 text-right text-xs tabular-nums text-gray-600">
-            {score === null ? 'not assessed' : `${score}%`}
-        </span>
-    </div>
-);
-
-const AssessorScores = ({assessor, scores}: { assessor: AssessorId; scores: FairScores }) => (
-    <div className="rounded-lg border border-gray-200 p-3">
-        <div className="mb-2 flex items-baseline justify-between">
-            <span className="text-sm font-medium text-gray-800">{ASSESSOR_NAMES[assessor] ?? assessor}</span>
-            <span className="text-sm tabular-nums text-gray-600">
-                {scores.overall === null ? 'no score' : `${scores.overall}% overall`}
-            </span>
-        </div>
-        <div className="flex flex-col gap-1.5">
-            {(Object.keys(PRINCIPLE_LABELS) as (keyof typeof PRINCIPLE_LABELS)[]).map(principle => (
-                <ScoreBar key={principle} label={PRINCIPLE_LABELS[principle]} score={scores[principle]}/>
-            ))}
-        </div>
-    </div>
-);
+const formatDate = (iso: string | null) => {
+    if (!iso) return null;
+    const date = new Date(iso);
+    return Number.isNaN(date.getTime())
+        ? null
+        : date.toLocaleDateString('en-GB', {day: 'numeric', month: 'long', year: 'numeric'});
+};
 
 /**
- * The criteria grid.
+ * Where the numbers came from: when, from which assessor versions, against what.
  *
- * Each chip shows the proxy's consensus, but the tooltip carries the per-assessor
- * verdicts, because the two assessors disagree often and the consensus is pessimistic:
- * one assessor failing makes the whole cell a fail even when the other passed.
+ * A FAIR score is a claim about a dataset, and a claim nobody can trace back is not
+ * worth much. R1.2 asks datasets for exactly this, so withholding it here would be
+ * hard to defend.
  */
-const CellGrid = ({cells}: { cells: FairCellResult[] }) => {
-    const byCell = new Map(cells.map(cell => [cell.cell, cell]));
+const Provenance = ({assessment, report}: { assessment: Assessment | null; report: FairReport }) => {
+    const finishedOn = formatDate(assessment?.completed_at ?? assessment?.created_at ?? null);
+    const versions = (assessment?.results ?? [])
+        .map(row => `${assessorName(row.assessor)} ${row.assessor_version}`)
+        .join(', ');
 
     return (
-        <div className="flex flex-col gap-2">
-            {(Object.keys(PRINCIPLE_CELLS) as (keyof typeof PRINCIPLE_CELLS)[]).map(principle => (
-                <div key={principle} className="flex items-center gap-2">
-                    <span className="w-24 shrink-0 text-xs text-gray-600">{PRINCIPLE_LABELS[principle]}</span>
-                    <div className="flex flex-wrap gap-1">
-                        {PRINCIPLE_CELLS[principle].map(cell => {
-                            const result = byCell.get(cell);
-                            const outcome = result?.consensus ?? 'indeterminate';
-                            const breakdown = Object.entries(result?.by_assessor ?? {})
-                                .map(([id, value]) => `${ASSESSOR_NAMES[id as AssessorId] ?? id}: ${value}`)
-                                .join('\n');
-                            return (
-                                <span
-                                    key={cell}
-                                    title={`${cellLabel(cell)} — ${OUTCOME_LABELS[outcome]}${breakdown ? `\n${breakdown}` : ''}`}
-                                    className={`rounded border px-1.5 py-0.5 text-[11px] font-medium tabular-nums ${OUTCOME_STYLES[outcome]}`}
-                                >
-                                    {cellLabel(cell)}
-                                </span>
-                            );
-                        })}
-                    </div>
-                </div>
-            ))}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500">
+            {finishedOn && <span>Assessed {finishedOn}</span>}
+            {versions && <><span aria-hidden="true">·</span><span>{versions}</span></>}
+            {assessment?.mode && (
+                <>
+                    <span aria-hidden="true">·</span>
+                    <span>{assessment.mode === 'cached' ? 'gateway metadata' : 'published metadata'}</span>
+                </>
+            )}
+            <span aria-hidden="true">·</span>
+            <a
+                href={rawReportUrl(report.id)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700 underline"
+            >
+                Full assessor output
+                <ExternalLink className="h-3 w-3"/>
+            </a>
         </div>
     );
 };
 
+const PrincipleScore = ({
+                            principle, score, counted, total,
+                        }: { principle: FairPrinciple; score: number | null; counted: number; total: number }) => (
+    <div className="flex items-center gap-2">
+        <span className="w-24 shrink-0 text-xs text-gray-700">{PRINCIPLE_NAMES[principle]}</span>
+        <div className="h-1.5 w-24 shrink-0 rounded-full bg-gray-100">
+            {score !== null && (
+                <div className={`h-1.5 rounded-full ${scoreColor(score)}`} style={{width: `${score}%`}}/>
+            )}
+        </div>
+        <span className="w-24 shrink-0 text-xs tabular-nums text-gray-700">
+            {score === null ? 'not assessed' : `${score}%`}
+        </span>
+        <span className="text-xs text-gray-500">
+            {counted === 0
+                ? `nothing measured of ${total} criteria`
+                : `from ${counted} of ${total} criteria`}
+        </span>
+    </div>
+);
+
 /**
- * What is wrong and, where the assessor says so, how to fix it. This is the part a
- * depositor can act on, so failures come first and passing tests are left out.
+ * One assessor's scores, each stated with the evidence behind it. 100% from one
+ * criterion and 100% from four are very different claims, so the count is not
+ * optional detail.
  */
-const GuidanceList = ({guidance}: { guidance: FairGuidance[] }) => {
-    const actionable = guidance.filter(entry => entry.outcome === 'fail' || entry.outcome === 'partial');
-    if (actionable.length === 0) {
-        return <p className="text-sm font-light text-gray-500">No failing checks to report.</p>;
-    }
+const AssessorScores = ({assessor, scores, cells}: {
+    assessor: AssessorId;
+    scores: FairScores;
+    cells: FairCellResult[];
+}) => (
+    <div role="group" aria-label={assessorName(assessor)} className="rounded-lg border border-gray-200 p-3">
+        <div className="mb-2 flex items-baseline justify-between gap-2">
+            <span className="text-sm font-medium text-gray-800">{assessorName(assessor)}</span>
+            <span className="text-sm tabular-nums text-gray-700">
+                {scores.overall === null ? 'no score' : `${scores.overall}% overall`}
+            </span>
+        </div>
+        <div className="flex flex-col gap-1.5">
+            {(Object.keys(PRINCIPLE_NAMES) as FairPrinciple[]).map(principle => {
+                const {counted, total} = scoreBasis(cells, assessor, principle);
+                return (
+                    <PrincipleScore
+                        key={principle}
+                        principle={principle}
+                        score={scores[principle]}
+                        counted={counted}
+                        total={total}
+                    />
+                );
+            })}
+        </div>
+    </div>
+);
+
+/**
+ * Every criterion, with each assessor's own verdict spelled out.
+ *
+ * A real table rather than chips with tooltips: the per-assessor verdicts have to be
+ * readable by keyboard, screen reader and on touch, not only on hover.
+ */
+const CriteriaTable = ({cells, assessors}: { cells: FairCellResult[]; assessors: AssessorId[] }) => {
+    const byCell = new Map(cells.map(cell => [cell.cell, cell]));
+
+    return (
+        <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-left">
+                <caption className="sr-only">
+                    Every FAIR criterion, with each assessor&apos;s verdict
+                </caption>
+                <thead>
+                <tr className="border-b border-gray-200">
+                    <th scope="col" className="py-1.5 pr-2 text-xs font-medium text-gray-500">Criterion</th>
+                    {assessors.map(assessor => (
+                        <th key={assessor} scope="col" className="py-1.5 pr-2 text-xs font-medium text-gray-500">
+                            {assessorName(assessor)}
+                        </th>
+                    ))}
+                </tr>
+                </thead>
+                {(Object.keys(PRINCIPLE_CELLS) as FairPrinciple[]).map(principle => (
+                    <tbody key={principle}>
+                    <tr>
+                        <th scope="colgroup" colSpan={assessors.length + 1}
+                            className="pt-3 pb-1 text-xs font-semibold text-gray-700">
+                            {PRINCIPLE_NAMES[principle]}
+                            <span className="ml-2 font-normal text-gray-500">{PRINCIPLE_BLURBS[principle]}</span>
+                        </th>
+                    </tr>
+                    {PRINCIPLE_CELLS[principle].map(cell => {
+                        const result = byCell.get(cell);
+                        const derived = DERIVED_CELLS.includes(cell);
+                        return (
+                            <tr key={cell} className="border-b border-gray-100 align-top">
+                                <th scope="row" className="py-1.5 pr-3 font-normal">
+                                    <span className="mr-1.5 text-xs font-semibold tabular-nums text-gray-700">
+                                        {cellLabel(cell)}
+                                    </span>
+                                    <span className="text-xs font-light text-gray-700">
+                                        &ldquo;{CELL_PRINCIPLES[cell]}&rdquo;
+                                    </span>
+                                    {derived && (
+                                        <span className="ml-1.5 text-[11px] text-gray-400">
+                                            summary of the rows below, not scored separately
+                                        </span>
+                                    )}
+                                    <span className="mt-0.5 block text-[11px] font-light text-gray-500">
+                                        {CELL_PLAIN[cell]}
+                                    </span>
+                                </th>
+                                {assessors.map(assessor => (
+                                    <td key={assessor} className="py-1.5 pr-2 whitespace-nowrap">
+                                        <OutcomeChip outcome={result?.by_assessor[assessor] ?? 'indeterminate'}/>
+                                    </td>
+                                ))}
+                            </tr>
+                        );
+                    })}
+                    </tbody>
+                ))}
+            </table>
+        </div>
+    );
+};
+
+/** Every individual check an assessor ran, passes included. */
+const ChecksList = ({guidance}: { guidance: FairGuidance[] }) => {
+    const ordered = [...guidance].sort(
+        (a, b) => OUTCOME_ORDER.indexOf(a.outcome) - OUTCOME_ORDER.indexOf(b.outcome),
+    );
 
     return (
         <ul className="flex flex-col gap-2">
-            {actionable.map((entry, index) => (
+            {ordered.map((entry, index) => (
                 <li key={`${entry.assessor}-${entry.test}-${index}`}
                     className="rounded-lg border border-gray-200 p-2.5">
                     <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                        <OutcomeChip outcome={entry.outcome}/>
                         {entry.cell && (
-                            <span
-                                className={`rounded border px-1.5 py-0.5 text-[11px] font-medium ${OUTCOME_STYLES[entry.outcome === 'partial' ? 'partial' : 'fail']}`}>
+                            <span className="text-xs font-semibold tabular-nums text-gray-700">
                                 {cellLabel(entry.cell)}
                             </span>
                         )}
-                        <span
-                            className="text-xs text-gray-500">{ASSESSOR_NAMES[entry.assessor] ?? entry.assessor}</span>
+                        <span className="text-xs text-gray-500">{assessorName(entry.assessor)}</span>
+                        {entry.test && (
+                            <code className="text-[11px] text-gray-400">{entry.test}</code>
+                        )}
                     </div>
                     {entry.description && (
                         <p className="text-sm font-light text-gray-800">{entry.description}</p>
@@ -166,13 +273,16 @@ const GuidanceList = ({guidance}: { guidance: FairGuidance[] }) => {
     );
 };
 
-const Report = ({report}: { report: FairReport }) => {
-    const [showDetail, setShowDetail] = useState(false);
+const Report = ({report, assessment}: { report: FairReport; assessment: Assessment | null }) => {
+    const [issuesOnly, setIssuesOnly] = useState(false);
     const assessors = Object.keys(report.scores) as AssessorId[];
-    const actionable = report.guidance.filter(e => e.outcome === 'fail' || e.outcome === 'partial').length;
+    const issues = report.guidance.filter(e => e.outcome !== 'pass');
+    const shown = issuesOnly ? issues : report.guidance;
 
     return (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-5">
+            <Provenance assessment={assessment} report={report}/>
+
             {assessors.length === 0 ? (
                 <p className="text-sm font-light text-gray-500">
                     No assessor returned a score for this dataset.
@@ -181,27 +291,59 @@ const Report = ({report}: { report: FairReport }) => {
                 <div className="flex flex-col gap-2">
                     {assessors.map(assessor => {
                         const scores = report.scores[assessor];
-                        return scores ? <AssessorScores key={assessor} assessor={assessor} scores={scores}/> : null;
+                        return scores
+                            ? <AssessorScores key={assessor} assessor={assessor} scores={scores} cells={report.cells}/>
+                            : null;
                     })}
+                    <p className="text-xs font-light text-gray-500">
+                        Each assessor is reported on its own. They apply the principles differently and
+                        often disagree, so a single combined grade would hide where they part company.
+                    </p>
                 </div>
             )}
 
-            <button
-                type="button"
-                onClick={() => setShowDetail(v => !v)}
-                aria-expanded={showDetail}
-                className="flex items-center gap-1 self-start text-sm font-light text-blue-600 hover:text-blue-700 cursor-pointer"
-            >
-                {showDetail ? <ChevronUp className="h-4 w-4"/> : <ChevronDown className="h-4 w-4"/>}
-                {showDetail ? 'Hide details' : `Show details${actionable > 0 ? ` (${actionable} issues)` : ''}`}
-            </button>
+            <section className="flex flex-col gap-2">
+                <h3 className="text-sm font-medium text-gray-800">The 15 FAIR criteria</h3>
+                <CriteriaTable cells={report.cells} assessors={assessors}/>
+                <p className="text-xs font-light text-gray-500">
+                    Each criterion is quoted from the FAIR Guiding Principles (Wilkinson et al., 2016),
+                    as published by the{' '}
+                    <a
+                        href={FAIR_PRINCIPLES_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-700 underline"
+                    >
+                        GO FAIR Foundation
+                    </a>
+                    . The line beneath each one is our plain-language reading of it, not part of the standard.
+                </p>
+            </section>
 
-            {showDetail && (
-                <div className="flex flex-col gap-4 border-t border-gray-200 pt-3">
-                    <CellGrid cells={report.cells}/>
-                    <GuidanceList guidance={report.guidance}/>
+            <section className="flex flex-col gap-2">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <h3 className="text-sm font-medium text-gray-800">
+                        Every check that was run
+                        <span className="ml-1.5 font-normal text-gray-500">
+                            ({report.guidance.length} checks, {issues.length} not passing)
+                        </span>
+                    </h3>
+                    <label className="flex items-center gap-1.5 text-xs font-light text-gray-600">
+                        <input
+                            type="checkbox"
+                            checked={issuesOnly}
+                            onChange={event => setIssuesOnly(event.target.checked)}
+                            className="cursor-pointer"
+                        />
+                        Only show what did not pass
+                    </label>
                 </div>
-            )}
+                {shown.length === 0 ? (
+                    <p className="text-sm font-light text-gray-500">Every check passed.</p>
+                ) : (
+                    <ChecksList guidance={shown}/>
+                )}
+            </section>
         </div>
     );
 };
@@ -214,12 +356,15 @@ interface FairAssessmentCardProps {
 /**
  * FAIR assessment for the dataset open in the dataplayer.
  *
- * Starts collapsed and only looks for an existing result, because a fresh assessment
- * takes ~35s with a DOI and minutes without one. Nobody who came here to launch a tool
- * should pay that cost without asking for it.
+ * Everything the assessors reported is on the page: all 15 criteria, every check
+ * including the ones that passed, and the provenance of the run. A report about
+ * openness that had to be unfolded to be read would be a poor advertisement for it.
+ *
+ * The one thing deferred is the assessment itself, which takes ~35s with a DOI and
+ * minutes without one. Mount looks for a finished run and otherwise waits to be asked.
  */
 export const FairAssessmentCard = ({pid}: FairAssessmentCardProps) => {
-    const {state, report, error, finishedAssessors, plannedAssessors, fromCache, isDoiPid, run} =
+    const {state, report, assessment, error, finishedAssessors, plannedAssessors, fromCache, isDoiPid, run} =
         useFairAssessment(pid);
 
     if (!pid) return null;
@@ -245,10 +390,24 @@ export const FairAssessmentCard = ({pid}: FairAssessmentCardProps) => {
                 )}
             </div>
 
+            <p className="text-sm font-light text-gray-600">
+                How far this dataset follows the{' '}
+                <a
+                    href={FAIR_PRINCIPLES_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-700 underline"
+                >
+                    FAIR principles
+                </a>
+                : whether it is Findable, Accessible, Interoperable and Reusable. Two independent
+                assessors judge it, and both are reported in full below.
+            </p>
+
             {!isDoiPid && (
                 <p className="text-sm font-light text-gray-500">
-                    This dataset has no DOI, so only F-UJI can assess it. Findability and
-                    accessibility checks need a resolvable identifier.
+                    This dataset has no DOI, so only F-UJI can assess it. FAIR Champion
+                    needs a resolvable identifier and would report nothing here.
                 </p>
             )}
 
@@ -259,9 +418,8 @@ export const FairAssessmentCard = ({pid}: FairAssessmentCardProps) => {
             {state === 'idle' && (
                 <div className="flex flex-col gap-3 items-start">
                     <p className="text-sm font-light text-gray-500">
-                        Check how well this dataset follows the FAIR principles. The assessment
-                        runs {plannedAssessors.map(a => ASSESSOR_NAMES[a]).join(' and ')} and
-                        usually takes under a minute.
+                        This dataset has not been assessed yet. Running{' '}
+                        {plannedAssessors.map(assessorName).join(' and ')} usually takes under a minute.
                     </p>
                     <button
                         type="button"
@@ -279,7 +437,7 @@ export const FairAssessmentCard = ({pid}: FairAssessmentCardProps) => {
                     <LoaderIcon className="h-5 w-5 text-blue-600 animate-spin shrink-0"/>
                     <p className="text-sm font-light text-gray-700">
                         {pending.length > 0
-                            ? `Waiting for ${pending.map(a => ASSESSOR_NAMES[a]).join(' and ')}...`
+                            ? `Waiting for ${pending.map(assessorName).join(' and ')}...`
                             : 'Collecting results...'}
                     </p>
                 </div>
@@ -306,15 +464,15 @@ export const FairAssessmentCard = ({pid}: FairAssessmentCardProps) => {
                 <>
                     {report.status === 'completed_with_errors' && (
                         <p className="text-sm font-light text-amber-700">
-                            One assessor did not finish, so this score is based on partial results.
+                            One assessor did not finish, so this covers only the one that did.
                         </p>
                     )}
                     {fromCache && (
-                        <p className="text-xs font-light text-gray-400">
-                            From an earlier assessment of this dataset.
+                        <p className="text-xs font-light text-gray-500">
+                            Showing an earlier assessment of this dataset. Use Re-check to run it again.
                         </p>
                     )}
-                    <Report report={report}/>
+                    <Report report={report} assessment={assessment}/>
                 </>
             )}
         </div>
