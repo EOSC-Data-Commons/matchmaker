@@ -22,6 +22,7 @@ import {ToolSelectionStep} from '@/components/dataplayer/ToolSelectionStep';
 import {SlotsMappingAndFilesSetStep} from '@/components/dataplayer/slotsMappingAndFilesSetStep';
 import {MonitoringStep} from '@/components/dataplayer/MonitoringStep';
 import {FilesList} from '@/components/dataplayer/FilesList';
+import {FairAssessmentCard} from '@/components/dataplayer/FairAssessmentCard';
 import useMatomo from '@/hooks/useMatomo.ts';
 import {errorKind} from '@/lib/analytics.ts';
 
@@ -38,6 +39,10 @@ export const DataplayerPage = () => {
 
     const datasetTitle = searchParams.get('title');
     const datasetUrl = searchParams.get('datasetId');
+    // The search page sends the DOI when the dataset has one. Older links (and any
+    // opened before that change) only carry `datasetId`, which is often a DOI URL
+    // anyway, so it is a usable fallback rather than a reason to hide the card.
+    const datasetPid = searchParams.get('pid') ?? datasetUrl;
     const navigate = useNavigate();
 
     const {user, loading: userLoading} = useAuth();
@@ -289,6 +294,8 @@ export const DataplayerPage = () => {
                             <h2 className="text-lg font-light text-eosc-text mb-4">Files</h2>
                             <FilesList files={files} isFilesLoading={isFilesLoading} error={error}/>
                         </div>
+
+                        <FairAssessmentCard pid={datasetPid}/>
 
                         <div
                             className="bg-white rounded-xl border border-eosc-border p-6 shadow-sm flex flex-col gap-4 ">
