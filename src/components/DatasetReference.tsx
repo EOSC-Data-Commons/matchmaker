@@ -1,3 +1,4 @@
+import type {MouseEvent} from "react";
 import {FileText} from "lucide-react";
 import type {BackendDataset} from "../types/commons.ts";
 import {getProvenanceSource} from "../lib/repoProvenance.ts";
@@ -11,18 +12,21 @@ interface DatasetReferenceProps {
     label?: string;
     // Position in the message's reference list. Omitted when the message has no list.
     number?: number;
-    // Called with the reference number when the [n] marker is activated.
+    // Called with the reference number when the citation is activated.
     onJump?: (number: number) => void;
 }
 
 /**
  * Inline citation of a dataset from the search results, in the style of a numbered
- * reference. The dataset name is a pill that links straight to the source, so a plain
- * click opens it and a modifier-click opens it in a background tab; the pill names the
- * repository the data comes from. The bracketed [n] in front of it jumps to the
- * dataset's entry in the message's reference list, where the card details and
- * actions live; leading with the number is what pairs the pill with that entry.
- * Nothing opens on hover.
+ * reference: one pill carrying [n], the model's label, and the repository the data
+ * comes from.
+ *
+ * The pill is a real link to the dataset's page, so a modifier-click, a middle click
+ * and the right-click menu open the source exactly as they would on any link, and
+ * several sources can still be opened in a row. A plain click instead cancels that
+ * navigation and jumps to the dataset's entry in the message's reference list, which
+ * opens expanded — the description, the details and the Source button all live there,
+ * so the citation leads to one place rather than two. Nothing opens on hover.
  */
 export const DatasetReference = ({dataset, label, number, onJump}: DatasetReferenceProps) => {
     const {trackEvent} = useMatomo();
@@ -31,16 +35,22 @@ export const DatasetReference = ({dataset, label, number, onJump}: DatasetRefere
     // Both the URL and the id are backend data, so neither is trusted as a link target.
     const href = sanitizeLinkHref(dataset.dataset_url || dataset._id);
     const source = getProvenanceSource(dataset);
-    const reference = number === undefined
-        ? null
+    // Without a number there is no reference list to lead to, so the citation stays
+    // an ordinary link to the source.
+    const jumpToReference = number === undefined ? null : () => {
+        trackEvent('Chat', 'citation_clicked');
+        onJump?.(number);
+    };
+
+    const description = number === undefined
+        ? title
         : `Reference ${number}: ${title}${source ? ` (${source.name})` : ''}`;
 
-    // Inline (not inline-flex) so a long title wraps across lines with the text;
-    // box-decoration-clone keeps the pill background/border on every wrapped line.
-    const pillClass = 'mx-0.5 rounded bg-blue-50 px-1.5 py-px text-xs font-medium text-blue-700 '
-        + 'border border-blue-200 [box-decoration-break:clone]';
-    const pill = (
+    // No aria-label: the accessible name is the visible text, which is what a reader
+    // has been told to click. The full title is on the tooltip instead.
+    const content = (
         <>
+            {number !== undefined && <span className="mr-1 font-semibold tabular-nums">[{number}]</span>}
             <FileText className="inline-block h-3 w-3 mr-1 align-[-0.125em]"/>
             {label || title}
             {source && (
@@ -51,38 +61,52 @@ export const DatasetReference = ({dataset, label, number, onJump}: DatasetRefere
         </>
     );
 
+    // Inline (not inline-flex) so a long title wraps across lines with the text;
+    // box-decoration-clone keeps the pill background/border on every wrapped line.
+    const pillClass = 'mx-0.5 rounded bg-blue-50 px-1.5 py-px text-xs font-medium text-blue-700 '
+        + 'border border-blue-200 [box-decoration-break:clone]';
+    const hoverClass = ' hover:bg-blue-100 hover:border-blue-300 transition-colors cursor-pointer';
+
+    if (!href) {
+        // No usable source URL. The citation can still lead to its reference entry;
+        // with nothing to lead to either, it just names the dataset.
+        return jumpToReference ? (
+            <button
+                type="button"
+                title={description}
+                onClick={jumpToReference}
+                className={pillClass + hoverClass}
+            >
+                {content}
+            </button>
+        ) : (
+            <span title={description} className={pillClass}>{content}</span>
+        );
+    }
+
+    const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
+        // A modifier or non-primary click is the reader asking the browser for the
+        // source itself (background tab, new window, saved link); leave those alone.
+        const opensElsewhere = event.metaKey || event.ctrlKey || event.shiftKey
+            || event.altKey || event.button !== 0;
+        if (!jumpToReference || opensElsewhere) {
+            trackEvent('Dataset', 'citation_source_clicked', title);
+            return;
+        }
+        event.preventDefault();
+        jumpToReference();
+    };
+
     return (
-        <>
-            {reference && (
-                <button
-                    type="button"
-                    onClick={() => {
-                        trackEvent('Chat', 'citation_marker_clicked');
-                        onJump?.(number!);
-                    }}
-                    title={reference}
-                    aria-label={reference}
-                    className="mr-0.5 rounded px-0.5 text-[13px] font-semibold text-blue-700 tabular-nums whitespace-nowrap hover:bg-blue-50 hover:underline cursor-pointer"
-                >
-                    [{number}]
-                </button>
-            )}
-            {href ? (
-                <a
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title={title}
-                    onClick={() => trackEvent('Dataset', 'citation_source_clicked', title)}
-                    className={`${pillClass} hover:bg-blue-100 hover:border-blue-300 transition-colors`}
-                >
-                    {pill}
-                </a>
-            ) : (
-                // No usable source URL: the citation still names the dataset, it just does
-                // not pretend to be clickable.
-                <span title={title} className={pillClass}>{pill}</span>
-            )}
-        </>
+        <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={description}
+            onClick={handleClick}
+            className={pillClass + hoverClass}
+        >
+            {content}
+        </a>
     );
 };

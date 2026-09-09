@@ -27,16 +27,17 @@ describe("MessageMarkdown", () => {
         expect(pill).toHaveAttribute("target", "_blank");
         expect(pill).toHaveAttribute("rel", "noopener noreferrer");
         expect(pill).toHaveTextContent("Zenodo");
-        // Without the message's citations there is no reference list to point at.
-        expect(screen.queryByRole("button")).not.toBeInTheDocument();
+        // Without the message's citations there is no number and nothing to jump to.
+        expect(pill).not.toHaveTextContent("[");
     });
 
-    it("follows a cited dataset with a [n] marker that reports its reference number", async () => {
+    it("carries the reference number in the pill and jumps to it when clicked", async () => {
         const onCite = vi.fn();
         renderMarkdown(`See [Ocean temps](${DATASET_URL}).`, false, [{number: 3, dataset: hit}], onCite);
-        const marker = screen.getByRole("button", {name: "Reference 3: Ocean Temperatures 2023 (Zenodo)"});
-        expect(marker).toHaveTextContent("[3]");
-        await userEvent.click(marker);
+        const pill = screen.getByRole("link", {name: /Ocean temps/});
+        expect(pill).toHaveTextContent("[3]");
+        expect(pill).toHaveAttribute("title", "Reference 3: Ocean Temperatures 2023 (Zenodo)");
+        await userEvent.click(pill);
         expect(onCite).toHaveBeenCalledWith(3);
     });
 

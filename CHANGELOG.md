@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.4] - 08/09/2026
+
+- A dataset cited in an AI answer is now a single control instead of two. The bracketed number and the dataset name
+  sit in one pill, and clicking anywhere on it takes you to that dataset in the "Datasets cited in this answer" list,
+  which now opens with its description already showing. Previously the number and the name did two different things.
+- Opening the dataset's page at the repository still works the way it does for any link: Ctrl+click (Cmd+click on a
+  Mac), middle click, or right click and "Open link in new tab". Several sources can still be opened in a row that
+  way, and the list entry keeps its Source button for opening one directly.
+- Matomo now records a plain citation click as `citation_clicked` under the Chat category. Opening a source from a
+  citation is still `citation_source_clicked` under the Dataset category, and `citation_marker_clicked` is gone,
+  since the number is no longer a separate control.
+- Fixed an open citation following you into the next conversation. Switching threads reused the previous thread's
+  messages, so the dataset you had opened stayed open, and the list you had hidden stayed hidden.
+- Added a copy button beside your own messages, for reusing a question or pasting it somewhere else. It is always
+  visible on touch screens and appears on hover elsewhere.
+- Opening a conversation now starts at its most recent message. Switching threads used to keep the scroll position
+  of the one you left, dropping you part-way up the new conversation, and an answer streaming into the new thread
+  would not follow if you had scrolled up in the previous one.
+
 ## [0.10.3] - 08/09/2026
 
 Datasets in an AI answer are now cited the way a paper cites its references:
