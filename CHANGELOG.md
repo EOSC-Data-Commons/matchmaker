@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.6] - 10/09/2026
+
+- Tables in an AI answer now render as tables, instead of rows of pipes.
+- Italics, `code` and headings no longer show their Markdown markers as text.
+
 ## [0.10.5] - 10/09/2026
 
 - Fixed Repositories and their logos
