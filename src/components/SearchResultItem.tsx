@@ -152,6 +152,13 @@ export const DatasetActions = ({hit, isLoggedIn = false, compact = false}: Datas
         if (hit.title) {
             params.set('title', hit.title);
         }
+        // The FAIR assessment needs a persistent identifier, and `_id` is only
+        // sometimes a DOI. Prefer the real DOI, then the canonical URL, so the
+        // dataplayer can run both assessors instead of falling back to F-UJI alone.
+        const pid = hit._source?.doi || hit.dataset_url || hit._id;
+        if (pid) {
+            params.set('pid', pid);
+        }
         // Preserve the search query for back navigation
         const currentQuery = searchParams.get('q');
         if (currentQuery) {
