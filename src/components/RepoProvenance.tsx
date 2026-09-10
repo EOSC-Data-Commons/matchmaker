@@ -2,13 +2,27 @@ import React, {useState} from 'react';
 import type {BackendDataset} from "../types/commons.ts";
 import {getAggregator, getOwner, getRepository, type RepoIdentity} from "../lib/repoProvenance.ts";
 
-// A logo <img> that falls back to `fallback` if the image fails to load (some CDN logos are still
-// pending upload — see repoProvenance.ts).
-const LogoImg: React.FC<{ src: string; alt: string; className: string; fallback: React.ReactNode }> =
-    ({src, alt, className, fallback}) => {
+// One 96x40 slot for every logo, whatever shape its file is.
+//
+// The image is fitted whole into the slot and then scaled by the entry's `logoScale`, which brings
+// each mark to the same optical area — see repoProvenance.ts for how those numbers are derived. That
+// is why the slot clips: a media asset scales past the slot's edges, and what leaves the frame is
+// the empty margin around the mark, never the mark itself, since the correction targets a mark no
+// larger than 92x36 inside a 96x40 box. The transform is centred, and every asset centres its mark
+// on its canvas, so the crop takes the same amount off each side.
+const LOGO_SLOT = "h-10 w-24 shrink-0 overflow-hidden flex items-center justify-center";
+
+// A logo <img> that falls back to `fallback` if the image fails to load.
+const LogoImg: React.FC<{ src: string; alt: string; scale: number; fallback: React.ReactNode }> =
+    ({src, alt, scale, fallback}) => {
         const [failed, setFailed] = useState(false);
         if (failed) return <>{fallback}</>;
-        return <img src={src} alt={alt} className={className} onError={() => setFailed(true)}/>;
+        return (
+            <span className={LOGO_SLOT}>
+                <img src={src} alt={alt} className="h-full w-full object-contain"
+                     style={{transform: `scale(${scale})`}} onError={() => setFailed(true)}/>
+            </span>
+        );
     };
 
 const nameText = (name: string) => (
@@ -24,26 +38,15 @@ const MaybeLink: React.FC<{ href?: string | null; title: string; children: React
             : <span title={title} aria-label={title} className="shrink-0 inline-flex items-center">{children}</span>
     );
 
-// Left badge: the repository that owns the dataset. Renders its logo when we have one, otherwise the
-// owner name as text — never a placeholder. Returns null when the owner is unknown.
-const OwnerBadge: React.FC<{ owner: RepoIdentity | null }> = ({owner}) => {
-    if (!owner) return null;
-    const title = `Repository owner: ${owner.name}`;
-    const content = owner.logo
-        ? <LogoImg src={owner.logo} alt={`${owner.name} logo`}
-                   className="h-8 w-8 shrink-0 rounded object-contain" fallback={nameText(owner.name)}/>
-        : nameText(owner.name);
-    return <MaybeLink href={owner.href} title={title}>{content}</MaybeLink>;
-};
-
-// A wide logo, used for the aggregator (right) and for the single-repository case.
-const WideLogo: React.FC<{ repo: RepoIdentity; title: string }> = ({repo, title}) => {
-    const content = repo.logo
-        ? <LogoImg src={repo.logo} alt={`${repo.name} logo`} className="h-8 w-24 object-contain"
-                   fallback={nameText(repo.name)}/>
-        : nameText(repo.name);
-    return <MaybeLink href={repo.href} title={title}>{content}</MaybeLink>;
-};
+// One provenance badge: the logo when we have a media asset for it, the name as text otherwise.
+const Badge: React.FC<{ repo: RepoIdentity; title: string }> = ({repo, title}) => (
+    <MaybeLink href={repo.href} title={title}>
+        {repo.logo
+            ? <LogoImg src={repo.logo} alt={`${repo.name} logo`} scale={repo.logoScale ?? 1}
+                       fallback={nameText(repo.name)}/>
+            : nameText(repo.name)}
+    </MaybeLink>
+);
 
 /**
  * Provenance logos for a search hit. Aggregated records (harvested through OneData / OpenAIRE /
@@ -61,16 +64,16 @@ export const RepoProvenance: React.FC<{ hit: BackendDataset }> = ({hit}) => {
             ? `Owned by ${owner.name}, aggregated into EOSC Data Commons by ${aggregator.name}`
             : `Aggregated into EOSC Data Commons by ${aggregator.name}`;
         return (
-            <div className="flex items-center gap-2" title={groupTitle}>
-                <OwnerBadge owner={owner}/>
-                <WideLogo repo={aggregator} title={`Data aggregator: ${aggregator.name}`}/>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1" title={groupTitle}>
+                {owner && <Badge repo={owner} title={`Repository owner: ${owner.name}`}/>}
+                <Badge repo={aggregator} title={`Data aggregator: ${aggregator.name}`}/>
             </div>
         );
     }
 
     const repo = getRepository(hit);
     if (repo) {
-        return <WideLogo repo={repo} title={`Source repository: ${repo.name}`}/>;
+        return <Badge repo={repo} title={`Source repository: ${repo.name}`}/>;
     }
     return null;
 };

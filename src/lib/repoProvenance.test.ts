@@ -56,6 +56,31 @@ describe("getRepository", () => {
         expect(missing).toEqual([]);
     });
 
+    // The badge fits every logo the same way and then applies `logoScale` to even out the sizes, so a
+    // logo without one renders at its file's own idea of scale — up to 3x its neighbours. Missing the
+    // number is invisible in a type check and obvious on screen.
+    it("gives every logo an optical scale", () => {
+        const codes = ["DANS", "PANOSC", "HAL", "MDDB", "EMPIAR", "SWISSUBASE",
+            "ZENODO", "DABAR", "DATAVERSELV", "FINBIF", "DASCH", "EODC"];
+        const unscaled = codes.filter(code => {
+            const repo = getRepository(hit({_repo: code}));
+            return repo?.logo && !repo.logoScale;
+        });
+        expect(unscaled).toEqual([]);
+    });
+
+    // The scales are derived from each file's ink bounding box, and every one lands in this range.
+    // A value outside it means the logo was measured wrong, or is not the file it claims to be.
+    it("keeps the optical scales within the measured range", () => {
+        const codes = ["DANS", "PANOSC", "HAL", "MDDB", "EMPIAR", "SWISSUBASE",
+            "ZENODO", "DABAR", "DATAVERSELV", "FINBIF", "DASCH", "EODC"];
+        for (const code of codes) {
+            const scale = getRepository(hit({_repo: code}))?.logoScale;
+            expect(scale, code).toBeGreaterThanOrEqual(0.6);
+            expect(scale, code).toBeLessThanOrEqual(2.4);
+        }
+    });
+
     it("links to the record's own landing page", () => {
         expect(getRepository(hit({_repo: "HAL", _id: "https://hal.inrae.fr/hal-1"}))?.href)
             .toBe("https://hal.inrae.fr/hal-1");
