@@ -83,6 +83,58 @@ describe("MessageMarkdown", () => {
         expect(emptyParagraphs(singleBreak)).toBe(1);
     });
 
+    it("renders a pipe table as a real table, with dataset pills inside its cells", () => {
+        const {container} = renderMarkdown(
+            `| # | Dataset | Why |\n|---|:-------:|----:|\n| 1 | [Ocean temps](${DATASET_URL}) | Sea surface |\n| 2 | ERA5-Land | Precipitation |`
+        );
+
+        expect(container.querySelectorAll("table")).toHaveLength(1);
+        // No pipes left over as literal text.
+        expect(container.textContent).not.toContain("|");
+        expect(container.textContent).not.toContain("---");
+
+        const headers = Array.from(container.querySelectorAll("th")).map(th => th.textContent);
+        expect(headers).toEqual(["#", "Dataset", "Why"]);
+        expect(container.querySelectorAll("tbody tr")).toHaveLength(2);
+
+        // Column alignment comes from the delimiter row.
+        expect(container.querySelectorAll("th")[1].className).toContain("text-center");
+        expect(container.querySelectorAll("th")[2].className).toContain("text-right");
+
+        // A cell is still inline Markdown, so a cited dataset keeps its pill.
+        const pill = screen.getByRole("link", {name: /Ocean temps/});
+        expect(pill.closest("td")).not.toBeNull();
+    });
+
+    it("pads a ragged row so its cells stay under the right columns", () => {
+        const {container} = renderMarkdown("| a | b | c |\n|---|---|---|\n| 1 | 2 |");
+        const cells = Array.from(container.querySelectorAll("tbody td")).map(td => td.textContent);
+        expect(cells).toEqual(["1", "2", ""]);
+    });
+
+    it("leaves a lone pipe line as prose: a table needs its delimiter row", () => {
+        const {container} = renderMarkdown("Use | as the separator |");
+        expect(container.querySelector("table")).toBeNull();
+        expect(container.textContent).toContain("Use | as the separator |");
+    });
+
+    it("renders italics, inline code and headings instead of printing their markers", () => {
+        const {container} = renderMarkdown("## Results\nan *italic* word and `t2m` code");
+        expect(screen.getByText("italic").tagName).toBe("EM");
+        expect(screen.getByText("t2m").tagName).toBe("CODE");
+        expect(screen.getByText("Results").className).toContain("font-semibold");
+        expect(container.textContent).not.toContain("*");
+        expect(container.textContent).not.toContain("#");
+    });
+
+    // `**bold**` must not be read as an empty italic wrapping a stray asterisk.
+    it("keeps bold bold when it sits next to italics, and leaves identifiers alone", () => {
+        renderMarkdown("**bold** and *thin*\nthe total_precipitation variable");
+        expect(screen.getByText("bold").tagName).toBe("STRONG");
+        expect(screen.getByText("thin").tagName).toBe("EM");
+        expect(screen.getByText(/total_precipitation/)).toBeInTheDocument();
+    });
+
     it("hides a trailing partial link only while streaming", () => {
         renderMarkdown("Found [Ocean te", true);
         expect(screen.getByText("Found")).toBeInTheDocument();
