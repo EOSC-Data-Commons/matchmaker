@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.5] - 10/09/2026
+
+- Fixed Repositories and their logos
+
 ## [0.10.4] - 09/09/2026
 
 - A dataset cited in an AI answer is now a single control instead of two. The bracketed number and the dataset name

@@ -24,17 +24,45 @@ export interface RepoIdentity {
     name: string;
     /** Logo URL, or null when we only have a name (renders as text / initials). */
     logo: string | null;
+    /** Optical size correction for the badge — see `logoScale`. Absent when there is no logo. */
+    logoScale?: number;
     /** Where the badge links to (the original repository / resource), when known. */
     href?: string | null;
 }
 
 const CDN = "https://cdn.eosc-data-commons.eu/app/uploads";
 
+/**
+ * Per-logo optical size correction, applied by RepoProvenance on top of a plain object-contain fit.
+ *
+ * Logo files disagree about how much of themselves is logo. The media team's assets from
+ * https://www.eosc-data-commons.eu/use-cases centre the mark on a uniform canvas with roughly a
+ * third of the height as empty margin, so fitted whole they render their padding and shrink the mark
+ * to ~12px. A logo hotlinked from a project's own site is cropped hard to the mark instead and
+ * fills the badge edge to edge. Fitting both the same way is why the strip looked ragged: side by
+ * side, marks came out anywhere from 20px to 96px wide.
+ *
+ * `logoScale` is the factor that brings each mark to the same *optical area* — the convention for a
+ * row of mixed-aspect logos, since a wide wordmark and a square mark cannot match on both axes at
+ * once. It is derived, not eyeballed: measure the ink bounding box of the file, work out the size it
+ * lands at under object-contain in the 96x40 badge, and scale that to the width and height whose
+ * product is a constant ~1500px² (capped at 92x36 so nothing touches the edges). Media assets come
+ * out around 1.5-2.3x, tight ones around 0.6-1.0x.
+ *
+ * To add a logo, measure it the same way rather than guessing — a wrong number here reads as "that
+ * one is the wrong size", which is exactly what this replaced.
+ */
+type LogoEntry = { name: string; logo: string | null; logoScale?: number };
+
 // ── Aggregator platforms (right logo, red box) ───────────────────────────────
 // Only external crawler platforms that re-expose someone else's data. NOT the source repositories.
-const PLATFORMS: Record<string, { name: string; logo: string | null }> = {
-    // OneData has no EOSC CDN asset; use the project's canonical logo.
-    ONE: {name: "Onedata", logo: "https://raw.githubusercontent.com/onedata/onedata/develop/resources/logo.png"},
+const PLATFORMS: Record<string, LogoEntry> = {
+    // No media asset for any aggregator yet; Onedata hotlinks the project's own mark.
+    ONE: {
+        name: "Onedata",
+        logo: "https://raw.githubusercontent.com/onedata/onedata/develop/resources/logo.png",
+        logoScale: 0.96,
+    },
     // Named as future aggregators in the thread; no logo asset yet -> render as text.
     OPENAIRE: {name: "OpenAIRE", logo: null},
     OPENALEX: {name: "OpenAlex", logo: null},
@@ -47,52 +75,56 @@ const PLATFORM_HOSTS: { suffix: string; code: string }[] = [
 ];
 
 // ── Source repositories (single logo when harvested directly, no aggregator) ──
-// Keyed by the upstream `_repo` code. Official EOSC CDN assets from the Confluence "Data Model" page
-// where they actually resolve. PaNOSC, EMPIAR, MDDB and DataverseLV have no usable CDN asset, so they
-// hotlink the project's own logo instead: PaNOSC's CDN copy 302s to the homepage (never uploaded),
-// EMPIAR has none, and the MDDB / DataverseLV marks are SVG, which the CDN's WordPress rejects on
-// upload. A hotlinked URL can move without notice; LogoImg falls back to the repository name as text
-// when an image fails to load, so that degrades quietly rather than breaking the badge.
-const REPOSITORIES: Record<string, { name: string; logo: string | null }> = {
-    DANS: {name: "DANS", logo: `${CDN}/2025/04/DANS.png`},
-    HAL: {name: "HAL Open Science", logo: `${CDN}/2025/07/HAL.png`},
+// Keyed by the upstream `_repo` code. Every code the /stats endpoint reports as active has a logo
+// here — "has a logo for every active repository" in the tests holds us to that, because a bare name
+// next to the others' marks is exactly the raggedness this map exists to avoid.
+const REPOSITORIES: Record<string, LogoEntry> = {
+    // The media team's assets — the approved brand marks. Prefer one whenever it exists.
+    DANS: {name: "DANS", logo: `${CDN}/2025/04/DANS.png`, logoScale: 1.66},
+    HAL: {name: "HAL Open Science", logo: `${CDN}/2025/07/HAL.png`, logoScale: 2.03},
+    DABAR: {name: "DABAR", logo: `${CDN}/2025/07/DABAR.png`, logoScale: 1.59},
+    SWISS: {name: "SWISSUbase", logo: `${CDN}/2025/06/SwissUBase-1.png`, logoScale: 1.59},
+    SWISSUBASE: {name: "SWISSUbase", logo: `${CDN}/2025/06/SwissUBase-1.png`, logoScale: 1.59},
+    FINBIF: {name: "FinBIF", logo: `${CDN}/2025/07/FinBif.png`, logoScale: 1.57},
+    DASCH: {name: "DaSCH", logo: `${CDN}/2025/07/DASCH.png`, logoScale: 1.68},
+    EODC: {name: "EODC", logo: `${CDN}/2025/07/EODC-lightblue.png`, logoScale: 1.62},
+
+    // Active repositories the media team has not published an asset for. These hotlink the project's
+    // own logo, which can move without notice — swap in a media asset (and remeasure) once it exists.
     PANOSC: {
         name: "PaNOSC",
-        logo: "https://www.panosc.eu/wp-content/uploads/2024/09/PaNOSClogo_print_RGB-2024-1024x480.png"
+        logo: "https://www.panosc.eu/wp-content/uploads/2024/09/PaNOSClogo_print_RGB-2024-1024x480.png",
+        logoScale: 0.78,
     },
-    ZENODO: {name: "Zenodo", logo: `${CDN}/2026/05/zenodo-gradient-2500.png`},
-    DABAR: {name: "DABAR", logo: `${CDN}/2025/07/DABAR.png`},
-    SWISS: {name: "SWISSUbase", logo: `${CDN}/2025/06/SwissUBase-1.png`},
-    SWISSUBASE: {name: "SWISSUbase", logo: `${CDN}/2025/06/SwissUBase-1.png`},
-    FINBIF: {name: "FinBIF", logo: `${CDN}/2025/07/FinBif.png`},
-    DASCH: {name: "DaSCH", logo: `${CDN}/2025/07/DASCH.png`},
-    EODC: {name: "EODC", logo: `${CDN}/2025/07/EODC-lightblue.png`},
+    // The 2500px original is 1.3 MB; the CDN's 300px derivative is 16 KB and still 3x the badge.
+    ZENODO: {name: "Zenodo", logo: `${CDN}/2026/05/zenodo-gradient-2500-300x120.png`, logoScale: 0.64},
     EMPIAR: {
         name: "EMPIAR",
-        logo: "https://www.ebi.ac.uk/em_static/empiar/EMPIAR_logo_2017_black_font.png"
+        logo: "https://www.ebi.ac.uk/em_static/empiar/EMPIAR_logo_2017_black_font.png",
+        logoScale: 0.81,
     },
-    MDDB: {
-        name: "MDDB",
-        logo: "https://mddbr.eu/wp-content/uploads/2023/06/MDDB_Logo_colour.svg"
-    },
+    MDDB: {name: "MDDB", logo: "https://mddbr.eu/wp-content/uploads/2023/06/MDDB_Logo_colour.svg", logoScale: 0.65},
     DATAVERSELV: {
         name: "DataverseLV",
-        logo: "https://dataverse.lv/wp-content/uploads/2025/03/dataverseLV-1.svg"
+        logo: "https://dataverse.lv/wp-content/uploads/2025/03/dataverseLV-1.svg",
+        logoScale: 0.96,
     },
 };
 
 // ── Owner logos (left, for aggregated records) ───────────────────────────────
 // Matched against the organizational creator's URL nameIdentifier. `href` overrides the link where a
 // stakeholder asked for a specific landing page (e.g. EODC -> service portal).
-// A `null` logo means we have no working asset yet, so the badge shows the owner name as text:
-//   - Bgee: CDN file `2026/05/logo-bgee-v3.svg` is not actually uploaded (WordPress rejects SVG) and
-//           the bgee.org source 403s hotlinks — pending a PNG re-upload to the CDN.
-//   - CREATIS (VIP owner): no CDN asset and no stable source URL yet.
-const OWNER_LOGOS: { match: string; name: string; logo: string | null; href?: string }[] = [
-    {match: "eodc", name: "EODC", logo: `${CDN}/2025/07/EODC-lightblue.png`, href: "https://portal.services.eodc.eu"},
-    {match: "ebi.ac.uk/gwas", name: "GWAS Catalog", logo: `${CDN}/2026/05/gwas-catalog-logo.jpg`},
-    {match: "bgee.org", name: "Bgee", logo: null},                // TODO: swap in CDN URL once uploaded as PNG
-    {match: "creatis.insa-lyon.fr", name: "CREATIS", logo: null}, // TODO: swap in CDN URL once available (VIP)
+// Bgee and CREATIS were waiting on a usable asset and rendered as bare text; the media team's set
+// supplies both. CREATIS runs the Virtual Imaging Platform and VIP is the mark published for it, so
+// the badge shows the VIP logo under the owner name CREATIS.
+const OWNER_LOGOS: { match: string; name: string; logo: string | null; logoScale?: number; href?: string }[] = [
+    {
+        match: "eodc", name: "EODC", logo: `${CDN}/2025/07/EODC-lightblue.png`, logoScale: 1.62,
+        href: "https://portal.services.eodc.eu",
+    },
+    {match: "bgee.org", name: "Bgee", logo: `${CDN}/2025/07/BGEE-2.png`, logoScale: 1.45},
+    {match: "creatis.insa-lyon.fr", name: "CREATIS", logo: `${CDN}/2025/07/VIP.png`, logoScale: 2.32},
+    {match: "ebi.ac.uk/gwas", name: "GWAS Catalog", logo: `${CDN}/2026/05/gwas-catalog-logo.jpg`, logoScale: 0.75},
 ];
 
 function hostnameOf(raw: string | null | undefined): string | null {
@@ -170,6 +202,7 @@ export function getOwner(hit: BackendDataset): RepoIdentity | null {
         code: mapped?.match ?? hostnameOf(idUrl) ?? owner.creatorName,
         name: mapped?.name ?? owner.creatorName,
         logo: mapped?.logo ?? null,
+        logoScale: mapped?.logoScale,
         href: mapped?.href ?? idUrl,
     };
 }
