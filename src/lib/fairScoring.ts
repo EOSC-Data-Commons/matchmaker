@@ -1,4 +1,4 @@
-import type {AssessorId, FairCell, FairCellResult, FairPrinciple, FairScores} from '@/types/fairTypes.ts';
+import type {AssessorId, FairCell, FairCellResult, FairOutcome, FairPrinciple, FairScores} from '@/types/fairTypes.ts';
 
 /**
  * Reference data and score arithmetic for the FAIR assessment card.
@@ -96,8 +96,11 @@ export const CELL_PLAIN: Record<FairCell, string> = {
 /** `a1_1` reads as "A1.1", which is how the FAIR principles are normally written. */
 export const cellLabel = (cell: FairCell) => cell.toUpperCase().replace(/_/g, '.');
 
+/** The outcomes that carry a score; `indeterminate` means nothing could be measured. */
+type ScorableOutcome = Exclude<FairOutcome, 'indeterminate'>;
+
 /** Points the proxy assigns each measurable outcome. */
-const POINTS: Record<string, number> = {pass: 100, partial: 50, fail: 0};
+const POINTS: Record<ScorableOutcome, number> = {pass: 100, partial: 50, fail: 0};
 
 /** The criteria of a principle that can contribute to its score. */
 export const scorableCells = (principle: FairPrinciple): FairCell[] =>
@@ -156,7 +159,7 @@ export function recomputeScores(cells: FairCellResult[], assessor: AssessorId): 
     for (const principle of Object.keys(PRINCIPLE_NAMES) as FairPrinciple[]) {
         const points = scorableCells(principle)
             .map(cell => byCell.get(cell)?.by_assessor[assessor])
-            .filter((outcome): outcome is string => outcome !== undefined && outcome in POINTS)
+            .filter((outcome): outcome is ScorableOutcome => outcome !== undefined && outcome in POINTS)
             .map(outcome => POINTS[outcome]);
 
         scores[principle] = points.length
