@@ -106,6 +106,25 @@ export const SlotsMappingAndFilesSetStep = ({
         }, "");
     };
 
+    const addAllFiles = () => {
+        const alreadyAdded = new Set(
+            Object.values(filesMapping).map(([meta]) => meta.dataPath)
+        );
+        const usedNames = new Set(Object.keys(filesMapping));
+        let slotIndex = 1;
+
+        files.forEach((file) => {
+            if (alreadyAdded.has(file.dataPath)) return; // skip files already mapped
+
+            // find the next free slot name (safe even after removals)
+            while (usedNames.has(`slot-${slotIndex}`)) slotIndex++;
+            const name = `slot-${slotIndex}`;
+            usedNames.add(name);
+
+            addToFilesSet(name, file, file.filename);
+        });
+    };
+
     return (
         <div className="w-full font-light">
             <div className="mb-6 sm:mb-8">
@@ -311,6 +330,13 @@ export const SlotsMappingAndFilesSetStep = ({
                                 className=""
                             >
                                 + Add File
+                            </button>
+                            <button
+                                onClick={addAllFiles}
+                                disabled={files.length === 0}
+                                className=""
+                            >
+                                + Add All Files
                             </button>
                         </div>
 
