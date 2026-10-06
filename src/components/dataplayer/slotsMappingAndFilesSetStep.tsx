@@ -371,18 +371,20 @@ export const SlotsMappingAndFilesSetStep = ({
                                         ))}
                                     </select>
 
+                                    {/* I disable this part for now because for cernbox case they think this might be not a good UX */}
+                                    {/* And they have no need for the renaming. */}
                                     {/* Rename */}
-                                    <input
-                                        type="text"
-                                        defaultValue={item[0].filename ?? ""}
-                                        onChange={(e) =>
-                                            addToFilesSet(key, {
-                                                ...item[0],
-                                            }, e.target.value)
-                                        }
-                                        placeholder="Rename file..."
-                                        className="block w-full sm:w-1/2 px-3 py-2 text-sm border border-eosc-border rounded-md"
-                                    />
+                                    {/* <input */}
+                                    {/*     type="text" */}
+                                    {/*     defaultValue={item[0].filename ?? ""} */}
+                                    {/*     onChange={(e) => */}
+                                    {/*         addToFilesSet(key, { */}
+                                    {/*             ...item[0], */}
+                                    {/*         }, e.target.value) */}
+                                    {/*     } */}
+                                    {/*     placeholder="Rename file..." */}
+                                    {/*     className="block w-full sm:w-1/2 px-3 py-2 text-sm border border-eosc-border rounded-md" */}
+                                    {/* /> */}
 
                                     {/* Remove */}
                                     <button
