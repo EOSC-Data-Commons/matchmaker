@@ -5,6 +5,8 @@ import {makeDataset} from "@/test/fixtures/datasets";
 import {
     extractDOI,
     fetchDOICitation,
+    fetchDOIFormattedCitation,
+    formatCitation,
     generateBibTeX,
     generateRIS,
     generateEndNote,
@@ -220,5 +222,113 @@ describe("fetchDOICitation", () => {
             http.get("https://doi.org/:doi", () => HttpResponse.error()),
         );
         expect(await fetchDOICitation("10.1234/network.error", "bibtex")).toBeNull();
+    });
+});
+
+describe("fetchDOIFormattedCitation", () => {
+    it("asks doi.org for the style's CSL name and reduces DataCite's markup to text", async () => {
+        let acceptHeader: string | null = null;
+        server.use(
+            http.get("https://doi.org/:doi", ({request}) => {
+                acceptHeader = request.headers.get("accept");
+                return HttpResponse.text("Doe, J., &amp; Smith, J. (2023). <i>Ocean data</i> [Dataset]. Zenodo.");
+            }),
+        );
+        const result = await fetchDOIFormattedCitation("10.1234/formatted.test", "chicago");
+        expect(acceptHeader).toBe("text/x-bibliography; style=chicago-author-date; locale=en-US");
+        expect(result).toBe("Doe, J., & Smith, J. (2023). Ocean data [Dataset]. Zenodo.");
+    });
+
+    it("returns null when the registration agency does not know the style", async () => {
+        // Crossref answers an unknown style with 406.
+        server.use(
+            http.get("https://doi.org/:doi", () => HttpResponse.json({code: "style-not-found"}, {status: 406})),
+        );
+        expect(await fetchDOIFormattedCitation("10.1234/no.style", "vancouver")).toBeNull();
+    });
+
+    it("returns null when doi.org sends the landing page instead of a citation", async () => {
+        server.use(
+            http.get("https://doi.org/:doi", () => HttpResponse.html("<html><body>Dataset landing page</body></html>")),
+        );
+        expect(await fetchDOIFormattedCitation("10.1234/landing.page", "apa")).toBeNull();
+        expect(await fetchDOICitation("10.1234/landing.page", "bibtex")).toBeNull();
+    });
+});
+
+describe("formatCitation", () => {
+    const doiLink = "https://doi.org/10.5281/zenodo.1234567";
+
+    it.each([
+        ["apa", `Doe, J., & Smith, J. (2023). Test Dataset Title [Data set]. ${doiLink}`],
+        ["chicago", `Doe, Jane, and John Smith. 2023. “Test Dataset Title.” ${doiLink}.`],
+        ["harvard", `Doe, J. and Smith, J. (2023) “Test Dataset Title.” Available at: ${doiLink}.`],
+        ["mla", `Doe, Jane, and John Smith. “Test Dataset Title.” 2023, ${doiLink}.`],
+        ["vancouver", `Doe J, Smith J. Test Dataset Title [Internet]. 2023. Available from: ${doiLink}`],
+    ] as const)("formats a dataset in %s", (style, expected) => {
+        expect(formatCitation(makeDataset(), style)).toBe(expected);
+    });
+
+    it("names the source repository as the publisher", () => {
+        const ds = makeDataset({_source: {_repo: "ZENODO"}});
+        expect(formatCitation(ds, "apa")).toBe(`Doe, J., & Smith, J. (2023). Test Dataset Title [Data set]. Zenodo. ${doiLink}`);
+        expect(formatCitation(ds, "vancouver")).toContain("Test Dataset Title [Internet]. Zenodo; 2023.");
+    });
+
+    it("does not name an aggregator as the publisher", () => {
+        const ds = makeDataset({_source: {_repo: "OPENAIRE"}});
+        expect(formatCitation(ds, "apa")).not.toContain("OpenAIRE");
+    });
+
+    it("abbreviates given names, keeping hyphenated names and existing initials", () => {
+        const ds = makeDataset({
+            _source: {creators: [{creatorName: "Douzery, Emmanuel J.P."}, {creatorName: "Martin, Jean-Paul"}]},
+        });
+        expect(formatCitation(ds, "apa")).toMatch(/^Douzery, E\. J\. P\., & Martin, J\.-P\. \(2023\)/);
+        expect(formatCitation(ds, "vancouver")).toMatch(/^Douzery EJP, Martin JP\. /);
+    });
+
+    it("keeps organisations and names without a comma whole", () => {
+        const ds = makeDataset({
+            _source: {
+                creators: [
+                    {creatorName: "European Space Agency, Earth Observation", nameType: "Organizational"},
+                    {creatorName: "Jane Doe"},
+                ],
+            },
+        });
+        expect(formatCitation(ds, "apa")).toMatch(/^European Space Agency, Earth Observation, & Jane Doe \(2023\)/);
+    });
+
+    it("shortens long author lists the way each style does", () => {
+        const creators = (n: number) => Array.from({length: n}, (_, i) => ({creatorName: `Author${i + 1}, Ann`}));
+        const cite = (n: number, style: Parameters<typeof formatCitation>[1]) =>
+            formatCitation(makeDataset({_source: {creators: creators(n)}}), style);
+
+        expect(cite(20, "apa")).toContain("Author19, A., & Author20, A. (2023)");
+        expect(cite(21, "apa")).toContain("Author19, A., . . . Author21, A. (2023)");
+        expect(cite(21, "apa")).not.toContain("Author20");
+        expect(cite(3, "harvard")).toMatch(/^Author1, A\., Author2, A\. and Author3, A\. \(2023\)/);
+        expect(cite(4, "harvard")).toMatch(/^Author1, A\. et al\. \(2023\)/);
+        expect(cite(2, "mla")).toMatch(/^Author1, Ann, and Ann Author2\. /);
+        expect(cite(3, "mla")).toMatch(/^Author1, Ann, et al\. /);
+        expect(cite(6, "chicago")).toMatch(/^Author1, Ann, Ann Author2, .*, and Ann Author6\. 2023\./);
+        expect(cite(7, "chicago")).toMatch(/^Author1, Ann, Ann Author2, Ann Author3, et al\. 2023\./);
+        expect(cite(7, "vancouver")).toMatch(/^Author1 A, .*, Author6 A, et al\. Test/);
+    });
+
+    it("leads with the title when there are no creators, and marks a missing date per style", () => {
+        const ds = makeDataset({publication_date: null, _source: {creators: null, publicationYear: null}});
+        expect(formatCitation(ds, "apa")).toBe(`Test Dataset Title [Data set]. (n.d.). ${doiLink}`);
+        expect(formatCitation(ds, "chicago")).toBe(`“Test Dataset Title.” n.d. ${doiLink}.`);
+        expect(formatCitation(ds, "harvard")).toBe(`“Test Dataset Title.” (no date) Available at: ${doiLink}.`);
+        expect(formatCitation(ds, "mla")).toBe(`“Test Dataset Title.” ${doiLink}.`);
+        expect(formatCitation(ds, "vancouver")).toBe(`Test Dataset Title [Internet]. Available from: ${doiLink}`);
+    });
+
+    it("links to the dataset URL when there is no DOI, and does not double a title's full stop", () => {
+        const ds = makeDataset({_id: "https://example.org/dataset/1", title: "Ocean data."});
+        expect(formatCitation(ds, "apa")).toBe("Doe, J., & Smith, J. (2023). Ocean data [Data set]. https://example.org/dataset/1");
+        expect(formatCitation(ds, "harvard")).toContain("“Ocean data.”");
     });
 });
