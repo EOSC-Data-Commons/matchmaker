@@ -1,10 +1,13 @@
 import React, {FC} from 'react';
-import {MoreVertical, Trash2} from 'lucide-react';
+import {Loader2, MoreVertical, Trash2} from 'lucide-react';
 import {Conversation} from '@/types/chat.ts';
 
 interface Props {
     conversation: Conversation;
     isActive: boolean;
+    // `running`: an answer is still being written. `unread`: one finished while the
+    // conversation was not open.
+    activity?: 'running' | 'unread';
     menuOpen: boolean;
     onClick: () => void;
     onMenuToggle: (e: React.MouseEvent) => void;
@@ -14,6 +17,7 @@ interface Props {
 export const ConversationSidebarItem: FC<Props> = ({
                                                        conversation,
                                                        isActive,
+                                                       activity,
                                                        menuOpen,
                                                        onClick,
                                                        onMenuToggle,
@@ -28,8 +32,20 @@ export const ConversationSidebarItem: FC<Props> = ({
             } ${menuOpen ? 'z-10' : 'z-0'}`}
             onClick={onClick}
         >
-            <div className="flex-1 truncate pr-6" title={conversation.title}>
-                {conversation.title}
+            <div className="flex-1 min-w-0 flex items-center gap-2 pr-6">
+                {activity === 'running' && (
+                    <>
+                        <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-blue-600" aria-hidden="true"/>
+                        <span className="sr-only">Answer in progress:</span>
+                    </>
+                )}
+                {activity === 'unread' && (
+                    <>
+                        <span className="h-2 w-2 shrink-0 rounded-full bg-blue-600" aria-hidden="true"/>
+                        <span className="sr-only">New answer:</span>
+                    </>
+                )}
+                <span className="truncate" title={conversation.title}>{conversation.title}</span>
             </div>
             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center">
                 <button

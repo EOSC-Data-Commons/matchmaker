@@ -11,6 +11,8 @@ const SHOW_MODEL_SELECTOR = import.meta.env.VITE_SHOW_MODEL_SELECTOR === 'true';
 
 const DEFAULT_MODEL = "cesnet/agentic";
 
+const submitButtonClass = "shrink-0 flex items-center justify-center gap-2 h-10 px-5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60";
+
 const models = [
     "openai/gpt-4.1",
     "mistralai/mistral-large-latest",
@@ -26,6 +28,8 @@ interface SearchInputProps {
     initialModel?: string;
     onSearch: (query: string, model: string, aiMode?: boolean) => void;
     loading?: boolean;
+    // While `loading`, the submit button calls this instead of staying disabled.
+    onStop?: () => void;
     placeholder?: string;
     // Used below `sm`, where the field is too narrow for the full placeholder.
     placeholderShort?: string;
@@ -45,6 +49,7 @@ export const SearchInput = ({
                                 initialQuery = '',
                                 onSearch,
                                 loading = false,
+                                onStop,
                                 placeholder = "Search for data... e.g., 'climate data for the last decade'",
                                 placeholderShort = "Search for data...",
                                 className = "",
@@ -235,13 +240,17 @@ export const SearchInput = ({
                         </>
                     )}
 
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="shrink-0 flex items-center justify-center gap-2 h-10 px-5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                        {buttonText}
-                    </button>
+                    {/* Separate elements, not one whose type flips: a button that turns into a
+                        submit button while its click is still being handled submits the form. */}
+                    {loading && onStop ? (
+                        <button key="stop" type="button" onClick={onStop} className={submitButtonClass}>
+                            {buttonText}
+                        </button>
+                    ) : (
+                        <button key="submit" type="submit" disabled={loading} className={submitButtonClass}>
+                            {buttonText}
+                        </button>
+                    )}
                 </div>
 
                 {!disableHistory && showHistory && filteredHistory.length > 0 && (
