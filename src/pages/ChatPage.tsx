@@ -591,7 +591,7 @@ const ChatPage: FC = () => {
                                     <div key={`${selectedConversation.id}-${index}`}
                                          className={`w-full flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                                         <div
-                                            className={`group flex gap-2 md:gap-3 max-w-full md:max-w-[85%] min-w-0 ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
+                                            className={`flex gap-2 md:gap-3 max-w-full md:max-w-[85%] min-w-0 ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
                                             {/* Avatar */}
                                             <div
                                                 className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center shadow-sm mt-1 overflow-hidden ${msg.sender === 'user' ? 'bg-[#002337] text-white text-sm font-medium' : 'bg-white border border-gray-100 p-1'}`}>
@@ -651,7 +651,14 @@ const ChatPage: FC = () => {
                                                     </div>
                                                 )}
                                             </div>
-                                            {msg.sender === 'user' && <CopyMessageButton text={msg.content}/>}
+                                            {msg.sender === 'user' && (
+                                                <CopyMessageButton text={msg.content} className="self-center"/>
+                                            )}
+                                            {/* Answers can be long, so their button sits at the end of the
+                                                answer. Held back while streaming, when the text is unfinished. */}
+                                            {msg.sender === 'bot' && !msg.isError && !msg.isStreaming && msg.content.trim() !== '' && (
+                                                <CopyMessageButton text={msg.content} className="self-end"/>
+                                            )}
                                         </div>
                                     </div>
                                 ))

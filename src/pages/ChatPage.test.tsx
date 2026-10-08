@@ -161,8 +161,29 @@ describe("ChatPage", () => {
         await user.type(await screen.findByRole("textbox"), "ocean data");
         await user.click(screen.getByRole("button", {name: /send/i}));
 
-        await user.click(await screen.findByRole("button", {name: "Copy message"}));
+        // The question comes before its answer, so its button is the first.
+        const [question] = await screen.findAllByRole("button", {name: "Copy message"});
+        await user.click(question);
         expect(await navigator.clipboard.readText()).toBe("ocean data");
+    });
+
+    it("copies an answer once it has finished streaming", async () => {
+        const run = heldRun(firstHalf, secondHalf);
+        server.use(http.post("/api/search/chat", run.response));
+        const user = userEvent.setup();
+        renderChat();
+
+        await user.type(await screen.findByRole("textbox"), "ocean data");
+        await user.click(screen.getByRole("button", {name: /send/i}));
+        expect(await screen.findByText("First half,")).toBeInTheDocument();
+
+        // Only the question can be copied while the answer is still being written.
+        expect(screen.getAllByRole("button", {name: "Copy message"})).toHaveLength(1);
+
+        run.finish();
+        await waitFor(() => expect(screen.getAllByRole("button", {name: "Copy message"})).toHaveLength(2));
+        await user.click(screen.getAllByRole("button", {name: "Copy message"})[1]);
+        expect(await navigator.clipboard.readText()).toBe("First half, second half.");
     });
 
     it("does not carry one conversation's open citation into another", async () => {
