@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.0] - 08/10/2026
+
+- An answer still being written now keeps going when you start a new chat or switch conversations, and stays in its
+  own conversation.
+- The conversation list shows a spinner for a running answer and a dot for one that finished while you were away.
+- The send button becomes Stop while an answer is being written, and the browser asks before you leave mid-answer.
+- The copy button is now always visible, and answers have one too.
+- Cite now offers formatted citations in APA (default), Chicago, Harvard, MLA and Vancouver, next to BibTeX, RIS and
+  CSL JSON.
+- Fixed the Cite panel being cut off inside the "Datasets cited in this answer" list.
+- Added the NFDI4Earth logo and fixed the DataverseLV logo not loading.
+- Removed the placeholder stats line from the home page.
+- Added `@radix-ui/react-popover`, and overrides for `basic-ftp` and pm2's `chokidar`.
+
 ## [0.10.6] - 11/09/2026
 
 - Tables in an AI answer now render as tables, instead of rows of pipes.
