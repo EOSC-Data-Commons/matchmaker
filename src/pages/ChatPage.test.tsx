@@ -1,4 +1,4 @@
-import {describe, it, expect, vi, beforeEach} from "vitest";
+import {describe, it, expect, vi, beforeEach, afterEach} from "vitest";
 import {render, screen, waitFor, within} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {MemoryRouter, Route, Routes} from "react-router";
@@ -6,6 +6,7 @@ import {http, HttpResponse} from "msw";
 import {server} from "@/test/msw/server";
 import {makeDataset} from "@/test/fixtures/datasets";
 import {sse, sseResponse} from "@/test/sse";
+import {discardRun, getChatRuns} from "@/lib/chatRuns";
 import ChatPage from "./ChatPage";
 
 const DATASET_URL = "https://doi.org/10.5281/zenodo.1234567";
@@ -35,6 +36,50 @@ beforeEach(() => {
         http.post("/api/search/chat", () => sseResponse(chatRun)),
     );
 });
+
+// Runs live in module state, outside any one render of the page.
+afterEach(() => {
+    getChatRuns().forEach(run => discardRun(run.key));
+});
+
+/**
+ * A chat response that sends `first`, then holds the stream open until `finish()`
+ * sends `rest`, so a test can act while the answer is still being written.
+ */
+const heldRun = (first: object[], rest: object[]) => {
+    const encoder = new TextEncoder();
+    let finish!: () => void;
+    const released = new Promise<void>(resolve => {
+        finish = resolve;
+    });
+    const response = () => new HttpResponse(
+        new ReadableStream<Uint8Array>({
+            async start(controller) {
+                controller.enqueue(encoder.encode(sse(first)));
+                await released;
+                try {
+                    controller.enqueue(encoder.encode(sse(rest)));
+                    controller.close();
+                } catch {
+                    // Nobody is reading any more: the run was stopped.
+                }
+            },
+        }),
+        {headers: {"Content-Type": "text/event-stream"}},
+    );
+    return {response, finish};
+};
+
+const firstHalf = [
+    {type: "RUN_STARTED", thread_id: "t-5"},
+    {type: "TEXT_MESSAGE_START", message_id: "m1"},
+    {type: "TEXT_MESSAGE_CHUNK", delta: "First half,"},
+];
+const secondHalf = [
+    {type: "TEXT_MESSAGE_CHUNK", delta: " second half."},
+    {type: "TEXT_MESSAGE_END", message_id: "m1"},
+    {type: "RUN_FINISHED", thread_id: "t-5"},
+];
 
 // The real route mounts ChatPage on both /chat and /chat/:id — the run navigates to
 // /chat/:thread_id as soon as RUN_STARTED arrives.
@@ -116,8 +161,29 @@ describe("ChatPage", () => {
         await user.type(await screen.findByRole("textbox"), "ocean data");
         await user.click(screen.getByRole("button", {name: /send/i}));
 
-        await user.click(await screen.findByRole("button", {name: "Copy message"}));
+        // The question comes before its answer, so its button is the first.
+        const [question] = await screen.findAllByRole("button", {name: "Copy message"});
+        await user.click(question);
         expect(await navigator.clipboard.readText()).toBe("ocean data");
+    });
+
+    it("copies an answer once it has finished streaming", async () => {
+        const run = heldRun(firstHalf, secondHalf);
+        server.use(http.post("/api/search/chat", run.response));
+        const user = userEvent.setup();
+        renderChat();
+
+        await user.type(await screen.findByRole("textbox"), "ocean data");
+        await user.click(screen.getByRole("button", {name: /send/i}));
+        expect(await screen.findByText("First half,")).toBeInTheDocument();
+
+        // Only the question can be copied while the answer is still being written.
+        expect(screen.getAllByRole("button", {name: "Copy message"})).toHaveLength(1);
+
+        run.finish();
+        await waitFor(() => expect(screen.getAllByRole("button", {name: "Copy message"})).toHaveLength(2));
+        await user.click(screen.getAllByRole("button", {name: "Copy message"})[1]);
+        expect(await navigator.clipboard.readText()).toBe("First half, second half.");
     });
 
     it("does not carry one conversation's open citation into another", async () => {
@@ -177,7 +243,7 @@ describe("ChatPage", () => {
 
             // The messages scroll in their own container, the scrollable ancestor of
             // every bubble. Leave it part-way up the thread, as a reader would.
-            const container = screen.getByText("ocean data").closest(".overflow-y-auto") as HTMLElement;
+            const container = screen.getByText("ocean data", {selector: "p"}).closest(".overflow-y-auto") as HTMLElement;
             container.scrollTop = 120;
 
             await user.click(await screen.findByText("Earlier chat"));
@@ -186,5 +252,88 @@ describe("ChatPage", () => {
         } finally {
             Reflect.deleteProperty(HTMLElement.prototype, "scrollHeight");
         }
+    });
+
+    it("keeps an answer going after New Chat, and shows it when its conversation is opened again", async () => {
+        const run = heldRun(firstHalf, secondHalf);
+        server.use(http.post("/api/search/chat", run.response));
+        const user = userEvent.setup();
+        renderChat();
+
+        await user.type(await screen.findByRole("textbox"), "ocean data");
+        await user.click(screen.getByRole("button", {name: /send/i}));
+        expect(await screen.findByText("First half,")).toBeInTheDocument();
+
+        await user.click(screen.getByRole("button", {name: /new chat/i}));
+
+        // The new chat can be used straight away, and the answer does not follow into it.
+        expect(screen.getByRole("button", {name: /send/i})).toBeEnabled();
+        expect(screen.queryByText(/First half/)).not.toBeInTheDocument();
+        // The sidebar lists the conversation before the backend does, as still being answered.
+        expect(screen.getByText("Answer in progress:")).toBeInTheDocument();
+
+        run.finish();
+        expect(await screen.findByText("New answer:")).toBeInTheDocument();
+        expect(screen.queryByText(/second half/)).not.toBeInTheDocument();
+
+        // Opened again, it shows the whole answer from the run: there is no handler for
+        // GET /conversation/t-5, so a fetch would fail the test.
+        await user.click(screen.getByText("ocean data"));
+        expect(await screen.findByText("First half, second half.")).toBeInTheDocument();
+        expect(screen.getByText("ocean data", {selector: "p"})).toBeInTheDocument();
+        expect(screen.queryByText("New answer:")).not.toBeInTheDocument();
+    });
+
+    it("does not write a running answer into another conversation", async () => {
+        const run = heldRun(firstHalf, secondHalf);
+        server.use(
+            http.post("/api/search/chat", run.response),
+            http.get("/api/search/conversations", () => HttpResponse.json([
+                {thread_id: "t-9", label: "Earlier chat"},
+            ])),
+            http.get("/api/search/conversation/t-9", () => HttpResponse.json({
+                thread_id: "t-9",
+                label: "Earlier chat",
+                items: [{type: "message", role: "user", content: "earlier question"}],
+            })),
+        );
+        const user = userEvent.setup();
+        renderChat();
+
+        await user.type(await screen.findByRole("textbox"), "ocean data");
+        await user.click(screen.getByRole("button", {name: /send/i}));
+        expect(await screen.findByText("First half,")).toBeInTheDocument();
+
+        await user.click(screen.getByText("Earlier chat"));
+        expect(await screen.findByText("earlier question")).toBeInTheDocument();
+
+        run.finish();
+        expect(await screen.findByText("New answer:")).toBeInTheDocument();
+        expect(screen.getByText("earlier question")).toBeInTheDocument();
+        expect(screen.queryByText(/First half/)).not.toBeInTheDocument();
+        expect(screen.queryByText("ocean data", {selector: "p"})).not.toBeInTheDocument();
+    });
+
+    it("stops an answer with the Stop button and keeps what it had written", async () => {
+        const run = heldRun(firstHalf, secondHalf);
+        server.use(http.post("/api/search/chat", run.response));
+        const user = userEvent.setup();
+        renderChat();
+
+        const input = await screen.findByRole("textbox");
+        await user.type(input, "ocean data");
+        await user.click(screen.getByRole("button", {name: /send/i}));
+        expect(await screen.findByText("First half,")).toBeInTheDocument();
+
+        // Text typed while the answer runs is not sent by stopping it.
+        await user.type(input, "next question");
+        await user.click(screen.getByRole("button", {name: /stop/i}));
+
+        expect(await screen.findByRole("button", {name: /send/i})).toBeEnabled();
+        expect(input).toHaveValue("next question");
+        run.finish();
+        await waitFor(() => expect(screen.getByText("First half,")).toBeInTheDocument());
+        expect(screen.queryByText(/second half/)).not.toBeInTheDocument();
+        expect(screen.getAllByText("ocean data", {selector: "p"})).toHaveLength(1);
     });
 });

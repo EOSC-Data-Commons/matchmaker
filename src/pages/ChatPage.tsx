@@ -3,12 +3,21 @@ import {useLocation, useNavigate, useParams} from "react-router";
 import {useAuth} from "@/hooks/useAuth.ts";
 import {loginWithReturn} from "@/lib/authRedirect.ts";
 import {Conversation, Message} from "@/types/chat.ts";
-import {sendChatMessage, RateLimitError, ServerError} from "@/lib/api.ts";
-import {applyChatEvent, finalizeStream, parseConversationItems} from "@/lib/chatMessages.ts";
+import {parseConversationItems} from "@/lib/chatMessages.ts";
+import {
+    discardRun,
+    findRun,
+    getChatRuns,
+    markRunSeen,
+    startRun,
+    stopRun,
+    subscribeToChatRuns
+} from "@/lib/chatRuns.ts";
+import {useChatRuns} from "@/hooks/useChatRuns.ts";
 import {buildDatasetUrlMap} from "@/lib/datasetCitations.ts";
 import {getUserInitials} from "@/lib/userUtils.ts";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
-import {ChevronDown, ChevronUp, Loader2, Menu, MessageSquare, Plus, Send, User, X} from "lucide-react";
+import {ChevronDown, ChevronUp, Menu, MessageSquare, Plus, Send, Square, User, X} from "lucide-react";
 import {BotMessageBody} from "@/components/BotMessageBody.tsx";
 import {SearchInput} from "@/components/SearchInput.tsx";
 import {DeleteConversationDialog} from "@/components/DeleteConversationDialog.tsx";
@@ -35,6 +44,15 @@ const isChatLocationState = (state: unknown): state is ChatLocationState => {
 const countHits = (msg: Message): number =>
     (msg.blocks ?? []).reduce((acc, b) => acc + (b.kind === 'tool' ? (b.toolCall.hits?.length ?? 0) : 0), 0);
 
+const NO_MESSAGES: Message[] = [];
+
+// While an answer streams, BotMessageBody marks the end of its newest text.
+// The view follows that mark rather than the end of the thread: the reference
+// list under the answer grows with it and would otherwise fill the viewport
+// while the words being written sit above the fold.
+const streamingAnchor = (container: HTMLElement | null) =>
+    container?.querySelector<HTMLElement>('[data-streaming-end]') ?? null;
+
 const ChatPage: FC = () => {
     const {id: urlId} = useParams();
     const navigate = useNavigate();
@@ -44,7 +62,6 @@ const ChatPage: FC = () => {
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
     const [loading, setLoading] = useState(true);
-    const [isSending, setIsSending] = useState(false);
     const [showScrollButton, setShowScrollButton] = useState(false);
     const [collapsedMessages, setCollapsedMessages] = useState<Set<number>>(new Set());
     const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -58,6 +75,13 @@ const ChatPage: FC = () => {
     const chatInputRef = useRef<HTMLInputElement>(null);
     activeIdRef.current = selectedConversation?.id;
 
+    // Answers stream into runs keyed by their own conversation, so one keeps going
+    // while another conversation, or a new chat, is on screen.
+    const runs = useChatRuns();
+    const activeRun = findRun(runs, selectedConversation?.id);
+    const messages = activeRun?.messages ?? selectedConversation?.messages ?? NO_MESSAGES;
+    const isSending = activeRun?.status === 'running';
+
     // To prevent processing initial state multiple times
     const initialQueryProcessed = useRef(false);
 
@@ -68,21 +92,14 @@ const ChatPage: FC = () => {
     // update of the run does not pull the reference list into view.
     const answerFollowedRef = useRef(false);
 
-    // While an answer streams, BotMessageBody marks the end of its newest text.
-    // The view follows that mark rather than the end of the thread: the reference
-    // list under the answer grows with it and would otherwise fill the viewport
-    // while the words being written sit above the fold.
-    const streamingAnchor = () =>
-        messagesContainerRef.current?.querySelector<HTMLElement>('[data-streaming-end]') ?? null;
-
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView?.({behavior: "smooth"});
     };
 
-    const scrollToBottomIfFollowing = () => {
+    const scrollToBottomIfFollowing = useCallback(() => {
         if (!followingRef.current) return;
         requestAnimationFrame(() => {
-            const anchor = streamingAnchor();
+            const anchor = streamingAnchor(messagesContainerRef.current);
             if (anchor) {
                 anchor.scrollIntoView?.({block: 'end'});
                 answerFollowedRef.current = true;
@@ -92,14 +109,14 @@ const ChatPage: FC = () => {
             if (answerFollowedRef.current) return;
             messagesEndRef.current?.scrollIntoView?.({block: 'end'});
         });
-    };
+    }, []);
 
     const handleScroll = () => {
         const container = messagesContainerRef.current;
         if (!container) return;
         const {scrollTop, scrollHeight, clientHeight} = container;
         const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
-        const anchor = streamingAnchor();
+        const anchor = streamingAnchor(container);
         if (anchor) {
             // Following the answer: its newest text is within the view or just below it.
             const gap = anchor.getBoundingClientRect().bottom - container.getBoundingClientRect().bottom;
@@ -143,17 +160,22 @@ const ChatPage: FC = () => {
         }
     }, [user?.sub]);
 
-    // Keep a ref to the latest fetchConversations so async flows (e.g. a chat
-    // started from the landing page before `user` has loaded) refresh the
-    // sidebar using the current closure instead of a stale one.
-    const fetchConversationsRef = useRef(fetchConversations);
-    fetchConversationsRef.current = fetchConversations;
-
     useEffect(() => {
         fetchConversations();
     }, [fetchConversations]);
 
     const handleSelectConversation = useCallback((id: string) => {
+        // A conversation with a run from this visit is shown from the run: it holds the
+        // whole thread, including a turn the backend has not stored yet.
+        const run = findRun(getChatRuns(), id);
+        if (run) {
+            markRunSeen(id);
+            setSelectedConversation({id, title: run.title, messages: run.messages});
+            if (urlId !== id) {
+                navigate(`/chat/${id}`);
+            }
+            return;
+        }
         setLoading(true);
         fetch(`/api/search/conversation/${id}`)
             .then(res => {
@@ -207,6 +229,42 @@ const ChatPage: FC = () => {
         container.scrollTop = container.scrollHeight;
     }, [selectedConversation?.id]);
 
+    // Runs change outside React, as their events arrive, so the page reacts to those
+    // changes here rather than to the renders they cause.
+    useEffect(() => {
+        const runningIds = () => new Set(getChatRuns().filter(r => r.status === 'running').map(r => r.runId));
+        let running = runningIds();
+        let followedMessages = findRun(getChatRuns(), activeIdRef.current)?.messages;
+
+        return subscribeToChatRuns(() => {
+            const current = getChatRuns();
+
+            // The backend stores a run's turn, and lists a new conversation with its
+            // label, only once the run is over. A discarded run has no entry left and
+            // does not count: its conversation is being deleted.
+            const settled = current.some(r => r.status !== 'running' && running.has(r.runId));
+            running = runningIds();
+            if (settled) fetchConversations();
+
+            const run = findRun(current, activeIdRef.current);
+            if (!run) return;
+            // Follow the answer streaming into the conversation on screen.
+            if (run.messages !== followedMessages) {
+                followedMessages = run.messages;
+                scrollToBottomIfFollowing();
+            }
+            // An answer that ends on screen has been seen.
+            if (!run.seen) markRunSeen(run.key);
+            // A new conversation gets its thread id from RUN_STARTED. If the new chat is
+            // still on screen at the bare /chat, it moves to the thread's id and URL.
+            const threadId = run.threadId;
+            if (threadId && run.key.startsWith('new-') && run.key === activeIdRef.current && !urlId) {
+                navigate(`/chat/${threadId}`, {replace: true});
+                setSelectedConversation(prev => (prev?.id === run.key ? {...prev, id: threadId} : prev));
+            }
+        });
+    }, [fetchConversations, navigate, urlId, scrollToBottomIfFollowing]);
+
     useEffect(() => {
         const state = location.state;
         if (
@@ -252,6 +310,9 @@ const ChatPage: FC = () => {
     }, [sidebarOpen]);
 
     const handleDeleteConversation = async (id: string) => {
+        // Stop a run still writing into it first, or the backend stores its turn
+        // when the run ends and the conversation comes back.
+        discardRun(id);
         try {
             let res = await fetch('/api/search/conversations', {
                 method: 'DELETE',
@@ -297,9 +358,19 @@ const ChatPage: FC = () => {
         return content.split('\n').find(l => l.trim()) || '';
     };
 
-    const handleSendMessage = async (messageText: string, model: string) => {
+    // The backend lists a new conversation only once its first run is stored, so
+    // until then the sidebar shows it from the run.
+    const sidebarConversations = useMemo(() => {
+        const listed = new Set(conversations.map(c => c.id));
+        const unlisted = runs.flatMap(run => (run.threadId && !listed.has(run.threadId)
+            ? [{id: run.threadId, title: run.title, messages: run.messages}]
+            : []));
+        return [...unlisted, ...conversations];
+    }, [runs, conversations]);
+
+    const handleSendMessage = (messageText: string, model: string) => {
         if (!messageText.trim()) return;
-        if (isSending) return; // Prevent concurrent sends
+        if (isSending) return; // One run per conversation at a time
 
         trackEvent('Chat', 'message_sent', model);
         const runStartedAt = Date.now();
@@ -311,105 +382,51 @@ const ChatPage: FC = () => {
             title: 'New Conversation',
             messages: []
         };
+        const isNew = currentConversation.id.startsWith('new-');
 
-        const updatedMessages = [...currentConversation.messages, userMessage];
+        const updatedMessages = [...messages, userMessage];
 
         setSelectedConversation({
             ...currentConversation,
             messages: updatedMessages,
         });
-        setIsSending(true);
         answerFollowedRef.current = false;
         setTimeout(scrollToBottom, 50);
 
-        // Turn a stream failure into a user-facing error bubble instead of a
-        // silent console.error that dead-ends the chat.
-        const errorText = (error: unknown): string => {
-            if (error instanceof RateLimitError || error instanceof ServerError) return error.message;
-            if (error instanceof Error && /timeout|timed out/i.test(error.message)) {
-                return "The search timed out — please try again.";
-            }
-            return "Something went wrong while searching. Please try again.";
-        };
-        // The whole assistant turn is reduced into this local list, then pushed to
-        // state on every event so tool calls and text appear as they stream in.
-        let streamed: Message[] = updatedMessages;
-        const publish = () => {
-            setSelectedConversation(prev => prev ? {...prev, messages: streamed} : null);
-            scrollToBottomIfFollowing();
-        };
-
-        // The bubble goes into `streamed` too — a later publish would otherwise drop it.
-        // Takes the raw error rather than the formatted text so the failure can be
-        // classified for analytics in the one place every failure path converges on.
-        const appendErrorBubble = (error: unknown) => {
-            trackEvent('Chat', 'run_error', errorKind(error));
-            streamed = [...finalizeStream(streamed), {sender: 'bot', content: errorText(error), isError: true}];
-            publish();
-            setIsSending(false);
-        };
-
-        try {
-            await sendChatMessage(
-                updatedMessages,
-                model,
-                currentConversation.id.startsWith('new-') ? undefined : currentConversation.id,
-                (event) => {
-                    if (event.type === 'RUN_STARTED' && event.thread_id && currentConversation.id.startsWith('new-')) {
-                        const newThreadId = event.thread_id;
-                        navigate(`/chat/${newThreadId}`, {replace: true});
-                        setSelectedConversation(prev => prev ? {...prev, id: newThreadId} : null);
-                        return;
-                    }
-                    if (event.type !== 'RUN_ERROR' && event.error) {
-                        console.error("Event error:", event.error);
-                        appendErrorBubble(new Error(event.error));
-                        return;
-                    }
-                    if (event.type === 'TOOL_CALL_START' && event.tool_call_name) {
-                        trackEvent('Chat', 'tool_call', event.tool_call_name);
-                    }
-                    streamed = applyChatEvent(streamed, event);
-                    publish();
-                    if (event.type === 'RUN_FINISHED') {
-                        // Latency and hit count are the two things the chat funnel
-                        // could not be judged on before: whether the agent answered,
-                        // and whether it found anything.
-                        const finished = streamed[streamed.length - 1];
-                        trackEvent('Chat', 'run_latency_ms', model, Date.now() - runStartedAt);
-                        if (finished?.sender === 'bot') {
-                            trackEvent('Chat', 'results_returned', model, countHits(finished));
-                        }
-                        setIsSending(false);
-                    }
-                },
-                (error) => {
-                    console.error("Failed to send message", error);
-                    appendErrorBubble(error);
+        // Not awaited: the run streams into the store whether or not this
+        // conversation is still on screen.
+        void startRun({
+            key: currentConversation.id,
+            threadId: isNew ? undefined : currentConversation.id,
+            title: isNew
+                ? messageText
+                : sidebarConversations.find(c => c.id === currentConversation.id)?.title ?? currentConversation.title,
+            messages: updatedMessages,
+            model,
+            onEvent: (event, streamed) => {
+                if (event.type === 'TOOL_CALL_START' && event.tool_call_name) {
+                    trackEvent('Chat', 'tool_call', event.tool_call_name);
                 }
-            );
-        } catch (e) {
-            console.error("Failed to send message", e);
-            appendErrorBubble(e);
-        } finally {
-            // A stream that ends without RUN_FINISHED would otherwise leave the
-            // message flagged as still streaming.
-            streamed = finalizeStream(streamed);
-            publish();
-            setIsSending(false);
-            fetchConversationsRef.current();
-        }
+                if (event.type === 'RUN_FINISHED') {
+                    // Latency and hit count are the two things the chat funnel
+                    // could not be judged on before: whether the agent answered,
+                    // and whether it found anything.
+                    const finished = streamed[streamed.length - 1];
+                    trackEvent('Chat', 'run_latency_ms', model, Date.now() - runStartedAt);
+                    if (finished?.sender === 'bot') {
+                        trackEvent('Chat', 'results_returned', model, countHits(finished));
+                    }
+                }
+            },
+            onError: (error) => trackEvent('Chat', 'run_error', errorKind(error)),
+        });
     };
 
     // Every dataset URL cited anywhere in this thread's search results, so a plain
     // Markdown link in the answer can be resolved back to the dataset it cites.
-    const datasetsByUrl = useMemo(
-        () => buildDatasetUrlMap(selectedConversation?.messages ?? []),
-        [selectedConversation?.messages]
-    );
+    const datasetsByUrl = useMemo(() => buildDatasetUrlMap(messages), [messages]);
 
     // The assistant bubble already shows its own progress once blocks arrive.
-    const messages = selectedConversation?.messages ?? [];
     const lastMessage = messages[messages.length - 1];
     const lastMessageIsStreaming = !!lastMessage?.isStreaming && (lastMessage.blocks?.length ?? 0) > 0;
 
@@ -499,16 +516,21 @@ const ChatPage: FC = () => {
                         </button>
                     </div>
                     <div className="flex-1 overflow-y-auto p-3 space-y-1">
-                        {loading && conversations.length === 0 ? (
+                        {loading && sidebarConversations.length === 0 ? (
                             <p className="text-sm text-gray-500 text-center mt-4">Loading conversations...</p>
                         ) : (
-                            conversations.map(convo => {
+                            sidebarConversations.map(convo => {
                                 const isActive = convo.id === selectedConversation?.id || convo.id === urlId;
+                                const run = findRun(runs, convo.id);
+                                const activity = run?.status === 'running'
+                                    ? 'running'
+                                    : run && !run.seen && !isActive ? 'unread' : undefined;
                                 return (
                                     <ConversationSidebarItem
                                         key={convo.id}
                                         conversation={convo}
                                         isActive={isActive}
+                                        activity={activity}
                                         menuOpen={menuOpenId === convo.id}
                                         onClick={() => {
                                             handleSelectConversation(convo.id);
@@ -536,7 +558,7 @@ const ChatPage: FC = () => {
                     {selectedConversation && (
                         <div className="px-4 py-3 md:px-6 md:py-4 border-b border-gray-100 bg-white shrink-0">
                             <h1 className="text-base md:text-lg font-semibold text-gray-800 wrap-break-word line-clamp-2 md:line-clamp-none">
-                                {conversations.find(c => c.id === selectedConversation.id)?.title || selectedConversation.title}
+                                {sidebarConversations.find(c => c.id === selectedConversation.id)?.title || selectedConversation.title}
                             </h1>
                         </div>
                     )}
@@ -548,7 +570,7 @@ const ChatPage: FC = () => {
                         className="flex-1 p-4 md:p-6 overflow-y-auto bg-gray-50"
                     >
                         <div className="max-w-6xl mx-auto space-y-4 md:space-y-6">
-                            {!selectedConversation || selectedConversation.messages.length === 0 ? (
+                            {!selectedConversation || messages.length === 0 ? (
                                 <div
                                     className="flex flex-col items-center justify-center h-full min-h-64 text-center mt-20">
                                     <div
@@ -562,14 +584,14 @@ const ChatPage: FC = () => {
                                         to search datasets or ask questions.</p>
                                 </div>
                             ) : (
-                                selectedConversation.messages.map((msg, index) => (
+                                messages.map((msg, index) => (
                                     // Keyed by conversation as well as position: on the index alone React
                                     // reuses these components when the thread changes, and the message
                                     // keeps the previous conversation's open citation.
                                     <div key={`${selectedConversation.id}-${index}`}
                                          className={`w-full flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                                         <div
-                                            className={`group flex gap-2 md:gap-3 max-w-full md:max-w-[85%] min-w-0 ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
+                                            className={`flex gap-2 md:gap-3 max-w-full md:max-w-[85%] min-w-0 ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
                                             {/* Avatar */}
                                             <div
                                                 className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center shadow-sm mt-1 overflow-hidden ${msg.sender === 'user' ? 'bg-[#002337] text-white text-sm font-medium' : 'bg-white border border-gray-100 p-1'}`}>
@@ -629,7 +651,14 @@ const ChatPage: FC = () => {
                                                     </div>
                                                 )}
                                             </div>
-                                            {msg.sender === 'user' && <CopyMessageButton text={msg.content}/>}
+                                            {msg.sender === 'user' && (
+                                                <CopyMessageButton text={msg.content} className="self-center"/>
+                                            )}
+                                            {/* Answers can be long, so their button sits at the end of the
+                                                answer. Held back while streaming, when the text is unfinished. */}
+                                            {msg.sender === 'bot' && !msg.isError && !msg.isStreaming && msg.content.trim() !== '' && (
+                                                <CopyMessageButton text={msg.content} className="self-end"/>
+                                            )}
                                         </div>
                                     </div>
                                 ))
@@ -659,12 +688,12 @@ const ChatPage: FC = () => {
                             )}
                             {!isSending &&
                                 selectedConversation &&
-                                selectedConversation.messages[selectedConversation.messages.length - 1]?.sender === 'bot' &&
-                                !selectedConversation.messages[selectedConversation.messages.length - 1]?.isError && (
+                                lastMessage?.sender === 'bot' &&
+                                !lastMessage.isError && (
                                     <div className="pl-11">
                                         <SearchFeedback
-                                            key={`${selectedConversation.id}-${selectedConversation.messages.length}`}
-                                            query={[...selectedConversation.messages].reverse().find(m => m.sender === 'user')?.content ?? selectedConversation.title}
+                                            key={`${selectedConversation.id}-${messages.length}`}
+                                            query={[...messages].reverse().find(m => m.sender === 'user')?.content ?? selectedConversation.title}
                                         />
                                     </div>
                                 )}
@@ -693,6 +722,7 @@ const ChatPage: FC = () => {
                             <SearchInput
                                 onSearch={handleSendMessage}
                                 loading={isSending}
+                                onStop={() => stopRun(selectedConversation?.id ?? '')}
                                 placeholder="Ask anything or search for datasets..."
                                 placeholderShort="Ask or search datasets..."
                                 clearOnSearch={true}
@@ -700,8 +730,8 @@ const ChatPage: FC = () => {
                                 buttonText={
                                     isSending ? (
                                         <>
-                                            <Loader2 className="animate-spin h-5 w-5"/>
-                                            <span className="text-sm font-medium">Sending...</span>
+                                            <Square className="h-4 w-4 fill-current"/>
+                                            <span className="text-sm font-medium">Stop</span>
                                         </>
                                     ) : (
                                         <>

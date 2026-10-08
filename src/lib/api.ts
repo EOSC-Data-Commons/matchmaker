@@ -98,7 +98,8 @@ const runErrorMessage = (event: SSEEvent): string =>
 
 /**
  * POSTs to the streaming chat endpoint and forwards every SSE event to `onEvent`.
- * Resolves once the server closes the stream, and rejects on a RUN_ERROR — the
+ * Resolves once the server closes the stream or `signal` aborts the request, and
+ * rejects on a RUN_ERROR — the
  * backend's terminal error (a stalled LLM or tool call, a provider failure),
  * which is delivered to `onEvent` first so callers can still render what arrived.
  *
@@ -112,10 +113,12 @@ const runErrorMessage = (event: SSEEvent): string =>
  */
 export const streamChatEvents = async (
     requestBody: object,
-    onEvent: (event: SSEEvent) => void
+    onEvent: (event: SSEEvent) => void,
+    signal?: AbortSignal
 ): Promise<void> => {
     await fetchEventSource(`${BACKEND_API_URL}/chat`, {
         method: 'POST',
+        signal,
         headers: {
             'Content-Type': 'application/json',
             'Accept': 'text/event-stream',
@@ -157,7 +160,8 @@ export const sendChatMessage = async (
     model: string = 'cesnet/agentic',
     threadId: string | undefined,
     onEvent: (event: SSEEvent) => void,
-    onError: (error: Error) => void
+    onError: (error: Error) => void,
+    signal?: AbortSignal
 ) => {
     // Only real conversation turns are replayed to the model. Error bubbles are a local
     // UI artefact ("Something went wrong…") that the assistant never said, and a turn
@@ -182,7 +186,7 @@ export const sendChatMessage = async (
     }
 
     try {
-        await streamChatEvents(requestBody, onEvent);
+        await streamChatEvents(requestBody, onEvent, signal);
     } catch (error) {
         onError(error instanceof Error ? error : new Error('An unknown error occurred'));
     }

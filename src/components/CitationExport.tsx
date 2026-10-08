@@ -1,6 +1,17 @@
-import {useState, useCallback, useRef, useEffect} from 'react';
+import {useState, useEffect} from 'react';
+import * as Popover from '@radix-ui/react-popover';
 import type {BackendDataset} from '../types/commons';
-import {generateBibTeX, generateRIS, generateCSLJSON, extractDOI, fetchDOICitation} from '../lib/citation';
+import {
+    CITATION_STYLES,
+    type CitationStyle,
+    datasetDOI,
+    fetchDOICitation,
+    fetchDOIFormattedCitation,
+    formatCitation,
+    generateBibTeX,
+    generateCSLJSON,
+    generateRIS
+} from '../lib/citation';
 import {BookOpenIcon, ClipboardIcon, CheckIcon, DownloadIcon, Loader2Icon} from 'lucide-react';
 import useMatomo from '../hooks/useMatomo';
 
@@ -10,55 +21,49 @@ interface CitationExportProps {
     compact?: boolean;
 }
 
-type CitationFormat = 'bibtex' | 'ris' | 'csljson';
+// Reference-manager files, offered after the formatted text styles.
+type FileFormat = 'bibtex' | 'ris' | 'csljson';
+type CitationFormat = CitationStyle | FileFormat;
 
-const LABELS: Record<CitationFormat, { label: string; ext: string; mime: string }> = {
+const FILE_FORMATS: Record<FileFormat, { label: string; ext: string; mime: string }> = {
     bibtex: {label: 'BibTeX', ext: 'bib', mime: 'application/x-bibtex'},
     ris: {label: 'RIS', ext: 'ris', mime: 'application/x-research-info-systems'},
     csljson: {label: 'CSL JSON', ext: 'json', mime: 'application/vnd.citationstyles.csl+json'}
 };
 
-const GENERATORS: Record<CitationFormat, (d: BackendDataset) => string> = {
+const GENERATORS: Record<FileFormat, (d: BackendDataset) => string> = {
     bibtex: generateBibTeX,
     ris: generateRIS,
     csljson: generateCSLJSON
 };
 
+const isFileFormat = (format: CitationFormat): format is FileFormat => format in FILE_FORMATS;
+
 export const CitationExport = ({dataset, compact = false}: CitationExportProps) => {
     const [open, setOpen] = useState(false);
-    const [format, setFormat] = useState<CitationFormat>('bibtex');
+    const [format, setFormat] = useState<CitationFormat>('apa');
     const [copied, setCopied] = useState(false);
     const [loading, setLoading] = useState(false);
     const [citation, setCitation] = useState<string>('');
     const [usingDOI, setUsingDOI] = useState(false);
-    const panelRef = useRef<HTMLDivElement | null>(null);
     const {trackEvent} = useMatomo();
-
-
-    const closeOnOutside = useCallback((e: MouseEvent) => {
-        if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-            setOpen(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        if (open) {
-            document.addEventListener('mousedown', closeOnOutside);
-            return () => document.removeEventListener('mousedown', closeOnOutside);
-        }
-    }, [open, closeOnOutside]);
 
     // Fetch citation from DOI API or generate locally
     useEffect(() => {
+        // A lookup still running when the format changes must not overwrite the newer one.
+        let cancelled = false;
+
         const generateCitation = async () => {
             setLoading(true);
             setUsingDOI(false);
 
-            // Try to extract DOI from dataset
-            const doi = extractDOI(dataset._id) || dataset._source.doi;
+            const doi = datasetDOI(dataset);
 
             if (doi) {
-                const doiCitation = await fetchDOICitation(doi, format);
+                const doiCitation = isFileFormat(format)
+                    ? await fetchDOICitation(doi, format)
+                    : await fetchDOIFormattedCitation(doi, format);
+                if (cancelled) return;
                 if (doiCitation) {
                     setCitation(doiCitation);
                     setUsingDOI(true);
@@ -68,7 +73,7 @@ export const CitationExport = ({dataset, compact = false}: CitationExportProps) 
             }
 
             // Fallback to local generation if DOI fetch fails or no DOI available
-            const localCitation = GENERATORS[format](dataset);
+            const localCitation = isFileFormat(format) ? GENERATORS[format](dataset) : formatCitation(dataset, format);
             setCitation(localCitation);
             setUsingDOI(false);
             setLoading(false);
@@ -77,6 +82,9 @@ export const CitationExport = ({dataset, compact = false}: CitationExportProps) 
         if (open) {
             generateCitation();
         }
+        return () => {
+            cancelled = true;
+        };
     }, [dataset, format, open]);
 
     const handleCopy = async () => {
@@ -93,8 +101,9 @@ export const CitationExport = ({dataset, compact = false}: CitationExportProps) 
     };
 
     const handleDownload = () => {
+        if (!isFileFormat(format)) return;
         trackEvent('Citation', 'downloaded', format);
-        const {ext, mime} = LABELS[format];
+        const {ext, mime} = FILE_FORMATS[format];
         const blob = new Blob([citation], {type: `${mime};charset=utf-8`});
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
@@ -107,27 +116,33 @@ export const CitationExport = ({dataset, compact = false}: CitationExportProps) 
     };
 
     return (
-        <div className="relative" ref={panelRef}>
-            <button
-                type="button"
-                onClick={() => {
-                    const next = !open;
-                    setOpen(next);
-                    if (next) trackEvent('Citation', 'opened', dataset.title);
-                }}
-                aria-haspopup="true"
-                aria-expanded={open}
-                className={`inline-flex items-center justify-center gap-1 rounded-md bg-gray-600 ${compact ? 'px-2.5 py-1 text-xs' : 'px-3 py-1.5 text-sm'} font-medium text-white shadow-sm hover:bg-gray-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-600 transition-colors cursor-pointer`}
-            >
-                <BookOpenIcon className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'}/>
-                <span className="leading-none">Cite</span>
-            </button>
+        // The panel is portalled to the page body: the lists a Cite button sits in (the
+        // chat's cited datasets, a tool call's results) clip their overflow, which cut it
+        // off. Radix also flips it to stay on screen, and closes it on Escape or outside clicks.
+        <Popover.Root
+            open={open}
+            onOpenChange={next => {
+                setOpen(next);
+                if (next) trackEvent('Citation', 'opened', dataset.title);
+            }}
+        >
+            <Popover.Trigger asChild>
+                <button
+                    type="button"
+                    className={`inline-flex items-center justify-center gap-1 rounded-md bg-gray-600 ${compact ? 'px-2.5 py-1 text-xs' : 'px-3 py-1.5 text-sm'} font-medium text-white shadow-sm hover:bg-gray-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-600 transition-colors cursor-pointer`}
+                >
+                    <BookOpenIcon className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'}/>
+                    <span className="leading-none">Cite</span>
+                </button>
+            </Popover.Trigger>
 
-            {open && (
-                <div
-                    role="dialog"
+            <Popover.Portal>
+                <Popover.Content
                     aria-label="Export citation"
-                    className="absolute right-0 z-20 mt-2 w-72 rounded-md border border-gray-200 bg-white p-3 shadow-lg"
+                    align="end"
+                    sideOffset={8}
+                    collisionPadding={16}
+                    className="z-50 w-72 max-w-[calc(100vw-2rem)] rounded-md border border-gray-200 bg-white p-3 shadow-lg"
                 >
                     <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Export
                         Citation</h4>
@@ -138,9 +153,16 @@ export const CitationExport = ({dataset, compact = false}: CitationExportProps) 
                             onChange={e => setFormat(e.target.value as CitationFormat)}
                             className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                            {(Object.keys(LABELS) as CitationFormat[]).map(f => (
-                                <option key={f} value={f}>{LABELS[f].label}</option>
-                            ))}
+                            <optgroup label="Formatted text">
+                                {(Object.keys(CITATION_STYLES) as CitationStyle[]).map(s => (
+                                    <option key={s} value={s}>{CITATION_STYLES[s].label}</option>
+                                ))}
+                            </optgroup>
+                            <optgroup label="Reference manager file">
+                                {(Object.keys(FILE_FORMATS) as FileFormat[]).map(f => (
+                                    <option key={f} value={f}>{FILE_FORMATS[f].label}</option>
+                                ))}
+                            </optgroup>
                         </select>
                     </label>
                     <div className="flex items-center gap-2 mb-2">
@@ -154,16 +176,19 @@ export const CitationExport = ({dataset, compact = false}: CitationExportProps) 
                             {copied ? <CheckIcon className="h-3 w-3"/> : <ClipboardIcon className="h-3 w-3"/>}
                             <span className="ml-1">{copied ? 'Copied' : 'Copy'}</span>
                         </button>
-                        <button
-                            type="button"
-                            onClick={handleDownload}
-                            disabled={loading}
-                            aria-label="Download citation file"
-                            className="inline-flex items-center rounded bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 py-1 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <DownloadIcon className="h-3 w-3"/>
-                            <span className="ml-1">Download</span>
-                        </button>
+                        {/* Formatted text is for pasting; only reference managers import a file. */}
+                        {isFileFormat(format) && (
+                            <button
+                                type="button"
+                                onClick={handleDownload}
+                                disabled={loading}
+                                aria-label="Download citation file"
+                                className="inline-flex items-center rounded bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 py-1 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <DownloadIcon className="h-3 w-3"/>
+                                <span className="ml-1">Download</span>
+                            </button>
+                        )}
                     </div>
                     {loading ? (
                         <div className="flex items-center justify-center py-8">
@@ -172,8 +197,12 @@ export const CitationExport = ({dataset, compact = false}: CitationExportProps) 
                         </div>
                     ) : (
                         <>
-                            <pre
-                                className="max-h-48 overflow-auto text-[11px] leading-snug bg-gray-50 border border-gray-100 rounded p-2 whitespace-pre-wrap text-gray-600 font-mono">{citation}</pre>
+                            {isFileFormat(format) ? (
+                                <pre
+                                    className="max-h-48 overflow-auto text-[11px] leading-snug bg-gray-50 border border-gray-100 rounded p-2 whitespace-pre-wrap text-gray-600 font-mono">{citation}</pre>
+                            ) : (
+                                <p className="max-h-48 overflow-auto text-xs leading-relaxed bg-gray-50 border border-gray-100 rounded p-2 text-gray-700 break-words">{citation}</p>
+                            )}
                             <div className="pt-2 flex items-center justify-between">
                                 {usingDOI ? (
                                     <span className="text-[10px] text-green-600 font-medium">
@@ -187,8 +216,8 @@ export const CitationExport = ({dataset, compact = false}: CitationExportProps) 
                             </div>
                         </>
                     )}
-                </div>
-            )}
-        </div>
+                </Popover.Content>
+            </Popover.Portal>
+        </Popover.Root>
     );
 };

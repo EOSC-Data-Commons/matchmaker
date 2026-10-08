@@ -202,6 +202,26 @@ describe("sendChatMessage", () => {
         expect(requestBody).not.toHaveProperty("thread_id");
     });
 
+    it("resolves without an error when its signal aborts the stream", async () => {
+        // Sends the first event, then stays open like an answer still being written.
+        server.use(http.post("/api/search/chat", () => new HttpResponse(
+            new ReadableStream<Uint8Array>({
+                start(controller) {
+                    controller.enqueue(new TextEncoder().encode(sse([{type: "RUN_STARTED", thread_id: "t-9"}])));
+                },
+            }),
+            {headers: {"Content-Type": "text/event-stream"}},
+        )));
+        const abort = new AbortController();
+        const onEvent = vi.fn(() => abort.abort());
+        const onError = vi.fn();
+
+        await sendChatMessage([{sender: "user", content: "hi"}], "m", undefined, onEvent, onError, abort.signal);
+
+        expect(onEvent).toHaveBeenCalledTimes(1);
+        expect(onError).not.toHaveBeenCalled();
+    });
+
     it("sends prior messages as plain text", async () => {
         let text = "";
         server.use(
