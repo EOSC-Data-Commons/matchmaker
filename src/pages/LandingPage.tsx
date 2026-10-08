@@ -74,13 +74,6 @@ export const LandingPage = () => {
         {text: "RStudio", url: "https://posit.co/products/open-source/rstudio/"}
     ];
 
-    const features = [
-        "10M+ Datasets",
-        "100+ Tools and Services",
-        "AI-Powered Search",
-        "Real-time Updates"
-    ];
-
 
     return (
         <div className="min-h-screen bg-eosc-bg flex flex-col items-center px-4 relative">
@@ -213,20 +206,6 @@ export const LandingPage = () => {
                                         <p className="text-sm font-light text-black text-center">
                                             {card.text}
                                         </p>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Features Section  */}
-                        <div className="py-8">
-                            <div className="flex flex-wrap justify-center items-center gap-8 px-4">
-                                {features.map((feature, index) => (
-                                    <div key={index} className="flex items-center gap-3">
-                                        <div className="w-2 h-2 bg-eosc-dark-blue rounded-full"></div>
-                                        <span className="text-base font-light text-eosc-gray">
-                                           • {feature}
-                                        </span>
                                     </div>
                                 ))}
                             </div>
