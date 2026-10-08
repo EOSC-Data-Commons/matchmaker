@@ -16,6 +16,7 @@
 //                 nameIdentifier of scheme "URL" (e.g. "The Bgee Team" -> https://www.bgee.org/).
 
 import type {BackendDataset} from "../types/commons.ts";
+import dataverseLvLogo from "../assets/dataverseLV.svg";
 
 export interface RepoIdentity {
     /** Short stable code (repo code, or the owner's identifier host). */
@@ -104,10 +105,15 @@ const REPOSITORIES: Record<string, LogoEntry> = {
         logoScale: 0.81,
     },
     MDDB: {name: "MDDB", logo: "https://mddbr.eu/wp-content/uploads/2023/06/MDDB_Logo_colour.svg", logoScale: 0.65},
-    DATAVERSELV: {
-        name: "DataverseLV",
-        logo: "https://dataverse.lv/wp-content/uploads/2025/03/dataverseLV-1.svg",
-        logoScale: 0.96,
+    // Served from our own assets: dataverse.lv puts a Cloudflare bot check in front of its files,
+    // which an <img> cannot pass, so the hotlinked original never loaded and the badge fell back to
+    // text. Copy of https://dataverse.lv/wp-content/uploads/2025/03/dataverseLV-1.svg.
+    DATAVERSELV: {name: "DataverseLV", logo: dataverseLvLogo, logoScale: 0.96},
+    // 4646x1182 for a 96x40 badge: swap in a small media asset once there is one.
+    NFDI4EARTH: {
+        name: "NFDI4Earth",
+        logo: "https://www.nfdi4earth.de/images/nfdi4earth/materials/nfdi4earth_logo.png",
+        logoScale: 0.82,
     },
 };
 

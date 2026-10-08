@@ -39,6 +39,7 @@ describe("getRepository", () => {
     it("maps known repo codes to a logo", () => {
         expect(getRepository(hit({_repo: "DANS"}))).toMatchObject({code: "DANS", name: "DANS"});
         expect(getRepository(hit({_repo: "hal"}))?.name).toBe("HAL Open Science");
+        expect(getRepository(hit({_repo: "NFDI4EARTH"}))?.name).toBe("NFDI4Earth");
         expect(getRepository(hit({_repo: "EMPIAR"}))).toMatchObject({
             code: "EMPIAR",
             name: "EMPIAR",
@@ -51,7 +52,7 @@ describe("getRepository", () => {
     // reaches the badge, where a missing logo shows as bare text next to the others' marks.
     it("has a logo for every active repository", () => {
         const active = ["DANS", "PANOSC", "HAL", "MDDB", "EMPIAR", "SWISSUBASE",
-            "ZENODO", "DABAR", "DATAVERSELV", "FINBIF", "DASCH"];
+            "ZENODO", "DABAR", "DATAVERSELV", "FINBIF", "DASCH", "NFDI4EARTH"];
         const missing = active.filter(code => !getRepository(hit({_repo: code}))?.logo);
         expect(missing).toEqual([]);
     });
@@ -61,7 +62,7 @@ describe("getRepository", () => {
     // number is invisible in a type check and obvious on screen.
     it("gives every logo an optical scale", () => {
         const codes = ["DANS", "PANOSC", "HAL", "MDDB", "EMPIAR", "SWISSUBASE",
-            "ZENODO", "DABAR", "DATAVERSELV", "FINBIF", "DASCH", "EODC"];
+            "ZENODO", "DABAR", "DATAVERSELV", "FINBIF", "DASCH", "EODC", "NFDI4EARTH"];
         const unscaled = codes.filter(code => {
             const repo = getRepository(hit({_repo: code}));
             return repo?.logo && !repo.logoScale;
@@ -73,12 +74,17 @@ describe("getRepository", () => {
     // A value outside it means the logo was measured wrong, or is not the file it claims to be.
     it("keeps the optical scales within the measured range", () => {
         const codes = ["DANS", "PANOSC", "HAL", "MDDB", "EMPIAR", "SWISSUBASE",
-            "ZENODO", "DABAR", "DATAVERSELV", "FINBIF", "DASCH", "EODC"];
+            "ZENODO", "DABAR", "DATAVERSELV", "FINBIF", "DASCH", "EODC", "NFDI4EARTH"];
         for (const code of codes) {
             const scale = getRepository(hit({_repo: code}))?.logoScale;
             expect(scale, code).toBeGreaterThanOrEqual(0.6);
             expect(scale, code).toBeLessThanOrEqual(2.4);
         }
+    });
+
+    // dataverse.lv answers hotlinked images with a bot check, which an <img> cannot pass.
+    it("serves the DataverseLV logo from our own assets", () => {
+        expect(getRepository(hit({_repo: "DATAVERSELV"}))?.logo).not.toMatch(/^https?:/);
     });
 
     it("links to the record's own landing page", () => {
