@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.1] - 12/10/2026
+
+- Added an "Add All Files" button next to "Add File" in the Dataplayer file selection step, for tools that take a
+  dataset's files as a set, such as CERNBox. One click adds every file of the dataset to the set, each in its own
+  slot. Files that are already added are skipped, and the button is disabled when the dataset has no files.
+- Removed the "Rename file..." field from the rows of the file set. Files now keep their original names.
+- Updated the `req-packager` submodule.
+
 ## [0.11.0] - 08/10/2026
 
 - An answer still being written now keeps going when you start a new chat or switch conversations, and stays in its
