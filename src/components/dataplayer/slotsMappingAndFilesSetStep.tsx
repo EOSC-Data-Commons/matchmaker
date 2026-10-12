@@ -106,6 +106,25 @@ export const SlotsMappingAndFilesSetStep = ({
         }, "");
     };
 
+    const addAllFiles = () => {
+        const alreadyAdded = new Set(
+            Object.values(filesMapping).map(([meta]) => meta.dataPath)
+        );
+        const usedNames = new Set(Object.keys(filesMapping));
+        let slotIndex = 1;
+
+        files.forEach((file) => {
+            if (alreadyAdded.has(file.dataPath)) return; // skip files already mapped
+
+            // find the next free slot name (safe even after removals)
+            while (usedNames.has(`slot-${slotIndex}`)) slotIndex++;
+            const name = `slot-${slotIndex}`;
+            usedNames.add(name);
+
+            addToFilesSet(name, file, file.filename);
+        });
+    };
+
     return (
         <div className="w-full font-light">
             <div className="mb-6 sm:mb-8">
@@ -312,6 +331,13 @@ export const SlotsMappingAndFilesSetStep = ({
                             >
                                 + Add File
                             </button>
+                            <button
+                                onClick={addAllFiles}
+                                disabled={files.length === 0}
+                                className=""
+                            >
+                                + Add All Files
+                            </button>
                         </div>
 
                         {/* Rows */}
@@ -345,18 +371,20 @@ export const SlotsMappingAndFilesSetStep = ({
                                         ))}
                                     </select>
 
+                                    {/* I disable this part for now because for cernbox case they think this might be not a good UX */}
+                                    {/* And they have no need for the renaming. */}
                                     {/* Rename */}
-                                    <input
-                                        type="text"
-                                        defaultValue={item[0].filename ?? ""}
-                                        onChange={(e) =>
-                                            addToFilesSet(key, {
-                                                ...item[0],
-                                            }, e.target.value)
-                                        }
-                                        placeholder="Rename file..."
-                                        className="block w-full sm:w-1/2 px-3 py-2 text-sm border border-eosc-border rounded-md"
-                                    />
+                                    {/* <input */}
+                                    {/*     type="text" */}
+                                    {/*     defaultValue={item[0].filename ?? ""} */}
+                                    {/*     onChange={(e) => */}
+                                    {/*         addToFilesSet(key, { */}
+                                    {/*             ...item[0], */}
+                                    {/*         }, e.target.value) */}
+                                    {/*     } */}
+                                    {/*     placeholder="Rename file..." */}
+                                    {/*     className="block w-full sm:w-1/2 px-3 py-2 text-sm border border-eosc-border rounded-md" */}
+                                    {/* /> */}
 
                                     {/* Remove */}
                                     <button
