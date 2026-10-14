@@ -81,13 +81,13 @@ const secondHalf = [
     {type: "RUN_FINISHED", thread_id: "t-5"},
 ];
 
-// The real route mounts ChatPage on both /chat and /chat/:id — the run navigates to
-// /chat/:thread_id as soon as RUN_STARTED arrives.
+// Same single route as production (src/routes.ts): the run navigates from /chat to
+// /chat/:thread_id as soon as RUN_STARTED arrives, and the page must survive that
+// without remounting, as its scroll state lives in refs.
 const renderChat = () => render(
     <MemoryRouter initialEntries={["/chat"]}>
         <Routes>
-            <Route path="/chat" element={<ChatPage/>}/>
-            <Route path="/chat/:id" element={<ChatPage/>}/>
+            <Route path="/chat/:id?" element={<ChatPage/>}/>
         </Routes>
     </MemoryRouter>,
 );
@@ -251,6 +251,44 @@ describe("ChatPage", () => {
             expect(container.scrollTop).toBe(900);
         } finally {
             Reflect.deleteProperty(HTMLElement.prototype, "scrollHeight");
+        }
+    });
+
+    it("parks the question at the top of the view and does not follow the answer as it streams", async () => {
+        // jsdom has no scrollIntoView and no layout: record who asks to be scrolled into view.
+        const scrolled: Array<{ el: HTMLElement; opts: unknown }> = [];
+        Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+            configurable: true,
+            value: function (this: HTMLElement, opts?: unknown) {
+                scrolled.push({el: this, opts});
+            },
+        });
+        try {
+            const {response, finish} = heldRun(firstHalf, secondHalf);
+            server.use(http.post("/api/search/chat", response));
+            const user = userEvent.setup();
+            renderChat();
+
+            await user.type(await screen.findByRole("textbox"), "ocean data");
+            await user.click(screen.getByRole("button", {name: /send/i}));
+            await screen.findByText(/First half,/);
+
+            // One scroll on send, to the question itself, and the thread padded below it.
+            await waitFor(() => expect(scrolled).toHaveLength(1));
+            const question = screen.getByText("ocean data", {selector: "p"}).closest("[data-user-message]");
+            expect(scrolled[0].el).toBe(question);
+            expect(scrolled[0].opts).toEqual({block: "start", behavior: "smooth"});
+            const container = question!.closest(".overflow-y-auto") as HTMLElement;
+            const endMarker = container.querySelector(".max-w-6xl > div:last-child") as HTMLElement;
+            expect(endMarker.style.minHeight).toMatch(/px$/);
+
+            // The rest of the answer arrives without the view being moved again.
+            finish();
+            await screen.findByText(/second half\./);
+            await waitFor(() => expect(getChatRuns()[0]?.status).not.toBe("running"));
+            expect(scrolled).toHaveLength(1);
+        } finally {
+            Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
         }
     });
 
