@@ -3,7 +3,6 @@ import {useEffect, useMemo} from "react";
 import {XCircleIcon, Clock, AlertTriangle} from "lucide-react";
 import {SearchInput} from "../components/SearchInput.tsx";
 import {SearchResultItem} from "../components/SearchResultItem.tsx";
-import {AlphaDisclaimer} from "../components/AlphaDisclaimer";
 import {Footer} from "../components/Footer";
 import {FilterPanel} from "../components/FilterPanel.tsx";
 import {NoResultsMessage} from "../components/NoResultsMessage.tsx";
@@ -98,7 +97,6 @@ export const SearchPage = () => {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-            <AlphaDisclaimer/>
             <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-md shadow-sm">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between py-3">
                     <img
@@ -188,6 +186,11 @@ export const SearchPage = () => {
                                             </div>
                                         </div>
                                         <SearchFeedback key={query} query={query}/>
+                                        <p className="mt-6 text-center text-xs text-gray-400">
+                                            Search results and metadata may be incomplete, outdated, or inaccurate.
+                                            Please verify critical
+                                            information independently.
+                                        </p>
                                     </>
                                 )
                             )}

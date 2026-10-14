@@ -1,7 +1,6 @@
 import {useNavigate} from "react-router";
 import {useState} from "react";
 import {SearchInput} from "../components/SearchInput";
-import {AlphaDisclaimer} from "../components/AlphaDisclaimer";
 import {Footer} from "../components/Footer";
 import {EasterEgg} from "../components/EasterEgg";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
@@ -77,7 +76,6 @@ export const LandingPage = () => {
 
     return (
         <div className="min-h-screen bg-eosc-bg flex flex-col items-center px-4 relative">
-            <AlphaDisclaimer/>
             <EasterEgg active={showEasterEgg} onComplete={() => setShowEasterEgg(false)}/>
             <header className="w-full flex justify-between items-center p-4 sm:p-6">
                 <img
