@@ -52,7 +52,7 @@ export const SearchInput = ({
                                 loading = false,
                                 onStop,
                                 placeholder = "Search for data... e.g., 'climate data for the last decade'",
-                                placeholderShort = "Search for data...",
+                                placeholderShort = "Search...",
                                 className = "",
                                 initialModel,
                                 clearOnSearch = false,
@@ -82,7 +82,7 @@ export const SearchInput = ({
     // which truncates the full placeholders mid-phrase.
     const isNarrow = useMediaQuery('(max-width: 639px)');
     const effectivePlaceholder = effectiveAiMode
-        ? (isNarrow ? "Ask about datasets..." : "Ask a question about datasets...")
+        ? (isNarrow ? "Ask AI..." : "Ask a question about datasets...")
         : (isNarrow ? placeholderShort : placeholder);
 
     useEffect(() => {

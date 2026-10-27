@@ -1,5 +1,6 @@
 import {useNavigate} from "react-router";
 import {useState} from "react";
+import {MessageSquare} from "lucide-react";
 import {SearchInput} from "../components/SearchInput";
 import {Footer} from "../components/Footer";
 import {EasterEgg} from "../components/EasterEgg";
@@ -93,15 +94,18 @@ export const LandingPage = () => {
                     {user && (
                         <button
                             onClick={handleChat}
-                            className="bg-white border border-eosc-border rounded-lg px-4 py-2 text-sm font-light text-eosc-text hover:bg-gray-50 hover:border-eosc-light-blue transition-colors cursor-pointer"
+                            aria-label="Your conversations"
+                            title="Your conversations"
+                            className="inline-flex items-center bg-white border border-eosc-border rounded-lg px-3 sm:px-4 py-2 text-sm font-light text-eosc-text hover:bg-gray-50 hover:border-eosc-light-blue transition-colors cursor-pointer"
                         >
-                            Your conversations
+                            {/* Icon only on phones, where the label wraps and crowds the logo. */}
+                            <MessageSquare className="h-5 w-5 sm:hidden"/>
+                            <span className="hidden sm:inline">Your conversations</span>
                         </button>
                     )}
                     {!loading && (
                         user ? (
-                            <UserMenu user={user} onLogout={logout} onProfile={() => navigate('/profile')}
-                                      onConversations={handleChat}/>
+                            <UserMenu user={user} onLogout={logout} onProfile={() => navigate('/profile')}/>
                         ) : (
                             <button
                                 onClick={handleLogin}

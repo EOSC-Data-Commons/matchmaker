@@ -111,6 +111,17 @@ describe("ChatPage", () => {
         expect(screen.getByRole("heading", {name: "Ocean Temperatures 2023"})).toBeInTheDocument();
     });
 
+    it("offers the user menu in the header, without Your conversations", async () => {
+        const user = userEvent.setup();
+        renderChat();
+
+        await user.click(await screen.findByRole("button", {name: "User menu for Jane Doe"}));
+        expect(screen.getByRole("menuitem", {name: "API Keys"})).toBeInTheDocument();
+        expect(screen.getByRole("menuitem", {name: "Log out"})).toBeInTheDocument();
+        // The sidebar on this page is the conversation list.
+        expect(screen.queryByRole("menuitem", {name: "Your conversations"})).not.toBeInTheDocument();
+    });
+
     it("keeps what streamed before a terminal RUN_ERROR and adds an error bubble", async () => {
         server.use(http.post("/api/search/chat", () => sseResponse(sse([
             {type: "RUN_STARTED", thread_id: "t-2"},

@@ -2,6 +2,7 @@ import {FC, useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {useLocation, useNavigate, useParams} from "react-router";
 import {useAuth} from "@/hooks/useAuth.ts";
 import {loginWithReturn} from "@/lib/authRedirect.ts";
+import {UserMenu} from "@/components/UserMenu.tsx";
 import {Conversation, Message} from "@/types/chat.ts";
 import {parseConversationItems} from "@/lib/chatMessages.ts";
 import {
@@ -63,7 +64,7 @@ const ChatPage: FC = () => {
     const {id: urlId} = useParams();
     const navigate = useNavigate();
     const location = useLocation();
-    const {user, loading: userLoading} = useAuth();
+    const {user, loading: userLoading, logout} = useAuth();
     const {trackEvent} = useMatomo();
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
@@ -536,6 +537,12 @@ const ChatPage: FC = () => {
                     className="h-8 cursor-pointer hover:opacity-80 transition-opacity"
                     onClick={() => navigate('/')}
                 />
+                {user && (
+                    <div className="ml-auto">
+                        {/* No "Your conversations" item: the sidebar here already is that list. */}
+                        <UserMenu user={user} onLogout={logout} onProfile={() => navigate('/profile')}/>
+                    </div>
+                )}
             </header>
 
             <div className="flex-1 flex overflow-hidden relative">

@@ -170,7 +170,9 @@ export const DatasetActions = ({hit, isLoggedIn = false, compact = false}: Datas
     const sourceHref = sanitizeLinkHref(hit._id);
 
     return (
-        <div className={`flex ${compact ? 'gap-2' : 'space-x-4'}`}>
+        // Compact rows sit in narrow list columns (the cited datasets under an answer):
+        // let the buttons wrap there rather than push Cite past the edge on a phone.
+        <div className={`flex ${compact ? 'flex-wrap gap-2' : 'space-x-4'}`}>
             <div className="relative group flex items-center">
                 <button
                     onClick={handleDataplayer}
