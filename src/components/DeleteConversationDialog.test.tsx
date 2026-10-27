@@ -17,7 +17,7 @@ describe("DeleteConversationDialog", () => {
         const onClose = vi.fn();
         render(<DeleteConversationDialog isOpen onClose={onClose} onConfirm={onConfirm}/>);
 
-        expect(screen.getByText("Delete Chat?")).toBeInTheDocument();
+        expect(screen.getByText("Delete conversation?")).toBeInTheDocument();
         await user.click(screen.getByRole("button", {name: "Delete"}));
         expect(onConfirm).toHaveBeenCalledOnce();
         expect(onClose).not.toHaveBeenCalled();

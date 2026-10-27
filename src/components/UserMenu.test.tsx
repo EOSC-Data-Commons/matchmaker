@@ -39,6 +39,21 @@ describe("UserMenu", () => {
         expect(screen.queryByRole("menu")).not.toBeInTheDocument();
     });
 
+    it("only offers Your conversations when a handler is provided", async () => {
+        const user = userEvent.setup();
+        const {rerender} = render(<UserMenu user={jane} onLogout={() => {
+        }}/>);
+        await user.click(screen.getByRole("button", {name: /user menu/i}));
+        expect(screen.queryByRole("menuitem", {name: "Your conversations"})).not.toBeInTheDocument();
+
+        const onConversations = vi.fn();
+        rerender(<UserMenu user={jane} onLogout={() => {
+        }} onConversations={onConversations}/>);
+        await user.click(screen.getByRole("menuitem", {name: "Your conversations"}));
+        expect(onConversations).toHaveBeenCalledOnce();
+        expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    });
+
     it("closes on an outside click", async () => {
         const user = userEvent.setup();
         render(<UserMenu user={jane} onLogout={() => {}}/>);

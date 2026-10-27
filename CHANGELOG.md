@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.2] - 27/10/2026
+
+- AI Mode is now on by default on the home page for signed-in users. While it is on, the Search button turns into an
+  arrow that sends your question to AI Mode; turning it off brings Search back. The search results page still starts
+  with a plain search.
+- Signing in from the AI Mode button now brings you back with AI Mode already on.
+- "Chat" is now called AI Mode everywhere, and its conversations are labelled as conversations ("New conversation",
+  "Delete conversation?").
+- Added "Your conversations": a button on the home page and an item in the user menu on the search results page. The
+  search results page now has the user menu (or Login), and the AI Mode page has the user menu too.
+- The relevance badge now shows the score the results are actually ordered by, so a "100%" result no longer appears
+  in the middle of the list. It reads "Relevance" with the percentage, shows 100% only for a score of exactly 1, and
+  is hidden when a result has no score.
+- Sending a question in AI Mode now moves it to the top of the view and keeps it there while the answer is written
+  below, instead of scrolling along with the answer. The scroll-to-bottom button shows a pulsing dot while the answer
+  is still being written.
+- Login now goes straight to the EGI Check-in sign-in page, skipping the EOSC federation chooser.
+- Removed the early alpha notice from the home page and the search results page.
+- On phones, the search bar on the results page has its own row, the placeholders are shorter so they are not cut
+  off, the "Your conversations" button is an icon, and the Cite button under cited datasets no longer gets clipped.
+- Updated `vitest` and `@vitest/coverage-v8` to 4.1.12 and `happy-dom` to 21.0.4 (development only).
+
 ## [0.11.1] - 12/10/2026
 
 - Added an "Add All Files" button next to "Add File" in the Dataplayer file selection step, for tools that take a

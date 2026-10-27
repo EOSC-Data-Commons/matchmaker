@@ -1,8 +1,8 @@
 import React, {useEffect, useRef, useState} from "react";
-import {Search, Sparkles, X} from "lucide-react";
+import {ArrowRight, Search, Sparkles, X} from "lucide-react";
 import {ModelSelector} from "./ModelSelector.tsx";
 import {getSearchHistory} from "../lib/history.ts";
-import {loginWithReturn} from "../lib/authRedirect.ts";
+import {loginForAiMode, returnedFromAiModeLogin} from "../lib/authRedirect.ts";
 import useMatomo from "../hooks/useMatomo";
 import {useMediaQuery} from "../hooks/useMediaQuery.ts";
 
@@ -39,8 +39,9 @@ interface SearchInputProps {
     disableHistory?: boolean;
     isLoggedIn?: boolean;
     showAiToggle?: boolean;
-    // Whether AI mode starts on. The landing page opts into it; the plain results
-    // page starts off, since being there already means the user chose plain search.
+    // Whether AI mode starts on for a signed-in user. The landing page uses the default;
+    // the plain results page starts off, since being there already means the user
+    // chose plain search.
     initialAiMode?: boolean;
     inputRef?: React.Ref<HTMLInputElement>;
 }
@@ -51,7 +52,7 @@ export const SearchInput = ({
                                 loading = false,
                                 onStop,
                                 placeholder = "Search for data... e.g., 'climate data for the last decade'",
-                                placeholderShort = "Search for data...",
+                                placeholderShort = "Search...",
                                 className = "",
                                 initialModel,
                                 clearOnSearch = false,
@@ -67,18 +68,21 @@ export const SearchInput = ({
     const [showHistory, setShowHistory] = useState(false);
     const [history] = useState<string[]>(getSearchHistory);
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
-    const [aiMode, setAiMode] = useState(initialAiMode);
+    // Back from a login started by the AI Mode toggle: come back with AI mode on.
+    // Read on mount, before useAuth clears the mark.
+    const [aiMode, setAiMode] = useState(() => initialAiMode || (showAiToggle && returnedFromAiModeLogin()));
     const [focused, setFocused] = useState(false);
     const searchContainerRef = useRef<HTMLDivElement>(null);
     const {trackEvent} = useMatomo();
 
-    const effectiveAiMode = isLoggedIn && aiMode;
+    // No toggle (the chat composer) means no AI mode, whatever the default.
+    const effectiveAiMode = showAiToggle && isLoggedIn && aiMode;
 
     // The leading icon and the submit button leave ~190px for text on a phone,
     // which truncates the full placeholders mid-phrase.
     const isNarrow = useMediaQuery('(max-width: 639px)');
     const effectivePlaceholder = effectiveAiMode
-        ? (isNarrow ? "Ask about datasets..." : "Ask a question about datasets...")
+        ? (isNarrow ? "Ask AI..." : "Ask a question about datasets...")
         : (isNarrow ? placeholderShort : placeholder);
 
     useEffect(() => {
@@ -151,7 +155,7 @@ export const SearchInput = ({
     const handleAiModeClick = () => {
         if (!isLoggedIn) {
             trackEvent('Auth', 'gate_triggered', 'ai_mode');
-            loginWithReturn();
+            loginForAiMode();
             return;
         }
         const next = !aiMode;
@@ -173,7 +177,9 @@ export const SearchInput = ({
                             : 'border-gray-200 shadow-sm hover:border-gray-300'
                     }`}
                 >
-                    <Search className="h-5 w-5 shrink-0 text-gray-400"/>
+                    {effectiveAiMode
+                        ? <Sparkles className="h-5 w-5 shrink-0 text-blue-600"/>
+                        : <Search className="h-5 w-5 shrink-0 text-gray-400"/>}
 
                     <input
                         type="text"
@@ -233,7 +239,7 @@ export const SearchInput = ({
                                 {!isLoggedIn && (
                                     <div
                                         className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
-                                        Sign in to use AI mode
+                                        Sign in to use AI Mode
                                     </div>
                                 )}
                             </div>
@@ -245,6 +251,12 @@ export const SearchInput = ({
                     {loading && onStop ? (
                         <button key="stop" type="button" onClick={onStop} className={submitButtonClass}>
                             {buttonText}
+                        </button>
+                    ) : effectiveAiMode ? (
+                        // In AI mode the Search button gives way to one that sends the question to the chat.
+                        <button key="ask" type="submit" disabled={loading} aria-label="Ask AI"
+                                className={submitButtonClass}>
+                            <ArrowRight className="h-5 w-5"/>
                         </button>
                     ) : (
                         <button key="submit" type="submit" disabled={loading} className={submitButtonClass}>

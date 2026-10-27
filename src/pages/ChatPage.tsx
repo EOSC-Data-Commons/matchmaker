@@ -2,6 +2,7 @@ import {FC, useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {useLocation, useNavigate, useParams} from "react-router";
 import {useAuth} from "@/hooks/useAuth.ts";
 import {loginWithReturn} from "@/lib/authRedirect.ts";
+import {UserMenu} from "@/components/UserMenu.tsx";
 import {Conversation, Message} from "@/types/chat.ts";
 import {parseConversationItems} from "@/lib/chatMessages.ts";
 import {
@@ -53,11 +54,17 @@ const NO_MESSAGES: Message[] = [];
 const streamingAnchor = (container: HTMLElement | null) =>
     container?.querySelector<HTMLElement>('[data-streaming-end]') ?? null;
 
+// The user message the view is parked under after a send, see fitAnswerSpace.
+const lastQuestion = (container: HTMLElement | null) => {
+    const questions = container?.querySelectorAll<HTMLElement>('[data-user-message]');
+    return questions?.length ? questions[questions.length - 1] : null;
+};
+
 const ChatPage: FC = () => {
     const {id: urlId} = useParams();
     const navigate = useNavigate();
     const location = useLocation();
-    const {user, loading: userLoading} = useAuth();
+    const {user, loading: userLoading, logout} = useAuth();
     const {trackEvent} = useMatomo();
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
@@ -91,6 +98,14 @@ const ChatPage: FC = () => {
     // True once the current run's answer text has been followed, so the final
     // update of the run does not pull the reference list into view.
     const answerFollowedRef = useRef(false);
+    // True from a send until the user asks to follow again (scroll button) or opens
+    // another thread: the view is parked with the question at the top and the answer
+    // fills in below it, so streaming never moves the page.
+    const parkedRef = useRef(false);
+    // Set when the conversation id is about to change without the reader leaving the
+    // thread: a send that starts a new chat, or a new chat taking its thread id
+    // mid-answer. The thread-change effect then keeps the view where it is.
+    const keepViewRef = useRef(false);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView?.({behavior: "smooth"});
@@ -111,11 +126,31 @@ const ChatPage: FC = () => {
         });
     }, []);
 
+    // While parked, keep the thread tall enough for the question to sit at the top:
+    // the end marker pads the space the answer has not filled yet and shrinks as it
+    // does, so the page never has to scroll. Also shows the scroll button once the
+    // answer has grown past the fold, since no scroll event reports that.
+    const fitAnswerSpace = useCallback(() => {
+        const container = messagesContainerRef.current;
+        const end = messagesEndRef.current;
+        const question = lastQuestion(container);
+        if (!container || !end || !question) return;
+        const below = end.getBoundingClientRect().top - question.getBoundingClientRect().top;
+        end.style.minHeight = `${Math.max(0, container.clientHeight - below)}px`;
+        const {scrollTop, scrollHeight, clientHeight} = container;
+        setShowScrollButton(scrollHeight - scrollTop - clientHeight >= 100);
+    }, []);
+
     const handleScroll = () => {
         const container = messagesContainerRef.current;
         if (!container) return;
         const {scrollTop, scrollHeight, clientHeight} = container;
         const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+        if (parkedRef.current) {
+            // Parked on the question: scrolling never resumes following, the button does.
+            setShowScrollButton(!isNearBottom);
+            return;
+        }
         const anchor = streamingAnchor(container);
         if (anchor) {
             // Following the answer: its newest text is within the view or just below it.
@@ -220,10 +255,17 @@ const ChatPage: FC = () => {
     // left — clamped to the new content, which lands the reader mid-conversation —
     // along with whether that thread's bottom was being followed.
     useEffect(() => {
+        if (keepViewRef.current) {
+            // Same thread under a new id: leave the view where it is.
+            keepViewRef.current = false;
+            return;
+        }
         const container = messagesContainerRef.current;
         if (!container) return;
         followingRef.current = true;
         answerFollowedRef.current = false;
+        parkedRef.current = false;
+        if (messagesEndRef.current) messagesEndRef.current.style.minHeight = '';
         // Set rather than animated: a smooth scroll would travel from the previous
         // thread's offset, which is not a position in this one.
         container.scrollTop = container.scrollHeight;
@@ -251,7 +293,8 @@ const ChatPage: FC = () => {
             // Follow the answer streaming into the conversation on screen.
             if (run.messages !== followedMessages) {
                 followedMessages = run.messages;
-                scrollToBottomIfFollowing();
+                if (parkedRef.current) requestAnimationFrame(fitAnswerSpace);
+                else scrollToBottomIfFollowing();
             }
             // An answer that ends on screen has been seen.
             if (!run.seen) markRunSeen(run.key);
@@ -259,11 +302,12 @@ const ChatPage: FC = () => {
             // still on screen at the bare /chat, it moves to the thread's id and URL.
             const threadId = run.threadId;
             if (threadId && run.key.startsWith('new-') && run.key === activeIdRef.current && !urlId) {
+                keepViewRef.current = true;
                 navigate(`/chat/${threadId}`, {replace: true});
                 setSelectedConversation(prev => (prev?.id === run.key ? {...prev, id: threadId} : prev));
             }
         });
-    }, [fetchConversations, navigate, urlId, scrollToBottomIfFollowing]);
+    }, [fetchConversations, navigate, urlId, scrollToBottomIfFollowing, fitAnswerSpace]);
 
     useEffect(() => {
         const state = location.state;
@@ -391,7 +435,16 @@ const ChatPage: FC = () => {
             messages: updatedMessages,
         });
         answerFollowedRef.current = false;
-        setTimeout(scrollToBottom, 50);
+        // Park the view on the question: one scroll puts it at the top, and the answer
+        // fills the space below without moving the page again. A first message gives
+        // the page a new conversation id, which must not count as a thread change.
+        if (!selectedConversation) keepViewRef.current = true;
+        followingRef.current = false;
+        parkedRef.current = true;
+        setTimeout(() => {
+            fitAnswerSpace();
+            lastQuestion(messagesContainerRef.current)?.scrollIntoView?.({block: 'start', behavior: 'smooth'});
+        }, 50);
 
         // Not awaited: the run streams into the store whether or not this
         // conversation is still on screen.
@@ -447,8 +500,7 @@ const ChatPage: FC = () => {
                         </div>
                         <h2 className="text-2xl font-semibold text-gray-900 mb-3">Authentication Required</h2>
                         <p className="text-gray-600 mb-8 leading-relaxed">
-                            Please log in to your account to access the AI chat capabilities and view your conversation
-                            history.
+                            Please log in to your account to use AI Mode and see your conversations.
                         </p>
                         <div className="flex flex-col gap-3">
                             <button
@@ -485,6 +537,12 @@ const ChatPage: FC = () => {
                     className="h-8 cursor-pointer hover:opacity-80 transition-opacity"
                     onClick={() => navigate('/')}
                 />
+                {user && (
+                    <div className="ml-auto">
+                        {/* No "Your conversations" item: the sidebar here already is that list. */}
+                        <UserMenu user={user} onLogout={logout} onProfile={() => navigate('/profile')}/>
+                    </div>
+                )}
             </header>
 
             <div className="flex-1 flex overflow-hidden relative">
@@ -512,7 +570,7 @@ const ChatPage: FC = () => {
                             className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors shadow-sm cursor-pointer"
                         >
                             <Plus className="h-5 w-5"/>
-                            New Chat
+                            New conversation
                         </button>
                     </div>
                     <div className="flex-1 overflow-y-auto p-3 space-y-1">
@@ -577,8 +635,7 @@ const ChatPage: FC = () => {
                                         className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4">
                                         <MessageSquare className="h-8 w-8"/>
                                     </div>
-                                    <h2 className="text-xl font-semibold text-gray-700 mb-2">Welcome to the EOSC Data
-                                        Commons Chat</h2>
+                                    <h2 className="text-xl font-semibold text-gray-700 mb-2">Welcome to AI Mode</h2>
                                     <p className="text-gray-500 max-w-md">Start a new conversation by typing a message
                                         below
                                         to search datasets or ask questions.</p>
@@ -589,7 +646,8 @@ const ChatPage: FC = () => {
                                     // reuses these components when the thread changes, and the message
                                     // keeps the previous conversation's open citation.
                                     <div key={`${selectedConversation.id}-${index}`}
-                                         className={`w-full flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                         data-user-message={msg.sender === 'user' ? '' : undefined}
+                                         className={`w-full flex scroll-mt-4 md:scroll-mt-6 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                                         <div
                                             className={`flex gap-2 md:gap-3 max-w-full md:max-w-[85%] min-w-0 ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
                                             {/* Avatar */}
@@ -705,13 +763,29 @@ const ChatPage: FC = () => {
                         <div className="absolute bottom-32 left-1/2 -translate-x-1/2 z-20">
                             <button
                                 onClick={() => {
+                                    parkedRef.current = false;
                                     followingRef.current = true;
+                                    // Following again: the space kept under the question is not needed.
+                                    if (messagesEndRef.current) messagesEndRef.current.style.minHeight = '';
                                     scrollToBottom();
                                 }}
                                 className="p-2 bg-white border border-gray-200 shadow-md rounded-full text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors focus:outline-none flex items-center justify-center cursor-pointer"
-                                title="Scroll to bottom"
+                                title={isSending ? "Jump to the answer being written" : "Scroll to bottom"}
+                                aria-label={isSending ? "Jump to the answer being written" : "Scroll to bottom"}
                             >
-                                <ChevronDown className="h-6 w-6"/>
+                                {isSending ? (
+                                    // The answer is still being written below the fold.
+                                    <span className="h-6 w-6 flex items-center justify-center">
+                                        <span className="relative flex h-2.5 w-2.5">
+                                            <span
+                                                className="absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75 motion-safe:animate-ping"/>
+                                            <span
+                                                className="relative inline-flex h-2.5 w-2.5 rounded-full bg-blue-600"/>
+                                        </span>
+                                    </span>
+                                ) : (
+                                    <ChevronDown className="h-6 w-6"/>
+                                )}
                             </button>
                         </div>
                     )}

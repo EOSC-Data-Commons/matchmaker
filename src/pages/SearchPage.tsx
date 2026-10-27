@@ -3,7 +3,6 @@ import {useEffect, useMemo} from "react";
 import {XCircleIcon, Clock, AlertTriangle} from "lucide-react";
 import {SearchInput} from "../components/SearchInput.tsx";
 import {SearchResultItem} from "../components/SearchResultItem.tsx";
-import {AlphaDisclaimer} from "../components/AlphaDisclaimer";
 import {Footer} from "../components/Footer";
 import {FilterPanel} from "../components/FilterPanel.tsx";
 import {NoResultsMessage} from "../components/NoResultsMessage.tsx";
@@ -15,10 +14,12 @@ import {RateLimitError, ServerError} from "../lib/api.ts";
 import {describeResultCount} from "../lib/utils.ts";
 import {useAuth} from "@/hooks/useAuth.ts";
 import {SearchFeedback} from "../components/SearchFeedback.tsx";
+import {UserMenu} from "../components/UserMenu.tsx";
+import {loginWithReturn} from "../lib/authRedirect.ts";
 
 export const SearchPage = () => {
     const navigate = useNavigate();
-    const {user} = useAuth();
+    const {user, loading: userLoading, logout} = useAuth();
     const [searchParams, setSearchParams] = useSearchParams();
 
     const query = searchParams.get('q') || '';
@@ -98,16 +99,18 @@ export const SearchPage = () => {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-            <AlphaDisclaimer/>
             <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-md shadow-sm">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between py-3">
+                {/* On phones the search bar takes its own row below the logo and the account
+                    controls; side by side it leaves no room to type. */}
+                <div
+                    className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap sm:flex-nowrap items-center gap-x-4 gap-y-3 py-3">
                     <img
                         src={dataCommonsIconBlue}
                         alt="EOSC Logo"
                         className="h-9 w-auto cursor-pointer"
                         onClick={() => navigate('/')}
                     />
-                    <div className="flex-grow ml-4">
+                    <div className="order-last sm:order-none basis-full sm:basis-auto sm:flex-1 min-w-0">
                         {/* AI mode starts off here: landing on the plain results page already
                             means the user chose plain search, so it must be opted back into. */}
                         <SearchInput
@@ -118,6 +121,21 @@ export const SearchPage = () => {
                             showAiToggle={true}
                             initialAiMode={false}
                         />
+                    </div>
+                    <div className="ml-auto sm:ml-0 shrink-0">
+                        {!userLoading && (
+                            user ? (
+                                <UserMenu user={user} onLogout={logout} onProfile={() => navigate('/profile')}
+                                          onConversations={() => navigate('/chat')}/>
+                            ) : (
+                                <button
+                                    onClick={loginWithReturn}
+                                    className="bg-white border border-eosc-border rounded-lg px-4 py-2 text-sm font-light text-eosc-text hover:bg-gray-50 hover:border-eosc-light-blue transition-colors cursor-pointer"
+                                >
+                                    Login
+                                </button>
+                            )
+                        )}
                     </div>
                 </div>
             </header>
@@ -188,6 +206,11 @@ export const SearchPage = () => {
                                             </div>
                                         </div>
                                         <SearchFeedback key={query} query={query}/>
+                                        <p className="mt-6 text-center text-xs text-gray-400">
+                                            Search results and metadata may be incomplete, outdated, or inaccurate.
+                                            Please verify critical
+                                            information independently.
+                                        </p>
                                     </>
                                 )
                             )}

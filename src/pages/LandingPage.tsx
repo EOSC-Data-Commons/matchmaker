@@ -1,7 +1,7 @@
 import {useNavigate} from "react-router";
 import {useState} from "react";
+import {MessageSquare} from "lucide-react";
 import {SearchInput} from "../components/SearchInput";
-import {AlphaDisclaimer} from "../components/AlphaDisclaimer";
 import {Footer} from "../components/Footer";
 import {EasterEgg} from "../components/EasterEgg";
 import dataCommonsIconBlue from '@/assets/data-commons-icon-blue.svg';
@@ -77,7 +77,6 @@ export const LandingPage = () => {
 
     return (
         <div className="min-h-screen bg-eosc-bg flex flex-col items-center px-4 relative">
-            <AlphaDisclaimer/>
             <EasterEgg active={showEasterEgg} onComplete={() => setShowEasterEgg(false)}/>
             <header className="w-full flex justify-between items-center p-4 sm:p-6">
                 <img
@@ -95,9 +94,13 @@ export const LandingPage = () => {
                     {user && (
                         <button
                             onClick={handleChat}
-                            className="bg-white border border-eosc-border rounded-lg px-4 py-2 text-sm font-light text-eosc-text hover:bg-gray-50 hover:border-eosc-light-blue transition-colors cursor-pointer"
+                            aria-label="Your conversations"
+                            title="Your conversations"
+                            className="inline-flex items-center bg-white border border-eosc-border rounded-lg px-3 sm:px-4 py-2 text-sm font-light text-eosc-text hover:bg-gray-50 hover:border-eosc-light-blue transition-colors cursor-pointer"
                         >
-                            Chat
+                            {/* Icon only on phones, where the label wraps and crowds the logo. */}
+                            <MessageSquare className="h-5 w-5 sm:hidden"/>
+                            <span className="hidden sm:inline">Your conversations</span>
                         </button>
                     )}
                     {!loading && (

@@ -1,5 +1,5 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from "vitest";
-import {render, screen, waitFor, within} from "@testing-library/react";
+import {fireEvent, render, screen, waitFor, within} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {MemoryRouter, Route, Routes} from "react-router";
 import {http, HttpResponse} from "msw";
@@ -81,13 +81,13 @@ const secondHalf = [
     {type: "RUN_FINISHED", thread_id: "t-5"},
 ];
 
-// The real route mounts ChatPage on both /chat and /chat/:id — the run navigates to
-// /chat/:thread_id as soon as RUN_STARTED arrives.
+// Same single route as production (src/routes.ts): the run navigates from /chat to
+// /chat/:thread_id as soon as RUN_STARTED arrives, and the page must survive that
+// without remounting, as its scroll state lives in refs.
 const renderChat = () => render(
     <MemoryRouter initialEntries={["/chat"]}>
         <Routes>
-            <Route path="/chat" element={<ChatPage/>}/>
-            <Route path="/chat/:id" element={<ChatPage/>}/>
+            <Route path="/chat/:id?" element={<ChatPage/>}/>
         </Routes>
     </MemoryRouter>,
 );
@@ -109,6 +109,17 @@ describe("ChatPage", () => {
         await user.click(toolCall);
         expect(screen.getByText(/"query": "ocean"/)).toBeInTheDocument();
         expect(screen.getByRole("heading", {name: "Ocean Temperatures 2023"})).toBeInTheDocument();
+    });
+
+    it("offers the user menu in the header, without Your conversations", async () => {
+        const user = userEvent.setup();
+        renderChat();
+
+        await user.click(await screen.findByRole("button", {name: "User menu for Jane Doe"}));
+        expect(screen.getByRole("menuitem", {name: "API Keys"})).toBeInTheDocument();
+        expect(screen.getByRole("menuitem", {name: "Log out"})).toBeInTheDocument();
+        // The sidebar on this page is the conversation list.
+        expect(screen.queryByRole("menuitem", {name: "Your conversations"})).not.toBeInTheDocument();
     });
 
     it("keeps what streamed before a terminal RUN_ERROR and adds an error bubble", async () => {
@@ -254,7 +265,72 @@ describe("ChatPage", () => {
         }
     });
 
-    it("keeps an answer going after New Chat, and shows it when its conversation is opened again", async () => {
+    it("marks the scroll button as live while the answer below the fold is being written", async () => {
+        // jsdom lays nothing out: make the thread overflow so the answer is past the fold.
+        Object.defineProperty(HTMLElement.prototype, "scrollHeight", {configurable: true, value: 900});
+        try {
+            const {response, finish} = heldRun(firstHalf, secondHalf);
+            server.use(http.post("/api/search/chat", response));
+            const user = userEvent.setup();
+            renderChat();
+
+            await user.type(await screen.findByRole("textbox"), "ocean data");
+            await user.click(screen.getByRole("button", {name: /send/i}));
+            await screen.findByText(/First half,/);
+
+            // Scroll back up the thread, away from where the answer is being written.
+            const container = screen.getByText("ocean data", {selector: "p"}).closest(".overflow-y-auto") as HTMLElement;
+            container.scrollTop = 0;
+            fireEvent.scroll(container);
+            expect(await screen.findByRole("button", {name: "Jump to the answer being written"})).toBeInTheDocument();
+
+            finish();
+            expect(await screen.findByRole("button", {name: "Scroll to bottom"})).toBeInTheDocument();
+            expect(screen.queryByRole("button", {name: "Jump to the answer being written"})).not.toBeInTheDocument();
+        } finally {
+            Reflect.deleteProperty(HTMLElement.prototype, "scrollHeight");
+        }
+    });
+
+    it("parks the question at the top of the view and does not follow the answer as it streams", async () => {
+        // jsdom has no scrollIntoView and no layout: record who asks to be scrolled into view.
+        const scrolled: Array<{ el: HTMLElement; opts: unknown }> = [];
+        Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+            configurable: true,
+            value: function (this: HTMLElement, opts?: unknown) {
+                scrolled.push({el: this, opts});
+            },
+        });
+        try {
+            const {response, finish} = heldRun(firstHalf, secondHalf);
+            server.use(http.post("/api/search/chat", response));
+            const user = userEvent.setup();
+            renderChat();
+
+            await user.type(await screen.findByRole("textbox"), "ocean data");
+            await user.click(screen.getByRole("button", {name: /send/i}));
+            await screen.findByText(/First half,/);
+
+            // One scroll on send, to the question itself, and the thread padded below it.
+            await waitFor(() => expect(scrolled).toHaveLength(1));
+            const question = screen.getByText("ocean data", {selector: "p"}).closest("[data-user-message]");
+            expect(scrolled[0].el).toBe(question);
+            expect(scrolled[0].opts).toEqual({block: "start", behavior: "smooth"});
+            const container = question!.closest(".overflow-y-auto") as HTMLElement;
+            const endMarker = container.querySelector(".max-w-6xl > div:last-child") as HTMLElement;
+            expect(endMarker.style.minHeight).toMatch(/px$/);
+
+            // The rest of the answer arrives without the view being moved again.
+            finish();
+            await screen.findByText(/second half\./);
+            await waitFor(() => expect(getChatRuns()[0]?.status).not.toBe("running"));
+            expect(scrolled).toHaveLength(1);
+        } finally {
+            Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
+        }
+    });
+
+    it("keeps an answer going after New conversation, and shows it when its conversation is opened again", async () => {
         const run = heldRun(firstHalf, secondHalf);
         server.use(http.post("/api/search/chat", run.response));
         const user = userEvent.setup();
@@ -264,7 +340,7 @@ describe("ChatPage", () => {
         await user.click(screen.getByRole("button", {name: /send/i}));
         expect(await screen.findByText("First half,")).toBeInTheDocument();
 
-        await user.click(screen.getByRole("button", {name: /new chat/i}));
+        await user.click(screen.getByRole("button", {name: /new conversation/i}));
 
         // The new chat can be used straight away, and the answer does not follow into it.
         expect(screen.getByRole("button", {name: /send/i})).toBeEnabled();

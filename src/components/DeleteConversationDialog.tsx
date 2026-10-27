@@ -17,7 +17,7 @@ export const DeleteConversationDialog: FC<Props> = ({isOpen, onClose, onConfirm}
                     className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
                     <Trash2 className="h-6 w-6"/>
                 </div>
-                <h2 className="text-xl font-semibold text-gray-900 mb-2">Delete Chat?</h2>
+                <h2 className="text-xl font-semibold text-gray-900 mb-2">Delete conversation?</h2>
                 <p className="text-gray-600 mb-6 text-sm">
                     Are you sure you want to delete this conversation? This action cannot be undone.
                 </p>

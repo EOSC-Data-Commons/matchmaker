@@ -26,6 +26,7 @@ import {
 
 import {signPreviewUrl, verifyPreviewUrl} from "./src/lib/server/previewSigning";
 import {isSafePublicUrl, resolvesToPublicAddress} from "./src/lib/server/previewUrlGuard";
+import {isLoginPath, withIdpHint} from "./src/lib/server/idpHint";
 
 import type {
     ApiKeysResponse,
@@ -104,6 +105,15 @@ app.use(
         changeOrigin: false,
         pathRewrite: {"^/": "/auth/"},
         on: {
+            proxyRes: (proxyRes, req) => {
+                // The backend answers /auth/login with a redirect to Check-in's authorization
+                // endpoint. Pre-select the EGI Check-in entry there so the user skips the
+                // EOSC-federation chooser. See src/lib/server/idpHint.ts for the why.
+                const location = proxyRes.headers.location;
+                if (!location || !isLoginPath((req as express.Request).originalUrl)) return;
+                const hinted = withIdpHint(location);
+                if (hinted) proxyRes.headers.location = hinted;
+            },
             error: (err, _req, res) => {
                 console.error("Auth API proxy error:", err);
                 (res as express.Response).status(500).send("Proxy error");

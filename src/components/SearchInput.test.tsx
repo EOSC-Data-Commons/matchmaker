@@ -4,10 +4,13 @@ import {render, screen} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {MemoryRouter} from "react-router";
 import {SearchInput} from "./SearchInput";
-import {loginWithReturn} from "@/lib/authRedirect";
+import {loginForAiMode, returnedFromAiModeLogin} from "@/lib/authRedirect";
 
-// loginWithReturn does a full-page navigation, which jsdom cannot perform.
-vi.mock("@/lib/authRedirect", () => ({loginWithReturn: vi.fn()}));
+// loginForAiMode does a full-page navigation, which jsdom cannot perform.
+vi.mock("@/lib/authRedirect", () => ({
+    loginForAiMode: vi.fn(),
+    returnedFromAiModeLogin: vi.fn(() => false),
+}));
 
 const wrapper = ({children}: {children: ReactNode}) => <MemoryRouter>{children}</MemoryRouter>;
 
@@ -20,7 +23,8 @@ const renderInput = (props: Partial<Parameters<typeof SearchInput>[0]> = {}) => 
 describe("SearchInput", () => {
     beforeEach(() => {
         localStorage.clear();
-        vi.mocked(loginWithReturn).mockClear();
+        vi.mocked(loginForAiMode).mockClear();
+        vi.mocked(returnedFromAiModeLogin).mockReturnValue(false);
     });
 
     it("submits the trimmed query with the default model", async () => {
@@ -107,21 +111,36 @@ describe("SearchInput", () => {
     });
 
     describe("AI mode toggle", () => {
-        it("defaults on for logged-in users and reports aiMode=true", async () => {
+        it("defaults on once a signed-in user is known", async () => {
             const user = userEvent.setup();
-            const {onSearch, input} = renderInput({showAiToggle: true, isLoggedIn: true});
+            const onSearch = vi.fn();
+            const props = {onSearch, showAiToggle: true};
+            // The page renders before useAuth has the user.
+            const {rerender} = render(<SearchInput {...props} isLoggedIn={false}/>, {wrapper});
+            expect(screen.getByRole("button", {name: "Toggle AI mode"})).toHaveAttribute("aria-pressed", "false");
 
-            await user.type(input, "ocean{Enter}");
+            rerender(<SearchInput {...props} isLoggedIn={true}/>);
+            expect(screen.getByRole("button", {name: "Toggle AI mode"})).toHaveAttribute("aria-pressed", "true");
+            expect(screen.queryByRole("button", {name: "Search"})).not.toBeInTheDocument();
+            await user.type(screen.getByRole("textbox"), "ocean{Enter}");
             expect(onSearch).toHaveBeenCalledExactlyOnceWith("ocean", "cesnet/agentic", true);
         });
 
-        it("can be toggled off", async () => {
+        it("brings the Search button back when turned off, and Ask AI when turned on again", async () => {
             const user = userEvent.setup();
             const {onSearch, input} = renderInput({showAiToggle: true, isLoggedIn: true});
+            const toggle = screen.getByRole("button", {name: "Toggle AI mode"});
 
-            await user.click(screen.getByRole("button", {name: "Toggle AI mode"}));
-            await user.type(input, "ocean{Enter}");
+            await user.click(toggle);
+            expect(screen.queryByRole("button", {name: "Ask AI"})).not.toBeInTheDocument();
+            await user.type(input, "ocean");
+            await user.click(screen.getByRole("button", {name: "Search"}));
             expect(onSearch).toHaveBeenCalledExactlyOnceWith("ocean", "cesnet/agentic", false);
+
+            await user.click(toggle);
+            expect(screen.queryByRole("button", {name: "Search"})).not.toBeInTheDocument();
+            await user.click(screen.getByRole("button", {name: "Ask AI"}));
+            expect(onSearch).toHaveBeenLastCalledWith("ocean", "cesnet/agentic", true);
         });
 
         it("stays off for anonymous users and sends them to log in", async () => {
@@ -131,13 +150,27 @@ describe("SearchInput", () => {
             // The chip is clickable rather than disabled: clicking it starts the login
             // flow, which is the only way an anonymous user can reach AI mode.
             await user.click(screen.getByRole("button", {name: "Toggle AI mode"}));
-            expect(loginWithReturn).toHaveBeenCalledOnce();
+            expect(loginForAiMode).toHaveBeenCalledOnce();
 
             await user.type(input, "ocean{Enter}");
             expect(onSearch).toHaveBeenCalledExactlyOnceWith("ocean", "cesnet/agentic", false);
         });
 
-        it("starts off when initialAiMode is false, and can be turned on", async () => {
+        it("comes back on after a login started from the toggle", () => {
+            vi.mocked(returnedFromAiModeLogin).mockReturnValue(true);
+            // The results page starts off; the login return still turns it on.
+            const props = {onSearch: vi.fn(), showAiToggle: true, initialAiMode: false};
+            const {rerender} = render(<SearchInput {...props} isLoggedIn={false}/>, {wrapper});
+
+            // Signed-in state is still loading: nothing on yet.
+            expect(screen.getByRole("button", {name: "Toggle AI mode"})).toHaveAttribute("aria-pressed", "false");
+
+            rerender(<SearchInput {...props} isLoggedIn={true}/>);
+            expect(screen.getByRole("button", {name: "Toggle AI mode"})).toHaveAttribute("aria-pressed", "true");
+            expect(screen.getByRole("button", {name: "Ask AI"})).toBeInTheDocument();
+        });
+
+        it("starts off when initialAiMode is false, as on the results page", async () => {
             const user = userEvent.setup();
             const {onSearch, input} = renderInput({
                 showAiToggle: true,
@@ -145,12 +178,9 @@ describe("SearchInput", () => {
                 initialAiMode: false,
             });
 
+            expect(screen.queryByRole("button", {name: "Ask AI"})).not.toBeInTheDocument();
             await user.type(input, "ocean{Enter}");
             expect(onSearch).toHaveBeenCalledExactlyOnceWith("ocean", "cesnet/agentic", false);
-
-            await user.click(screen.getByRole("button", {name: "Toggle AI mode"}));
-            await user.type(input, " floor{Enter}");
-            expect(onSearch).toHaveBeenLastCalledWith("ocean floor", "cesnet/agentic", true);
         });
     });
 

@@ -66,6 +66,35 @@ describe("useAuth", () => {
         expect(sessionStorage.getItem("postLoginRedirect")).toBeNull();
     });
 
+    it("keeps the AI mode mark while sending the user on to the stashed page", async () => {
+        server.use(http.get("/auth/user", () => HttpResponse.json(jane)));
+        sessionStorage.setItem("postLoginRedirect", "/search?q=climate");
+        sessionStorage.setItem("postLoginAiMode", "/search?q=climate");
+        const {result} = renderHook(() => useAuth());
+
+        await waitFor(() => expect(result.current.loading).toBe(false));
+        await waitFor(() => expect(window.location.pathname).toBe("/search"));
+        expect(sessionStorage.getItem("postLoginAiMode")).toBe("/search?q=climate");
+    });
+
+    it("clears the AI mode mark once the user is on the marked page", async () => {
+        server.use(http.get("/auth/user", () => HttpResponse.json(jane)));
+        sessionStorage.setItem("postLoginAiMode", "/profile");
+        const {result} = renderHook(() => useAuth());
+
+        await waitFor(() => expect(result.current.loading).toBe(false));
+        expect(sessionStorage.getItem("postLoginAiMode")).toBeNull();
+    });
+
+    it("leaves another page's AI mode mark alone", async () => {
+        server.use(http.get("/auth/user", () => HttpResponse.json(jane)));
+        sessionStorage.setItem("postLoginAiMode", "/search?q=climate");
+        const {result} = renderHook(() => useAuth());
+
+        await waitFor(() => expect(result.current.loading).toBe(false));
+        expect(sessionStorage.getItem("postLoginAiMode")).toBe("/search?q=climate");
+    });
+
     it("logout navigates to /auth/logout", async () => {
         server.use(http.get("/auth/user", () => HttpResponse.json(jane)));
         const {result} = renderHook(() => useAuth());
