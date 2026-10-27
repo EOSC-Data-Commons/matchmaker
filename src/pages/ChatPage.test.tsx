@@ -1,5 +1,5 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from "vitest";
-import {render, screen, waitFor, within} from "@testing-library/react";
+import {fireEvent, render, screen, waitFor, within} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {MemoryRouter, Route, Routes} from "react-router";
 import {http, HttpResponse} from "msw";
@@ -249,6 +249,33 @@ describe("ChatPage", () => {
             await user.click(await screen.findByText("Earlier chat"));
             await screen.findByText("earlier question");
             expect(container.scrollTop).toBe(900);
+        } finally {
+            Reflect.deleteProperty(HTMLElement.prototype, "scrollHeight");
+        }
+    });
+
+    it("marks the scroll button as live while the answer below the fold is being written", async () => {
+        // jsdom lays nothing out: make the thread overflow so the answer is past the fold.
+        Object.defineProperty(HTMLElement.prototype, "scrollHeight", {configurable: true, value: 900});
+        try {
+            const {response, finish} = heldRun(firstHalf, secondHalf);
+            server.use(http.post("/api/search/chat", response));
+            const user = userEvent.setup();
+            renderChat();
+
+            await user.type(await screen.findByRole("textbox"), "ocean data");
+            await user.click(screen.getByRole("button", {name: /send/i}));
+            await screen.findByText(/First half,/);
+
+            // Scroll back up the thread, away from where the answer is being written.
+            const container = screen.getByText("ocean data", {selector: "p"}).closest(".overflow-y-auto") as HTMLElement;
+            container.scrollTop = 0;
+            fireEvent.scroll(container);
+            expect(await screen.findByRole("button", {name: "Jump to the answer being written"})).toBeInTheDocument();
+
+            finish();
+            expect(await screen.findByRole("button", {name: "Scroll to bottom"})).toBeInTheDocument();
+            expect(screen.queryByRole("button", {name: "Jump to the answer being written"})).not.toBeInTheDocument();
         } finally {
             Reflect.deleteProperty(HTMLElement.prototype, "scrollHeight");
         }

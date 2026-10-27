@@ -765,9 +765,22 @@ const ChatPage: FC = () => {
                                     scrollToBottom();
                                 }}
                                 className="p-2 bg-white border border-gray-200 shadow-md rounded-full text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors focus:outline-none flex items-center justify-center cursor-pointer"
-                                title="Scroll to bottom"
+                                title={isSending ? "Jump to the answer being written" : "Scroll to bottom"}
+                                aria-label={isSending ? "Jump to the answer being written" : "Scroll to bottom"}
                             >
-                                <ChevronDown className="h-6 w-6"/>
+                                {isSending ? (
+                                    // The answer is still being written below the fold.
+                                    <span className="h-6 w-6 flex items-center justify-center">
+                                        <span className="relative flex h-2.5 w-2.5">
+                                            <span
+                                                className="absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75 motion-safe:animate-ping"/>
+                                            <span
+                                                className="relative inline-flex h-2.5 w-2.5 rounded-full bg-blue-600"/>
+                                        </span>
+                                    </span>
+                                ) : (
+                                    <ChevronDown className="h-6 w-6"/>
+                                )}
                             </button>
                         </div>
                     )}
