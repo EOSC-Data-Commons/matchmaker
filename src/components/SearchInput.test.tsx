@@ -111,30 +111,36 @@ describe("SearchInput", () => {
     });
 
     describe("AI mode toggle", () => {
-        it("defaults off, even for logged-in users", async () => {
+        it("defaults on once a signed-in user is known", async () => {
             const user = userEvent.setup();
-            const {onSearch, input} = renderInput({showAiToggle: true, isLoggedIn: true});
-
+            const onSearch = vi.fn();
+            const props = {onSearch, showAiToggle: true};
+            // The page renders before useAuth has the user.
+            const {rerender} = render(<SearchInput {...props} isLoggedIn={false}/>, {wrapper});
             expect(screen.getByRole("button", {name: "Toggle AI mode"})).toHaveAttribute("aria-pressed", "false");
-            await user.type(input, "ocean{Enter}");
-            expect(onSearch).toHaveBeenCalledExactlyOnceWith("ocean", "cesnet/agentic", false);
+
+            rerender(<SearchInput {...props} isLoggedIn={true}/>);
+            expect(screen.getByRole("button", {name: "Toggle AI mode"})).toHaveAttribute("aria-pressed", "true");
+            expect(screen.queryByRole("button", {name: "Search"})).not.toBeInTheDocument();
+            await user.type(screen.getByRole("textbox"), "ocean{Enter}");
+            expect(onSearch).toHaveBeenCalledExactlyOnceWith("ocean", "cesnet/agentic", true);
         });
 
-        it("swaps the Search button for Ask AI while on, and back when turned off", async () => {
+        it("brings the Search button back when turned off, and Ask AI when turned on again", async () => {
             const user = userEvent.setup();
             const {onSearch, input} = renderInput({showAiToggle: true, isLoggedIn: true});
             const toggle = screen.getByRole("button", {name: "Toggle AI mode"});
 
             await user.click(toggle);
-            expect(screen.queryByRole("button", {name: "Search"})).not.toBeInTheDocument();
+            expect(screen.queryByRole("button", {name: "Ask AI"})).not.toBeInTheDocument();
             await user.type(input, "ocean");
-            await user.click(screen.getByRole("button", {name: "Ask AI"}));
-            expect(onSearch).toHaveBeenCalledExactlyOnceWith("ocean", "cesnet/agentic", true);
+            await user.click(screen.getByRole("button", {name: "Search"}));
+            expect(onSearch).toHaveBeenCalledExactlyOnceWith("ocean", "cesnet/agentic", false);
 
             await user.click(toggle);
-            expect(screen.queryByRole("button", {name: "Ask AI"})).not.toBeInTheDocument();
-            await user.click(screen.getByRole("button", {name: "Search"}));
-            expect(onSearch).toHaveBeenLastCalledWith("ocean", "cesnet/agentic", false);
+            expect(screen.queryByRole("button", {name: "Search"})).not.toBeInTheDocument();
+            await user.click(screen.getByRole("button", {name: "Ask AI"}));
+            expect(onSearch).toHaveBeenLastCalledWith("ocean", "cesnet/agentic", true);
         });
 
         it("stays off for anonymous users and sends them to log in", async () => {
@@ -164,17 +170,17 @@ describe("SearchInput", () => {
             expect(screen.getByRole("button", {name: "Ask AI"})).toBeInTheDocument();
         });
 
-        it("starts on when initialAiMode is set, and Enter then asks AI", async () => {
+        it("starts off when initialAiMode is false, as on the results page", async () => {
             const user = userEvent.setup();
             const {onSearch, input} = renderInput({
                 showAiToggle: true,
                 isLoggedIn: true,
-                initialAiMode: true,
+                initialAiMode: false,
             });
 
-            expect(screen.queryByRole("button", {name: "Search"})).not.toBeInTheDocument();
+            expect(screen.queryByRole("button", {name: "Ask AI"})).not.toBeInTheDocument();
             await user.type(input, "ocean{Enter}");
-            expect(onSearch).toHaveBeenCalledExactlyOnceWith("ocean", "cesnet/agentic", true);
+            expect(onSearch).toHaveBeenCalledExactlyOnceWith("ocean", "cesnet/agentic", false);
         });
     });
 

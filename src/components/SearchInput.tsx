@@ -39,8 +39,9 @@ interface SearchInputProps {
     disableHistory?: boolean;
     isLoggedIn?: boolean;
     showAiToggle?: boolean;
-    // Whether AI mode starts on. Off by default: the bar is a plain search until the
-    // user turns AI mode on.
+    // Whether AI mode starts on for a signed-in user. The landing page uses the default;
+    // the plain results page starts off, since being there already means the user
+    // chose plain search.
     initialAiMode?: boolean;
     inputRef?: React.Ref<HTMLInputElement>;
 }
@@ -59,7 +60,7 @@ export const SearchInput = ({
                                 disableHistory = false,
                                 isLoggedIn = false,
                                 showAiToggle = false,
-                                initialAiMode = false,
+                                initialAiMode = true,
                                 inputRef
                             }: SearchInputProps) => {
     const [query, setQuery] = useState(initialQuery);
@@ -74,7 +75,8 @@ export const SearchInput = ({
     const searchContainerRef = useRef<HTMLDivElement>(null);
     const {trackEvent} = useMatomo();
 
-    const effectiveAiMode = isLoggedIn && aiMode;
+    // No toggle (the chat composer) means no AI mode, whatever the default.
+    const effectiveAiMode = showAiToggle && isLoggedIn && aiMode;
 
     // The leading icon and the submit button leave ~190px for text on a phone,
     // which truncates the full placeholders mid-phrase.
