@@ -4,10 +4,13 @@ import {render, screen} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {MemoryRouter} from "react-router";
 import {SearchInput} from "./SearchInput";
-import {loginWithReturn} from "@/lib/authRedirect";
+import {loginForAiMode, returnedFromAiModeLogin} from "@/lib/authRedirect";
 
-// loginWithReturn does a full-page navigation, which jsdom cannot perform.
-vi.mock("@/lib/authRedirect", () => ({loginWithReturn: vi.fn()}));
+// loginForAiMode does a full-page navigation, which jsdom cannot perform.
+vi.mock("@/lib/authRedirect", () => ({
+    loginForAiMode: vi.fn(),
+    returnedFromAiModeLogin: vi.fn(() => false),
+}));
 
 const wrapper = ({children}: {children: ReactNode}) => <MemoryRouter>{children}</MemoryRouter>;
 
@@ -20,7 +23,8 @@ const renderInput = (props: Partial<Parameters<typeof SearchInput>[0]> = {}) => 
 describe("SearchInput", () => {
     beforeEach(() => {
         localStorage.clear();
-        vi.mocked(loginWithReturn).mockClear();
+        vi.mocked(loginForAiMode).mockClear();
+        vi.mocked(returnedFromAiModeLogin).mockReturnValue(false);
     });
 
     it("submits the trimmed query with the default model", async () => {
@@ -107,21 +111,30 @@ describe("SearchInput", () => {
     });
 
     describe("AI mode toggle", () => {
-        it("defaults on for logged-in users and reports aiMode=true", async () => {
+        it("defaults off, even for logged-in users", async () => {
             const user = userEvent.setup();
             const {onSearch, input} = renderInput({showAiToggle: true, isLoggedIn: true});
 
-            await user.type(input, "ocean{Enter}");
-            expect(onSearch).toHaveBeenCalledExactlyOnceWith("ocean", "cesnet/agentic", true);
-        });
-
-        it("can be toggled off", async () => {
-            const user = userEvent.setup();
-            const {onSearch, input} = renderInput({showAiToggle: true, isLoggedIn: true});
-
-            await user.click(screen.getByRole("button", {name: "Toggle AI mode"}));
+            expect(screen.getByRole("button", {name: "Toggle AI mode"})).toHaveAttribute("aria-pressed", "false");
             await user.type(input, "ocean{Enter}");
             expect(onSearch).toHaveBeenCalledExactlyOnceWith("ocean", "cesnet/agentic", false);
+        });
+
+        it("swaps the Search button for Ask AI while on, and back when turned off", async () => {
+            const user = userEvent.setup();
+            const {onSearch, input} = renderInput({showAiToggle: true, isLoggedIn: true});
+            const toggle = screen.getByRole("button", {name: "Toggle AI mode"});
+
+            await user.click(toggle);
+            expect(screen.queryByRole("button", {name: "Search"})).not.toBeInTheDocument();
+            await user.type(input, "ocean");
+            await user.click(screen.getByRole("button", {name: "Ask AI"}));
+            expect(onSearch).toHaveBeenCalledExactlyOnceWith("ocean", "cesnet/agentic", true);
+
+            await user.click(toggle);
+            expect(screen.queryByRole("button", {name: "Ask AI"})).not.toBeInTheDocument();
+            await user.click(screen.getByRole("button", {name: "Search"}));
+            expect(onSearch).toHaveBeenLastCalledWith("ocean", "cesnet/agentic", false);
         });
 
         it("stays off for anonymous users and sends them to log in", async () => {
@@ -131,26 +144,37 @@ describe("SearchInput", () => {
             // The chip is clickable rather than disabled: clicking it starts the login
             // flow, which is the only way an anonymous user can reach AI mode.
             await user.click(screen.getByRole("button", {name: "Toggle AI mode"}));
-            expect(loginWithReturn).toHaveBeenCalledOnce();
+            expect(loginForAiMode).toHaveBeenCalledOnce();
 
             await user.type(input, "ocean{Enter}");
             expect(onSearch).toHaveBeenCalledExactlyOnceWith("ocean", "cesnet/agentic", false);
         });
 
-        it("starts off when initialAiMode is false, and can be turned on", async () => {
+        it("comes back on after a login started from the toggle", () => {
+            vi.mocked(returnedFromAiModeLogin).mockReturnValue(true);
+            // The results page starts off; the login return still turns it on.
+            const props = {onSearch: vi.fn(), showAiToggle: true, initialAiMode: false};
+            const {rerender} = render(<SearchInput {...props} isLoggedIn={false}/>, {wrapper});
+
+            // Signed-in state is still loading: nothing on yet.
+            expect(screen.getByRole("button", {name: "Toggle AI mode"})).toHaveAttribute("aria-pressed", "false");
+
+            rerender(<SearchInput {...props} isLoggedIn={true}/>);
+            expect(screen.getByRole("button", {name: "Toggle AI mode"})).toHaveAttribute("aria-pressed", "true");
+            expect(screen.getByRole("button", {name: "Ask AI"})).toBeInTheDocument();
+        });
+
+        it("starts on when initialAiMode is set, and Enter then asks AI", async () => {
             const user = userEvent.setup();
             const {onSearch, input} = renderInput({
                 showAiToggle: true,
                 isLoggedIn: true,
-                initialAiMode: false,
+                initialAiMode: true,
             });
 
+            expect(screen.queryByRole("button", {name: "Search"})).not.toBeInTheDocument();
             await user.type(input, "ocean{Enter}");
-            expect(onSearch).toHaveBeenCalledExactlyOnceWith("ocean", "cesnet/agentic", false);
-
-            await user.click(screen.getByRole("button", {name: "Toggle AI mode"}));
-            await user.type(input, " floor{Enter}");
-            expect(onSearch).toHaveBeenLastCalledWith("ocean floor", "cesnet/agentic", true);
+            expect(onSearch).toHaveBeenCalledExactlyOnceWith("ocean", "cesnet/agentic", true);
         });
     });
 

@@ -1,6 +1,6 @@
 import {useState, useEffect} from 'react';
 import {UserInfo} from '@/types/user.ts';
-import {consumePostLoginRedirect} from '@/lib/authRedirect.ts';
+import {clearAiModeLogin, consumePostLoginRedirect, returnedFromAiModeLogin} from '@/lib/authRedirect.ts';
 import useMatomo from '@/hooks/useMatomo.ts';
 
 export type {UserInfo};
@@ -33,6 +33,10 @@ export function useAuth() {
                     }
                     if (target && target !== current) {
                         window.location.replace(target);
+                    } else if (returnedFromAiModeLogin()) {
+                        // Arrived where a login from the AI Mode toggle returns to. The
+                        // search bar here read the mark when it mounted, so it can go.
+                        clearAiModeLogin();
                     }
                 } else {
                     setUser(null);

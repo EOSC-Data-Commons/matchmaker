@@ -1,8 +1,8 @@
 import React, {useEffect, useRef, useState} from "react";
-import {Search, Sparkles, X} from "lucide-react";
+import {ArrowRight, Search, Sparkles, X} from "lucide-react";
 import {ModelSelector} from "./ModelSelector.tsx";
 import {getSearchHistory} from "../lib/history.ts";
-import {loginWithReturn} from "../lib/authRedirect.ts";
+import {loginForAiMode, returnedFromAiModeLogin} from "../lib/authRedirect.ts";
 import useMatomo from "../hooks/useMatomo";
 import {useMediaQuery} from "../hooks/useMediaQuery.ts";
 
@@ -39,8 +39,8 @@ interface SearchInputProps {
     disableHistory?: boolean;
     isLoggedIn?: boolean;
     showAiToggle?: boolean;
-    // Whether AI mode starts on. The landing page opts into it; the plain results
-    // page starts off, since being there already means the user chose plain search.
+    // Whether AI mode starts on. Off by default: the bar is a plain search until the
+    // user turns AI mode on.
     initialAiMode?: boolean;
     inputRef?: React.Ref<HTMLInputElement>;
 }
@@ -59,7 +59,7 @@ export const SearchInput = ({
                                 disableHistory = false,
                                 isLoggedIn = false,
                                 showAiToggle = false,
-                                initialAiMode = true,
+                                initialAiMode = false,
                                 inputRef
                             }: SearchInputProps) => {
     const [query, setQuery] = useState(initialQuery);
@@ -67,7 +67,9 @@ export const SearchInput = ({
     const [showHistory, setShowHistory] = useState(false);
     const [history] = useState<string[]>(getSearchHistory);
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
-    const [aiMode, setAiMode] = useState(initialAiMode);
+    // Back from a login started by the AI Mode toggle: come back with AI mode on.
+    // Read on mount, before useAuth clears the mark.
+    const [aiMode, setAiMode] = useState(() => initialAiMode || (showAiToggle && returnedFromAiModeLogin()));
     const [focused, setFocused] = useState(false);
     const searchContainerRef = useRef<HTMLDivElement>(null);
     const {trackEvent} = useMatomo();
@@ -151,7 +153,7 @@ export const SearchInput = ({
     const handleAiModeClick = () => {
         if (!isLoggedIn) {
             trackEvent('Auth', 'gate_triggered', 'ai_mode');
-            loginWithReturn();
+            loginForAiMode();
             return;
         }
         const next = !aiMode;
@@ -173,7 +175,9 @@ export const SearchInput = ({
                             : 'border-gray-200 shadow-sm hover:border-gray-300'
                     }`}
                 >
-                    <Search className="h-5 w-5 shrink-0 text-gray-400"/>
+                    {effectiveAiMode
+                        ? <Sparkles className="h-5 w-5 shrink-0 text-blue-600"/>
+                        : <Search className="h-5 w-5 shrink-0 text-gray-400"/>}
 
                     <input
                         type="text"
@@ -245,6 +249,12 @@ export const SearchInput = ({
                     {loading && onStop ? (
                         <button key="stop" type="button" onClick={onStop} className={submitButtonClass}>
                             {buttonText}
+                        </button>
+                    ) : effectiveAiMode ? (
+                        // In AI mode the Search button gives way to one that sends the question to the chat.
+                        <button key="ask" type="submit" disabled={loading} aria-label="Ask AI"
+                                className={submitButtonClass}>
+                            <ArrowRight className="h-5 w-5"/>
                         </button>
                     ) : (
                         <button key="submit" type="submit" disabled={loading} className={submitButtonClass}>
