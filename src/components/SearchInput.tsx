@@ -239,7 +239,7 @@ export const SearchInput = ({
                                 {!isLoggedIn && (
                                     <div
                                         className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
-                                        Sign in to use AI mode
+                                        Sign in to use AI Mode
                                     </div>
                                 )}
                             </div>

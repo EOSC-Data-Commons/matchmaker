@@ -95,12 +95,13 @@ export const LandingPage = () => {
                             onClick={handleChat}
                             className="bg-white border border-eosc-border rounded-lg px-4 py-2 text-sm font-light text-eosc-text hover:bg-gray-50 hover:border-eosc-light-blue transition-colors cursor-pointer"
                         >
-                            Chat
+                            Your conversations
                         </button>
                     )}
                     {!loading && (
                         user ? (
-                            <UserMenu user={user} onLogout={logout} onProfile={() => navigate('/profile')}/>
+                            <UserMenu user={user} onLogout={logout} onProfile={() => navigate('/profile')}
+                                      onConversations={handleChat}/>
                         ) : (
                             <button
                                 onClick={handleLogin}

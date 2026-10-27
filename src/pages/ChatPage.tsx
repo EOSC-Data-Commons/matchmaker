@@ -499,8 +499,7 @@ const ChatPage: FC = () => {
                         </div>
                         <h2 className="text-2xl font-semibold text-gray-900 mb-3">Authentication Required</h2>
                         <p className="text-gray-600 mb-8 leading-relaxed">
-                            Please log in to your account to access the AI chat capabilities and view your conversation
-                            history.
+                            Please log in to your account to use AI Mode and see your conversations.
                         </p>
                         <div className="flex flex-col gap-3">
                             <button
@@ -564,7 +563,7 @@ const ChatPage: FC = () => {
                             className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors shadow-sm cursor-pointer"
                         >
                             <Plus className="h-5 w-5"/>
-                            New Chat
+                            New conversation
                         </button>
                     </div>
                     <div className="flex-1 overflow-y-auto p-3 space-y-1">
@@ -629,8 +628,7 @@ const ChatPage: FC = () => {
                                         className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4">
                                         <MessageSquare className="h-8 w-8"/>
                                     </div>
-                                    <h2 className="text-xl font-semibold text-gray-700 mb-2">Welcome to the EOSC Data
-                                        Commons Chat</h2>
+                                    <h2 className="text-xl font-semibold text-gray-700 mb-2">Welcome to AI Mode</h2>
                                     <p className="text-gray-500 max-w-md">Start a new conversation by typing a message
                                         below
                                         to search datasets or ask questions.</p>

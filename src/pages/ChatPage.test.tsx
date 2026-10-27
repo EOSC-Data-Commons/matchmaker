@@ -319,7 +319,7 @@ describe("ChatPage", () => {
         }
     });
 
-    it("keeps an answer going after New Chat, and shows it when its conversation is opened again", async () => {
+    it("keeps an answer going after New conversation, and shows it when its conversation is opened again", async () => {
         const run = heldRun(firstHalf, secondHalf);
         server.use(http.post("/api/search/chat", run.response));
         const user = userEvent.setup();
@@ -329,7 +329,7 @@ describe("ChatPage", () => {
         await user.click(screen.getByRole("button", {name: /send/i}));
         expect(await screen.findByText("First half,")).toBeInTheDocument();
 
-        await user.click(screen.getByRole("button", {name: /new chat/i}));
+        await user.click(screen.getByRole("button", {name: /new conversation/i}));
 
         // The new chat can be used straight away, and the answer does not follow into it.
         expect(screen.getByRole("button", {name: /send/i})).toBeEnabled();
