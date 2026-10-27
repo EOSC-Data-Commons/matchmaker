@@ -106,7 +106,7 @@ const CitedDatasetRow = ({citation, isLoggedIn, highlighted, expanded, onToggle,
             </div>
             {expanded && (
                 <div className="col-span-full sm:pl-40 pt-1 text-sm">
-                    <div className="flex mb-3"><RelevanceBadge hit={dataset}/></div>
+                    <div className="flex mb-3 empty:hidden"><RelevanceBadge hit={dataset}/></div>
                     <DatasetDetails hit={dataset}/>
                 </div>
             )}

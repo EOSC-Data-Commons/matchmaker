@@ -15,21 +15,24 @@ interface SearchResultItemProps {
 }
 
 /**
- * OpenSearch's hybrid relevance score, normalised to 0-1 across the result set. Tool
- * registry hits carry a raw rank (20, 19, 18…) instead, so this is clamped rather than
- * rendered as "2000%". Renders nothing when the hit has no score.
+ * The reranker's relevance score, which is also what the backend orders the hits by, so
+ * the badge agrees with the list order. Renders nothing when the hit has no score (the
+ * rerank API was down). `_score` is deliberately not a fallback: it is not comparable
+ * across hits, which is how a Zenodo hit showed "100%" in the middle of the list.
  */
 export const RelevanceBadge = ({hit}: { hit: BackendDataset }) => {
-    if (typeof hit._score !== 'number' || Number.isNaN(hit._score)) return null;
-    const scorePercent = Math.min(100, Math.max(0, hit._score * 100));
+    if (typeof hit.score !== 'number' || Number.isNaN(hit.score)) return null;
+    const score = Math.min(1, Math.max(0, hit.score));
+    // A model estimate should not read as certainty, so only an exact 1 shows as 100%:
+    // anything below caps at 99% instead of rounding up (0.9986 would otherwise be 100%).
+    const percent = score < 1 ? Math.min(99, Math.round(score * 100)) : 100;
     return (
-        <div
-            className="shrink-0 flex items-center space-x-1 bg-yellow-50 px-2 py-1 rounded-full cursor-help"
-            title="Relevance score: how closely this result matches your query, combining semantic similarity with keyword matching. It is scaled across this set of results, so it is meant for comparing these results with each other rather than as an absolute measure of quality."
-        >
-            <ProportionalStar percent={scorePercent} className="h-4 w-4"/>
+        <div className="shrink-0 flex items-center space-x-1 bg-yellow-50 px-2 py-1 rounded-full">
+            {/* A fraction, not a percentage: the star reads anything up to 1 as a fraction,
+                so a score under 1% passed as a percentage would render as a full star. */}
+            <ProportionalStar percent={score} className="h-4 w-4"/>
             <span className="text-sm font-medium text-yellow-700">
-                {scorePercent.toFixed(0)}%
+                Relevance {percent}%
             </span>
         </div>
     );

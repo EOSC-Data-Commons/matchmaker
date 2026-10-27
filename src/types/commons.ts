@@ -56,9 +56,12 @@ export interface SearchHitSrc {
 export interface BackendDataset {
     _id: string;
     _source: SearchHitSrc;
-    // Hybrid semantic + keyword relevance, scaled across the result set. The LLM-reranked
-    // `score` that used to sit alongside it is gone with reranking itself.
+    // Retrieval score from before reranking. Not comparable across hits: our own records
+    // carry the hybrid OpenSearch score, Zenodo records their rank in Zenodo's own search.
     _score: number;
+    // Cross-encoder relevance (0-1) of this hit to the query, which the backend sorts the
+    // hits by. Null when the rerank API was unavailable and the hits are left unranked.
+    score?: number | null;
     fileExtensions?: string[] | null;
     relevantTools?: string[] | null;
     // Canonical URL of the dataset (DOI when available). The assistant cites datasets
