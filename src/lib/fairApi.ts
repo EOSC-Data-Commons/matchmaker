@@ -8,13 +8,13 @@ import {
     CreateAssessmentResponse,
     FairReport,
     OfflineAssessment,
+    OfflineAssessmentResponse,
     TERMINAL_STATUSES,
 } from '@/types/fairTypes.ts';
 
 // The FAIR assessment proxy is reached same-origin through the `/api/fair` proxy in
 // `server.ts`, which rewrites to the service's own `/api/v1` prefix. Calling the
-// service directly would work in dev (it sends `Access-Control-Allow-Origin: *`),
-// but breaks as soon as it is hosted on another origin.
+// hosted service directly would make the card depend on its CORS settings.
 const FAIR_API_URL = '/api/fair';
 
 // Submitting and polling are cheap; only the assessors themselves are slow, and they
@@ -144,10 +144,10 @@ export async function getAssessment(assessmentId: string): Promise<Assessment> {
     }
 }
 
-/** Fetches the harmonized report: the cell grid, per-assessor scores and guidance. */
+/** Fetches the harmonized report: the cell grid, and each assessor's scores and checks. */
 export async function getReport(assessmentId: string): Promise<FairReport> {
     try {
-        return await request<FairReport>(`/assessments/${encodeURIComponent(assessmentId)}/report`);
+        return await request<FairReport>(`/assessments/${encodeURIComponent(assessmentId)}/results`);
     } catch (error) {
         logError(error, 'getReport');
         throw error;
@@ -195,11 +195,12 @@ export async function findLatestCompleted(pid: string): Promise<AssessmentSummar
  */
 export async function assessOffline(metadata: Record<string, unknown>): Promise<OfflineAssessment> {
     try {
-        return await request<OfflineAssessment>('/assessments/offline', {
+        const {offline} = await request<OfflineAssessmentResponse>('/assessments/', {
             method: 'POST',
             headers: {'Content-Type': 'application/json', Accept: 'application/json'},
-            body: JSON.stringify({metadata}),
+            body: JSON.stringify({assessors: ['offline'], metadata}),
         }, 60000);
+        return offline;
     } catch (error) {
         logError(error, 'assessOffline');
         throw error;

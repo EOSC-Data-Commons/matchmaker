@@ -27,8 +27,8 @@ export interface UseFairAssessment {
     report: FairReport | null;
     /**
      * The run behind the report: when it finished, which assessor versions produced
-     * it, and against which metadata. The report endpoint carries none of that, and
-     * a FAIR score without its provenance is not one a reader can check.
+     * it, and against which metadata. The results endpoint does not say when or
+     * against what, and a FAIR score without its provenance is not one a reader can check.
      */
     assessment: Assessment | null;
     error: string | null;

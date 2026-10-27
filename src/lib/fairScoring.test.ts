@@ -3,13 +3,9 @@ import {pangaeaReport} from "@/test/fixtures/fairReport";
 import {
     CELL_PLAIN,
     CELL_PRINCIPLES,
-    DERIVED_CELLS,
     PRINCIPLE_CELLS,
     cellLabel,
-    recomputeScores,
-    scorableCells,
     scoreBasis,
-    totalBasis,
 } from "./fairScoring";
 import {FAIR_CELLS} from "@/types/fairTypes";
 import type {AssessorId, FairPrinciple} from "@/types/fairTypes";
@@ -50,66 +46,38 @@ describe("reference data", () => {
         expect(cellLabel("a1_1")).toBe("A1.1");
         expect(cellLabel("r1_3")).toBe("R1.3");
     });
-
-    it("excludes the derived summaries from what can be scored", () => {
-        expect(scorableCells("a")).toEqual(["a1_1", "a1_2", "a2"]);
-        expect(scorableCells("r")).toEqual(["r1_1", "r1_2", "r1_3"]);
-        expect(scorableCells("f")).toEqual(["f1", "f2", "f3", "f4"]);
-        expect(DERIVED_CELLS.every(cell => !scorableCells("a").includes(cell))).toBe(true);
-    });
 });
 
-describe("recomputeScores against real service output", () => {
-    // The proxy returns scores but not what they were computed from, and the service
-    // is fixed for now. These assertions are what licenses the card to state a basis:
-    // if our arithmetic ever diverges from the service's, they fail.
-    it.each(["fuji", "fair_champion"] as AssessorId[])(
-        "reproduces %s's reported scores exactly",
-        (assessor) => {
-            expect(recomputeScores(pangaeaReport.cells, assessor))
-                .toEqual(pangaeaReport.scores[assessor]);
-        },
-    );
+const resultFor = (assessor: AssessorId) => pangaeaReport.results.find(r => r.assessor === assessor)!;
 
-    it("returns null for a principle nothing measured, rather than zero", () => {
-        // F-UJI measured no Accessible criterion for this dataset.
-        expect(recomputeScores(pangaeaReport.cells, "fuji").a).toBeNull();
-        expect(scoreBasis(pangaeaReport.cells, "fuji", "a").counted).toBe(0);
-    });
-});
-
-describe("scoreBasis", () => {
+describe("scoreBasis against real service output", () => {
     it("reports how many criteria stand behind a score", () => {
         // F-UJI scored Findable 100%, and did so on all four criteria.
-        expect(scoreBasis(pangaeaReport.cells, "fuji", "f")).toEqual({counted: 4, total: 4});
+        expect(resultFor("fuji").scores.f).toBe(100);
+        expect(scoreBasis(resultFor("fuji"), "f")).toEqual({counted: 4, total: 4});
     });
 
     it("distinguishes a full score from a thin one", () => {
-        // FAIR Champion also reports 100% for Accessible, but A1 is derived, so its
-        // three refinements are the real basis.
-        expect(scoreBasis(pangaeaReport.cells, "fair_champion", "a")).toEqual({counted: 3, total: 3});
+        // FAIR Champion reports 100% for Reusable, but from R1.1 alone.
+        expect(resultFor("fair_champion").scores.r).toBe(100);
+        expect(scoreBasis(resultFor("fair_champion"), "r")).toEqual({counted: 1, total: 3});
     });
 
-    it("counts nothing for an assessor that did not run", () => {
-        const basis = scoreBasis(pangaeaReport.cells, "offline" as AssessorId, "f");
-        expect(basis).toEqual({counted: 0, total: 4});
+    it("leaves out only the criteria each assessor derives", () => {
+        // FAIR Champion combines A1 from its refinements, so it can measure three
+        // Accessible criteria. F-UJI tests A1 itself, so all four count for it.
+        expect(resultFor("fair_champion").derived).toEqual(["a1", "r1"]);
+        expect(scoreBasis(resultFor("fair_champion"), "a").total).toBe(3);
+        expect(resultFor("fuji").derived).toEqual([]);
+        expect(scoreBasis(resultFor("fuji"), "a")).toEqual({counted: 1, total: 4});
     });
 
     it("never counts more criteria than exist", () => {
-        for (const assessor of ["fuji", "fair_champion"] as AssessorId[]) {
+        for (const result of pangaeaReport.results) {
             for (const principle of Object.keys(PRINCIPLE_CELLS) as FairPrinciple[]) {
-                const {counted, total} = scoreBasis(pangaeaReport.cells, assessor, principle);
+                const {counted, total} = scoreBasis(result, principle);
                 expect(counted).toBeLessThanOrEqual(total);
             }
         }
-    });
-});
-
-describe("totalBasis", () => {
-    it("sums the measurable criteria across all four principles", () => {
-        // 13 scorable criteria in total: 15 minus the two derived summaries.
-        expect(totalBasis(pangaeaReport.cells, "fuji").total).toBe(13);
-        // F-UJI measured no Accessible criterion, so 3 of the 13 went unmeasured.
-        expect(totalBasis(pangaeaReport.cells, "fuji").counted).toBe(10);
     });
 });

@@ -5,6 +5,7 @@ import {
     FairAssessmentTimeoutError,
     FairServiceUnavailableError,
     assessDataset,
+    assessOffline,
     assessorsForPid,
     createAssessment,
     findLatestCompleted,
@@ -219,20 +220,47 @@ describe("waitForAssessment", () => {
 });
 
 describe("getReport", () => {
-    it("returns the harmonized report", async () => {
-        server.use(http.get("/api/fair/assessments/a1/report", () => HttpResponse.json({
+    it("returns the harmonized report from the results endpoint", async () => {
+        server.use(http.get("/api/fair/assessments/a1/results", () => HttpResponse.json({
             id: "a1",
             pid: "10.1594/PANGAEA.908011",
             status: "completed",
             cells: [{cell: "f1", consensus: "pass", by_assessor: {fuji: "pass", fair_champion: "pass"}}],
-            scores: {fuji: {f: 100, a: null, i: 100, r: 83.3, overall: 94.4}},
-            guidance: [],
+            results: [{
+                assessor: "fuji",
+                scores: {f: 100, a: null, i: 100, r: 83.3, overall: 94.4},
+                scored: {f: 4, a: 0, i: 3, r: 3, overall: 10},
+                derived: [],
+                guidance: [],
+            }],
         })));
 
         const report = await getReport("a1");
         expect(report.cells[0].by_assessor).toEqual({fuji: "pass", fair_champion: "pass"});
         // A null principle means "not measurable", not zero — it has to survive the round trip.
-        expect(report.scores.fuji?.a).toBeNull();
+        expect(report.results[0].scores.a).toBeNull();
+    });
+});
+
+describe("assessOffline", () => {
+    it("requests the offline assessor and returns its result", async () => {
+        let body: unknown;
+        server.use(http.post("/api/fair/assessments/", async ({request}) => {
+            body = await request.json();
+            return HttpResponse.json({
+                id: null,
+                status: "completed",
+                offline: {assessor: "offline", scores: {f: 0, a: 0, i: 0, r: 87.5, overall: 21.9}},
+            });
+        }));
+
+        const metadata = {"@type": "Dataset", name: "Unpublished soil measurements"};
+        await expect(assessOffline(metadata)).resolves.toMatchObject({
+            assessor: "offline",
+            scores: {r: 87.5},
+        });
+        // No pid and no online assessors, so the service scores it inline and queues nothing.
+        expect(body).toEqual({assessors: ["offline"], metadata});
     });
 });
 
@@ -245,8 +273,8 @@ describe("assessDataset", () => {
                 posted = true;
                 return HttpResponse.json({id: "new", status: "queued"});
             }),
-            http.get("/api/fair/assessments/old/report", () =>
-                HttpResponse.json({id: "old", pid: "10.1", status: "completed", cells: [], scores: {}, guidance: []})),
+            http.get("/api/fair/assessments/old/results", () =>
+                HttpResponse.json({id: "old", pid: "10.1", status: "completed", cells: [], results: []})),
         );
 
         await expect(assessDataset("10.1")).resolves.toMatchObject({id: "old"});
@@ -262,8 +290,8 @@ describe("assessDataset", () => {
                 return HttpResponse.json({id: "new", status: "queued"});
             }),
             http.get("/api/fair/assessments/new", () => HttpResponse.json(assessment({id: "new"}))),
-            http.get("/api/fair/assessments/new/report", () =>
-                HttpResponse.json({id: "new", pid: "10.1", status: "completed", cells: [], scores: {}, guidance: []})),
+            http.get("/api/fair/assessments/new/results", () =>
+                HttpResponse.json({id: "new", pid: "10.1", status: "completed", cells: [], results: []})),
         );
 
         await expect(assessDataset("10.1594/PANGAEA.908011", {intervalMs: 1}))
@@ -276,8 +304,8 @@ describe("assessDataset", () => {
             http.get("/api/fair/assessments/", () => new HttpResponse(null, {status: 503})),
             http.post("/api/fair/assessments/", () => HttpResponse.json({id: "new", status: "queued"})),
             http.get("/api/fair/assessments/new", () => HttpResponse.json(assessment({id: "new"}))),
-            http.get("/api/fair/assessments/new/report", () =>
-                HttpResponse.json({id: "new", pid: "10.1", status: "completed", cells: [], scores: {}, guidance: []})),
+            http.get("/api/fair/assessments/new/results", () =>
+                HttpResponse.json({id: "new", pid: "10.1", status: "completed", cells: [], results: []})),
         );
 
         await expect(assessDataset("10.1", {intervalMs: 1})).resolves.toMatchObject({id: "new"});
@@ -292,8 +320,8 @@ describe("assessDataset", () => {
             }),
             http.post("/api/fair/assessments/", () => HttpResponse.json({id: "new", status: "queued"})),
             http.get("/api/fair/assessments/new", () => HttpResponse.json(assessment({id: "new"}))),
-            http.get("/api/fair/assessments/new/report", () =>
-                HttpResponse.json({id: "new", pid: "10.1", status: "completed", cells: [], scores: {}, guidance: []})),
+            http.get("/api/fair/assessments/new/results", () =>
+                HttpResponse.json({id: "new", pid: "10.1", status: "completed", cells: [], results: []})),
         );
 
         await assessDataset("10.1", {reuseExisting: false, intervalMs: 1});

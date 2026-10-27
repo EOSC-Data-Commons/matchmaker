@@ -4,7 +4,8 @@ import userEvent from "@testing-library/user-event";
 import {http, HttpResponse} from "msw";
 import {server} from "@/test/msw/server";
 import {FairAssessmentCard} from "./FairAssessmentCard";
-import type {AssessmentSummary, FairReport} from "@/types/fairTypes";
+import {FAIR_CELLS} from "@/types/fairTypes";
+import type {AssessmentSummary, FairAssessorResult, FairCell, FairOutcome, FairReport} from "@/types/fairTypes";
 
 beforeEach(() => {
     vi.spyOn(console, "error").mockImplementation(() => {
@@ -27,6 +28,51 @@ const summary = (over: Partial<AssessmentSummary> = {}): AssessmentSummary => ({
     ...over,
 });
 
+const assessorResult = (over: Partial<FairAssessorResult> & Pick<FairAssessorResult, "assessor">): FairAssessorResult => ({
+    status: "completed",
+    assessor_version: "1.0.0",
+    profile_ref: null,
+    error: null,
+    cells: Object.fromEntries(FAIR_CELLS.map(cell => [cell, "indeterminate"])) as Record<FairCell, FairOutcome>,
+    scores: {f: null, a: null, i: null, r: null, overall: null},
+    scored: {f: 0, a: 0, i: 0, r: 0, overall: 0},
+    derived: [],
+    unmapped: [],
+    guidance: [],
+    ...over,
+});
+
+const fujiResult = assessorResult({
+    assessor: "fuji",
+    scores: {f: 100, a: null, i: 100, r: 83.3, overall: 94.4},
+    scored: {f: 4, a: 0, i: 3, r: 3, overall: 10},
+    guidance: [{
+        assessor: "fuji",
+        cell: "f1",
+        test: "FsF-F1-01D",
+        description: "Data is assigned a persistent identifier",
+        message: null,
+        outcome: "pass",
+        guidance: [],
+    }],
+});
+
+const championResult = assessorResult({
+    assessor: "fair_champion",
+    scores: {f: 33.3, a: 100, i: 100, r: 100, overall: 83.3},
+    scored: {f: 3, a: 3, i: 3, r: 1, overall: 10},
+    derived: ["a1", "r1"],
+    guidance: [{
+        assessor: "fair_champion",
+        cell: "f3",
+        test: "MetadataIdentifierFound",
+        description: "The metadata contains an unambiguous reference to its own identifier",
+        message: "Unacceptable.  The metadata does not contain its own identifier",
+        outcome: "fail",
+        guidance: ["Add the identifier to the metadata record."],
+    }],
+});
+
 const report = (over: Partial<FairReport> = {}): FairReport => ({
     id: "a1",
     pid: "10.1594/PANGAEA.908011",
@@ -35,30 +81,7 @@ const report = (over: Partial<FairReport> = {}): FairReport => ({
         {cell: "f1", consensus: "pass", by_assessor: {fuji: "pass", fair_champion: "pass"}},
         {cell: "f3", consensus: "fail", by_assessor: {fuji: "pass", fair_champion: "fail"}},
     ],
-    scores: {
-        fuji: {f: 100, a: null, i: 100, r: 83.3, overall: 94.4},
-        fair_champion: {f: 33.3, a: 100, i: 100, r: 100, overall: 83.3},
-    },
-    guidance: [
-        {
-            assessor: "fair_champion",
-            cell: "f3",
-            test: "MetadataIdentifierFound",
-            description: "The metadata contains an unambiguous reference to its own identifier",
-            message: "Unacceptable.  The metadata does not contain its own identifier",
-            outcome: "fail",
-            guidance: ["Add the identifier to the metadata record."],
-        },
-        {
-            assessor: "fuji",
-            cell: "f1",
-            test: "FsF-F1-01D",
-            description: "Data is assigned a persistent identifier",
-            message: null,
-            outcome: "pass",
-            guidance: [],
-        },
-    ],
+    results: [championResult, fujiResult],
     ...over,
 });
 
@@ -70,7 +93,7 @@ const noPreviousRuns = () =>
 const withStoredReport = (over: Partial<FairReport> = {}) =>
     server.use(
         http.get("/api/fair/assessments/", () => HttpResponse.json([summary()])),
-        http.get("/api/fair/assessments/a1/report", () => HttpResponse.json(report(over))),
+        http.get("/api/fair/assessments/a1/results", () => HttpResponse.json(report(over))),
         http.get("/api/fair/assessments/a1", () => HttpResponse.json({
             ...summary(),
             results: [
@@ -196,12 +219,15 @@ describe("FairAssessmentCard", () => {
     it("says how much evidence each score rests on", async () => {
         withStoredReport();
         render(<FairAssessmentCard pid={DOI}/>);
-        // F-UJI reported on F1 and F3 in this fixture; the other two went unmeasured.
         const fuji = await screen.findByRole("group", {name: "F-UJI"});
-        expect(within(fuji).getByText(/from 2 of 4 criteria/)).toBeInTheDocument();
-        // The fixture has only F cells, so Accessible, Interoperable and Reusable each
-        // say nothing was measured rather than showing a 0%.
-        expect(within(fuji).getAllByText(/nothing measured of 3 criteria/)).toHaveLength(3);
+        expect(within(fuji).getByText(/from 3 of 4 criteria/)).toBeInTheDocument();
+        // F-UJI tests A1 itself, so its Accessible total is four, and measuring none of
+        // them is said in words rather than shown as 0%.
+        expect(within(fuji).getByText(/nothing measured of 4 criteria/)).toBeInTheDocument();
+        // FAIR Champion's 100% for Reusable rests on one criterion, out of three once
+        // the derived R1 is set aside.
+        const champion = screen.getByRole("group", {name: "FAIR Champion"});
+        expect(within(champion).getByText(/from 1 of 3 criteria/)).toBeInTheDocument();
     });
 
     it("shows when the assessment ran and which assessor versions produced it", async () => {
@@ -218,12 +244,23 @@ describe("FairAssessmentCard", () => {
         expect(link).toHaveAttribute("href", "/api/fair/assessments/a1/raw");
     });
 
-    it("marks the derived criteria as not separately scored", async () => {
+    it("marks the derived criteria as not separately scored, for the assessor that derives them", async () => {
         withStoredReport();
         render(<FairAssessmentCard pid={DOI}/>);
-        // A1 and R1 are combined from their refinements, so counting them would
-        // count those refinements twice.
-        expect((await screen.findAllByText(/not scored separately/i)).length).toBe(2);
+        // FAIR Champion combines A1 and R1 from their refinements, so counting them
+        // would count those refinements twice. F-UJI tests them directly.
+        const notes = await screen.findAllByText(/not scored separately/i);
+        expect(notes).toHaveLength(2);
+        for (const note of notes) {
+            expect(note).toHaveTextContent(/for FAIR Champion/);
+        }
+    });
+
+    it("does not mark a criterion as derived when every assessor tests it", async () => {
+        withStoredReport({results: [fujiResult]});
+        render(<FairAssessmentCard pid={DOI}/>);
+        await screen.findByRole("table");
+        expect(screen.queryByText(/not scored separately/i)).not.toBeInTheDocument();
     });
 
     it("flags a partial result when one assessor failed", async () => {
@@ -241,7 +278,7 @@ describe("FairAssessmentCard", () => {
                     ...summary({id: "new"}),
                     results: [{assessor: "fuji"}, {assessor: "fair_champion"}]
                 })),
-            http.get("/api/fair/assessments/new/report", () => HttpResponse.json(report({id: "new"}))),
+            http.get("/api/fair/assessments/new/results", () => HttpResponse.json(report({id: "new"}))),
         );
 
         render(<FairAssessmentCard pid={DOI}/>);
@@ -275,7 +312,7 @@ describe("FairAssessmentCard", () => {
             }),
             http.get("/api/fair/assessments/new", () =>
                 HttpResponse.json({...summary({id: "new"}), results: []})),
-            http.get("/api/fair/assessments/new/report", () => HttpResponse.json(report({id: "new"}))),
+            http.get("/api/fair/assessments/new/results", () => HttpResponse.json(report({id: "new"}))),
         );
 
         render(<FairAssessmentCard pid={DOI}/>);

@@ -5,7 +5,6 @@ import {rawReportUrl} from '@/lib/fairApi.ts';
 import {
     CELL_PLAIN,
     CELL_PRINCIPLES,
-    DERIVED_CELLS,
     PRINCIPLE_BLURBS,
     PRINCIPLE_CELLS,
     PRINCIPLE_NAMES,
@@ -15,11 +14,11 @@ import {
 import type {
     Assessment,
     AssessorId,
+    FairAssessorResult,
     FairCellResult,
     FairGuidance,
     FairPrinciple,
     FairReport,
-    FairScores,
     GuidanceOutcome,
 } from '@/types/fairTypes.ts';
 
@@ -136,26 +135,22 @@ const PrincipleScore = ({
  * criterion and 100% from four are very different claims, so the count is not
  * optional detail.
  */
-const AssessorScores = ({assessor, scores, cells}: {
-    assessor: AssessorId;
-    scores: FairScores;
-    cells: FairCellResult[];
-}) => (
-    <div role="group" aria-label={assessorName(assessor)} className="rounded-lg border border-gray-200 p-3">
+const AssessorScores = ({result}: { result: FairAssessorResult }) => (
+    <div role="group" aria-label={assessorName(result.assessor)} className="rounded-lg border border-gray-200 p-3">
         <div className="mb-2 flex items-baseline justify-between gap-2">
-            <span className="text-sm font-medium text-gray-800">{assessorName(assessor)}</span>
+            <span className="text-sm font-medium text-gray-800">{assessorName(result.assessor)}</span>
             <span className="text-sm tabular-nums text-gray-700">
-                {scores.overall === null ? 'no score' : `${scores.overall}% overall`}
+                {result.scores.overall === null ? 'no score' : `${result.scores.overall}% overall`}
             </span>
         </div>
         <div className="flex flex-col gap-1.5">
             {(Object.keys(PRINCIPLE_NAMES) as FairPrinciple[]).map(principle => {
-                const {counted, total} = scoreBasis(cells, assessor, principle);
+                const {counted, total} = scoreBasis(result, principle);
                 return (
                     <PrincipleScore
                         key={principle}
                         principle={principle}
-                        score={scores[principle]}
+                        score={result.scores[principle]}
                         counted={counted}
                         total={total}
                     />
@@ -171,8 +166,9 @@ const AssessorScores = ({assessor, scores, cells}: {
  * A real table rather than chips with tooltips: the per-assessor verdicts have to be
  * readable by keyboard, screen reader and on touch, not only on hover.
  */
-const CriteriaTable = ({cells, assessors}: { cells: FairCellResult[]; assessors: AssessorId[] }) => {
+const CriteriaTable = ({cells, results}: { cells: FairCellResult[]; results: FairAssessorResult[] }) => {
     const byCell = new Map(cells.map(cell => [cell.cell, cell]));
+    const assessors = results.map(result => result.assessor);
 
     return (
         <div className="overflow-x-auto">
@@ -201,7 +197,11 @@ const CriteriaTable = ({cells, assessors}: { cells: FairCellResult[]; assessors:
                     </tr>
                     {PRINCIPLE_CELLS[principle].map(cell => {
                         const result = byCell.get(cell);
-                        const derived = DERIVED_CELLS.includes(cell);
+                        // F-UJI tests A1 and R1 itself; FAIR Champion only combines them
+                        // from the rows below, so the note names who it applies to.
+                        const derivedBy = results
+                            .filter(r => r.derived.includes(cell))
+                            .map(r => r.assessor);
                         return (
                             <tr key={cell} className="border-b border-gray-100 align-top">
                                 <th scope="row" className="py-1.5 pr-3 font-normal">
@@ -211,8 +211,10 @@ const CriteriaTable = ({cells, assessors}: { cells: FairCellResult[]; assessors:
                                     <span className="text-xs font-light text-gray-700">
                                         &ldquo;{CELL_PRINCIPLES[cell]}&rdquo;
                                     </span>
-                                    {derived && (
+                                    {derivedBy.length > 0 && (
                                         <span className="ml-1.5 text-[11px] text-gray-400">
+                                            {derivedBy.length < assessors.length &&
+                                                `for ${derivedBy.map(assessorName).join(' and ')}, `}
                                             summary of the rows below, not scored separately
                                         </span>
                                     )}
@@ -275,26 +277,23 @@ const ChecksList = ({guidance}: { guidance: FairGuidance[] }) => {
 
 const Report = ({report, assessment}: { report: FairReport; assessment: Assessment | null }) => {
     const [issuesOnly, setIssuesOnly] = useState(false);
-    const assessors = Object.keys(report.scores) as AssessorId[];
-    const issues = report.guidance.filter(e => e.outcome !== 'pass');
-    const shown = issuesOnly ? issues : report.guidance;
+    const guidance = report.results.flatMap(result => result.guidance);
+    const issues = guidance.filter(e => e.outcome !== 'pass');
+    const shown = issuesOnly ? issues : guidance;
 
     return (
         <div className="flex flex-col gap-5">
             <Provenance assessment={assessment} report={report}/>
 
-            {assessors.length === 0 ? (
+            {report.results.length === 0 ? (
                 <p className="text-sm font-light text-gray-500">
                     No assessor returned a score for this dataset.
                 </p>
             ) : (
                 <div className="flex flex-col gap-2">
-                    {assessors.map(assessor => {
-                        const scores = report.scores[assessor];
-                        return scores
-                            ? <AssessorScores key={assessor} assessor={assessor} scores={scores} cells={report.cells}/>
-                            : null;
-                    })}
+                    {report.results.map(result => (
+                        <AssessorScores key={result.assessor} result={result}/>
+                    ))}
                     <p className="text-xs font-light text-gray-500">
                         Each assessor is reported on its own. They apply the principles differently and
                         often disagree, so a single combined grade would hide where they part company.
@@ -304,7 +303,7 @@ const Report = ({report, assessment}: { report: FairReport; assessment: Assessme
 
             <section className="flex flex-col gap-2">
                 <h3 className="text-sm font-medium text-gray-800">The 15 FAIR criteria</h3>
-                <CriteriaTable cells={report.cells} assessors={assessors}/>
+                <CriteriaTable cells={report.cells} results={report.results}/>
                 <p className="text-xs font-light text-gray-500">
                     Each criterion is quoted from the FAIR Guiding Principles (Wilkinson et al., 2016),
                     as published by the{' '}
@@ -325,7 +324,7 @@ const Report = ({report, assessment}: { report: FairReport; assessment: Assessme
                     <h3 className="text-sm font-medium text-gray-800">
                         Every check that was run
                         <span className="ml-1.5 font-normal text-gray-500">
-                            ({report.guidance.length} checks, {issues.length} not passing)
+                            ({guidance.length} checks, {issues.length} not passing)
                         </span>
                     </h3>
                     <label className="flex items-center gap-1.5 text-xs font-light text-gray-600">

@@ -43,9 +43,9 @@ const PORT = Number.parseInt(
     process.env.PORT || (DEVELOPMENT ? "5173" : "3000"),
 );
 const SEARCH_API_URL = process.env.SEARCH_API_URL || "http://127.0.0.1:8000";
-// FAIR assessment proxy (dans-labs/fair-assessment-proxy). Not hosted yet, so this
-// points at the local docker-compose stack; set FAIR_API_URL once it is deployed.
-const FAIR_API_URL = process.env.FAIR_API_URL || "http://127.0.0.1:8080";
+// FAIR assessment proxy (dans-labs/fair-assessment-proxy). Defaults to the hosted
+// instance; set FAIR_API_URL to use a local docker-compose stack (http://127.0.0.1:8080).
+const FAIR_API_URL = process.env.FAIR_API_URL || "https://fairproxy-api.eosc-data-commons.dansdemo.nl";
 
 // Express parses `?x=a&x=b` into an array and `?x[y]=a` into an object, so a
 // query value is only a string once we have checked that it is. Everything else
@@ -129,9 +129,8 @@ app.use(
 // `/auth`: the body parser would drain the request stream and POST /assessments
 // would hang with no body ever reaching the service.
 //
-// Same-origin keeps the browser out of CORS entirely. The service does send
-// `Access-Control-Allow-Origin: *`, so calling it directly works in dev, but that
-// stops being true the moment it is hosted somewhere other than localhost.
+// Same-origin keeps the browser out of CORS entirely, so the hosted service's CORS
+// settings never decide whether the card works.
 app.use(
     "/api/fair",
     createProxyMiddleware({

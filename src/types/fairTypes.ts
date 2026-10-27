@@ -3,7 +3,11 @@
 // assessors, F-UJI and FAIR Champion, and harmonises their output onto one grid of
 // 15 FAIR sub-criteria.
 
-/** The assessors the proxy exposes. `GET /assessors/` returns these ids. */
+/**
+ * The assessors that run against a PID and are stored. `GET /assessors/` also lists
+ * `offline`, which scores a metadata blob in the request and is never stored, so it
+ * never appears in an assessment's results.
+ */
 export type AssessorId = 'fuji' | 'fair_champion';
 
 /**
@@ -21,9 +25,10 @@ export type GuidanceOutcome = FairOutcome | 'error' | 'not_applicable' | 'unavai
 
 /**
  * The 15 FAIR sub-criteria, in the order the proxy's `CELLS` tuple lists them.
- * `a1` and `r1` are derived: the proxy combines them from their refinements
- * (a1_1/a1_2 and r1_1/r1_2/r1_3) and excludes them from scoring so the
- * refinements are not counted twice.
+ * `a1` and `r1` may be derived: for an assessor that only tests their refinements
+ * (a1_1/a1_2 and r1_1/r1_2/r1_3), the proxy combines them from those and leaves
+ * them out of scoring so the refinements are not counted twice. Each result's
+ * `derived` says which, since F-UJI tests A1 and R1 directly.
  */
 export const FAIR_CELLS = [
     'f1', 'f2', 'f3', 'f4',
@@ -61,8 +66,8 @@ export const TERMINAL_STATUSES: readonly AssessmentStatus[] = [
 /**
  * How the assessors fetch the metadata.
  * `public` resolves the PID on the open web; `cached` reads the OAI-PMH gateway's
- * representation instead. `offline` exists on the proxy's enum but is reached
- * through its own endpoint, not through this field.
+ * representation instead. `offline` exists on the proxy's enum but is reached by
+ * requesting the `offline` assessor with a metadata blob, not through this field.
  */
 export type AssessmentMode = 'public' | 'cached';
 
@@ -85,8 +90,18 @@ export interface CreateAssessmentResponse {
     status: AssessmentStatus;
 }
 
+/**
+ * `POST /assessments/` with only the `offline` assessor. Nothing is queued, so there
+ * is no id, and the result comes back in the response.
+ */
+export interface OfflineAssessmentResponse {
+    id: null;
+    status: 'completed';
+    offline: OfflineAssessment;
+}
+
 export interface Assessor {
-    id: AssessorId;
+    id: AssessorId | 'offline';
     name: string;
 }
 
@@ -132,18 +147,43 @@ export interface FairGuidance {
     guidance: string[];
 }
 
-/** `GET /assessments/{id}/report`, the harmonized view across all assessors. */
+/**
+ * One assessor's harmonized result: its verdict per criterion, its scores, and every
+ * check behind them.
+ */
+export interface FairAssessorResult<A extends string = AssessorId> {
+    assessor: A;
+    status: string;
+    assessor_version: string;
+    profile_ref: string | null;
+    error: string | null;
+    cells: Record<FairCell, FairOutcome>;
+    scores: FairScores;
+    /** How many criteria each score was computed from. */
+    scored: FairScoredCounts;
+    /** Criteria combined from their refinements rather than tested, and left out of `scores`. */
+    derived: FairCell[];
+    unmapped: unknown[];
+    guidance: FairGuidance[];
+}
+
+/**
+ * `GET /assessments/{id}/results`, the harmonized view across all assessors.
+ * An assessor that failed has no entry in `results`.
+ */
 export interface FairReport {
     id: string;
     pid: string;
     status: AssessmentStatus;
     cells: FairCellResult[];
-    scores: Partial<Record<AssessorId, FairScores>>;
-    guidance: FairGuidance[];
+    results: FairAssessorResult[];
 }
 
-/** One assessor's harmonized row, as returned inside an assessment record. */
-export interface AssessmentResultRow extends Record<FairCell | FairPrinciple, FairOutcome> {
+/**
+ * One assessor's harmonized row, as returned inside an assessment record. Unlike the
+ * report's cells these are not filtered, so `not_applicable` and the like do appear.
+ */
+export interface AssessmentResultRow extends Record<FairCell | FairPrinciple, GuidanceOutcome> {
     assessor: AssessorId;
     assessor_version: string;
 }
@@ -172,18 +212,9 @@ export interface AssessmentSummary {
 }
 
 /**
- * `POST /assessments/offline`, which scores a metadata blob synchronously and
- * stores nothing. Shares the report's cell and score vocabulary but covers a
- * single pseudo-assessor rather than a grid.
+ * The `offline` assessor's result, which scores a metadata blob synchronously and
+ * stores nothing. Same shape as a stored result, plus the assessor's complete output.
  */
-export interface OfflineAssessment {
-    assessor: 'offline';
-    status: string;
-    assessor_version: string;
-    error: string | null;
-    cells: Record<FairCell, FairOutcome>;
-    scores: FairScores;
-    scored: FairScoredCounts;
-    derived: FairCell[];
-    guidance: FairGuidance[];
+export interface OfflineAssessment extends FairAssessorResult<'offline'> {
+    raw: Record<string, unknown>;
 }
