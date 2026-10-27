@@ -2,64 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.12.0] - 27/10/2026
+## [0.12.0] - 29/10/2026
 
-- The Data Sandbox now shows how well a dataset follows the FAIR principles, the standard for whether research data
-  is Findable, Accessible, Interoperable and Reusable. The card sits under Files and links out to the principles
-  themselves for anyone meeting them for the first time.
-- Everything the assessors reported is on the page, with nothing to unfold. All 15 FAIR criteria are listed, and
-  every individual check is shown, including the ones that passed. There is a filter for narrowing to what did not
-  pass, but it is off by default.
-- Each criterion is quoted from the FAIR Guiding Principles (Wilkinson et al., 2016) and attributed, with a plainer
-  reading underneath it for anyone meeting FAIR for the first time. The plain reading is labelled as ours rather
-  than as part of the standard.
-- Each score says how much evidence it rests on. A dataset can score 100% on Reusable from a single measured
-  criterion, which reads very differently from 100% across all three, and the card now makes that visible.
-- Two assessors are reported next to each other, F-UJI and FAIR Champion, instead of being combined into one grade.
-  They often disagree about the same criterion, and a single number would hide which checks are actually in dispute.
-- The card records when the assessment ran, which version of each assessor produced it, and whether it read published
-  or gateway metadata. A link opens the assessors' untouched output, so every figure on the card can be checked
-  against its source.
-- A criterion that nothing could measure reads as "not assessed" rather than as a score of zero.
-- A1 and R1 are marked as summaries of their sub-criteria, and left out of the score, only for FAIR Champion, which
-  derives them. F-UJI tests both directly, so for F-UJI they count like any other criterion.
-- The assessment does not run on its own. Opening the page only checks whether the dataset has been assessed before,
-  and shows that result straight away when it has, noting that it is an earlier one. Otherwise there is a "Check FAIR
-  score" button, since a fresh assessment takes upwards of a minute and most visits to the page are about launching a
-  tool rather than grading the data.
-- Datasets without a DOI are assessed by F-UJI alone, and the card says so. FAIR Champion needs a resolvable
-  identifier and reports nothing without one, so it is skipped rather than left to time out.
-- Assessments come from the hosted FAIR assessment service at `fairproxy-api.eosc-data-commons.dansdemo.nl`, reached
-  through this app's own server, so the browser never calls the service directly.
+- Added a FAIR assessment card to the Data Sandbox, scoring a dataset with F-UJI and FAIR Champion side by side.
+- Lists all 15 FAIR criteria, quoted from the FAIR principles, with a plain-language reading of each.
+- Shows every check the assessors ran, with an optional filter for checks that did not pass.
+- Each score shows how many criteria it is based on; unmeasured criteria read "not assessed", not 0%.
+- Shows when the assessment ran, the assessor versions, and a link to the full assessor output.
+- Reuses an earlier assessment when there is one; a new one runs only on "Check FAIR score" or "Re-check".
+- Datasets without a DOI are assessed by F-UJI only.
+- Uses the hosted FAIR assessment service, proxied through the app's own server.
 
 ## [0.11.2] - 27/10/2026
 
-- AI Mode is now on by default on the home page for signed-in users. While it is on, the Search button turns into an
-  arrow that sends your question to AI Mode; turning it off brings Search back. The search results page still starts
-  with a plain search.
-- Signing in from the AI Mode button now brings you back with AI Mode already on.
-- "Chat" is now called AI Mode everywhere, and its conversations are labelled as conversations ("New conversation",
-  "Delete conversation?").
-- Added "Your conversations": a button on the home page and an item in the user menu on the search results page. The
-  search results page now has the user menu (or Login), and the AI Mode page has the user menu too.
-- The relevance badge now shows the score the results are actually ordered by, so a "100%" result no longer appears
-  in the middle of the list. It reads "Relevance" with the percentage, shows 100% only for a score of exactly 1, and
-  is hidden when a result has no score.
-- Sending a question in AI Mode now moves it to the top of the view and keeps it there while the answer is written
-  below, instead of scrolling along with the answer. The scroll-to-bottom button shows a pulsing dot while the answer
-  is still being written.
-- Login now goes straight to the EGI Check-in sign-in page, skipping the EOSC federation chooser.
-- Removed the early alpha notice from the home page and the search results page.
-- On phones, the search bar on the results page has its own row, the placeholders are shorter so they are not cut
-  off, the "Your conversations" button is an icon, and the Cite button under cited datasets no longer gets clipped.
-- Updated `vitest` and `@vitest/coverage-v8` to 4.1.12 and `happy-dom` to 21.0.4 (development only).
+- AI Mode is on by default on the home page for signed-in users.
+- Signing in from the AI Mode button now returns you with AI Mode on.
+- Renamed "Chat" to AI Mode, and chats to conversations.
+- Added "Your conversations" to the home page and user menu; the search and AI Mode pages now have the user menu.
+- The relevance badge now shows the score results are sorted by, and is hidden when there is none.
+- A sent question stays at the top while its answer is written below, with a live indicator on the scroll button.
+- Login now goes straight to EGI Check-in, skipping the EOSC federation chooser.
+- Removed the alpha notice from the home and search pages.
+- Mobile fixes for the search bar, placeholders, "Your conversations" button and Cite button.
+- Updated `vitest`, `@vitest/coverage-v8` and `happy-dom` (development only).
 
 ## [0.11.1] - 12/10/2026
 
-- Added an "Add All Files" button next to "Add File" in the Dataplayer file selection step, for tools that take a
-  dataset's files as a set, such as CERNBox. One click adds every file of the dataset to the set, each in its own
-  slot. Files that are already added are skipped, and the button is disabled when the dataset has no files.
-- Removed the "Rename file..." field from the rows of the file set. Files now keep their original names.
+- Added "Add All Files" to the Dataplayer file selection step.
+- Removed the "Rename file..." field; files keep their original names.
 - Updated the `req-packager` submodule.
 
 ## [0.11.0] - 08/10/2026
@@ -78,431 +48,302 @@ All notable changes to this project will be documented in this file.
 
 ## [0.10.6] - 11/09/2026
 
-- Tables in an AI answer now render as tables, instead of rows of pipes.
-- Italics, `code` and headings no longer show their Markdown markers as text.
+- Tables in AI answers now render as tables.
+- Italics, `code` and headings no longer show their Markdown markers.
 
 ## [0.10.5] - 10/09/2026
 
-- Fixed Repositories and their logos
+- Fixed repositories and their logos.
 
 ## [0.10.4] - 09/09/2026
 
-- A dataset cited in an AI answer is now a single control instead of two. The bracketed number and the dataset name
-  sit in one pill, and clicking anywhere on it takes you to that dataset in the "Datasets cited in this answer" list,
-  which now opens with its description already showing. Previously the number and the name did two different things.
-- Opening the dataset's page at the repository still works the way it does for any link: Ctrl+click (Cmd+click on a
-  Mac), middle click, or right click and "Open link in new tab". Several sources can still be opened in a row that
-  way, and the list entry keeps its Source button for opening one directly.
-- Matomo now records a plain citation click as `citation_clicked` under the Chat category. Opening a source from a
-  citation is still `citation_source_clicked` under the Dataset category, and `citation_marker_clicked` is gone,
-  since the number is no longer a separate control.
-- Fixed an open citation following you into the next conversation. Switching threads reused the previous thread's
-  messages, so the dataset you had opened stayed open, and the list you had hidden stayed hidden.
-- Added a copy button beside your own messages, for reusing a question or pasting it somewhere else. It is always
-  visible on touch screens and appears on hover elsewhere.
-- Opening a conversation now starts at its most recent message. Switching threads used to keep the scroll position
-  of the one you left, dropping you part-way up the new conversation, and an answer streaming into the new thread
-  would not follow if you had scrolled up in the previous one.
+- A cited dataset is now one pill that jumps to its entry in the "Datasets cited in this answer" list.
+- The dataset's page still opens with Ctrl/Cmd+click, middle click or "Open link in new tab".
+- Matomo: added `citation_clicked`, removed `citation_marker_clicked`.
+- Fixed an open citation carrying over into the next conversation.
+- Added a copy button to your own messages.
+- Opening a conversation now starts at its latest message.
 
 ## [0.10.3] - 08/09/2026
 
-Datasets in an AI answer are now cited the way a paper cites its references:
-
-- A dataset mentioned in an answer is a small link that names the repository it comes from and opens the dataset's
-  page in a new tab. Ctrl+click (Cmd+click on a Mac) opens it in a background tab, so several can be opened in a row.
-  Nothing pops up on hover any more.
-- Each mention starts with a bracketed number, [1], [2] and so on, in order of first mention. Clicking the number
-  jumps to that dataset in a new "Datasets cited in this answer" list under the answer and highlights it.
-- The list shows every cited dataset as a compact row: its number, the repository logo, title, year and authors, and
-  the same Play, Source and Cite buttons as a search result. Expand a row to see the full description, subjects and
-  relevance score. The list can be hidden, and comes back when a number is clicked.
-- A "Cited from" line above the list shows which repositories the cited datasets come from, with a count for each.
-- The list fills in while the answer is still streaming, and a number never changes once it has been assigned.
-- Matomo records clicks on a cited dataset's link and on the bracketed numbers, as `citation_source_clicked` and
-  `citation_marker_clicked` under the Dataset and Chat categories.
+- Datasets in AI answers are now cited with numbers ([1], [2]...) and links that name the repository.
+- Added a "Datasets cited in this answer" list under each answer, with Play, Source and Cite buttons.
+- Added a "Cited from" line showing which repositories the cited datasets come from.
+- The list fills in while the answer streams, and numbers never change once assigned.
+- Matomo records clicks on cited datasets and their numbers.
 
 ## [0.10.1] - 17/08/2026
 
-File previews work again, and the chat is usable on a phone:
-
-- Fixed file previews failing with "Preview not available, download the file instead" for files that were perfectly
-  previewable. Before opening a file, the server checked its download URL against a list it kept in memory, but the
-  deployment runs several worker processes, so the worker handling the preview usually had no record of a URL the worker
-  that listed the files had seen. Download URLs are now signed instead, which any worker can verify.
-- Fixed image and PDF previews being sent to the browser with a doubled content type (Zenodo sends the header twice),
-  which no viewer recognises. The PDF viewer in particular refuses to open a document labelled that way.
-- Preview problems now explain themselves rather than sharing one message: a preview link that has gone stale asks you
-  to reload the page, and previewing many files in quick succession asks you to wait a moment.
-- The preview (eye) icon no longer appears on files the server would turn down anyway.
-- The chat conversation list is now a drawer on phones and small screens, opened from a button in the header and closed
-  by picking a conversation, tapping outside it, or pressing Escape. On wider screens it stays where it was.
-- The per-conversation options button is now visible on touch screens, where there is no hover to reveal it.
-- The search field no longer cuts its placeholder off mid-phrase on a narrow screen: it shows a shorter prompt instead (
-  "Search for data...", or "Ask about datasets..." in AI Mode).
-- Headings, message spacing and the "Were these results helpful?" row now fit narrow screens instead of overflowing.
-
-For deployment: preview requests are limited to 100 per minute per IP address. If the frontend sits behind a reverse
-proxy, set Express's `trust proxy` to match your topology, otherwise that limit is shared by everyone rather than
-applied per user. The preview proxy also refuses URLs whose hostname resolves to a private, loopback or link-local
-address, rechecked on every redirect hop, so a dataset pointing at an internal service cannot be used to reach it. Set
-`PREVIEW_URL_SECRET` (any random 32+ byte string) only if the frontend runs as more than one container: workers inside a
-single container agree on a key by themselves. Dependencies: `express-rate-limit` added, `nanoid` moved from 3.3.17 to
-3.3.18, and the unused `@mjackson/node-fetch-server` dropped.
+- Fixed file previews failing with "Preview not available" when the server runs several workers.
+- Fixed image and PDF previews failing because of a doubled content type from Zenodo.
+- Preview errors now say what to do (reload the page, or wait a moment).
+- The preview icon is hidden on files that cannot be previewed.
+- On phones, the conversation list is a drawer and conversation options are always visible.
+- Shorter search placeholders and better spacing on narrow screens.
+- File previews are limited to 100 requests per minute per IP, and private addresses are refused.
+- Deployment: set `trust proxy` behind a reverse proxy, and `PREVIEW_URL_SECRET` when running several containers.
+- Added `express-rate-limit`, updated `nanoid` to 3.3.18, removed `@mjackson/node-fetch-server`.
 
 ## [0.10.0] - 14/08/2026
 
-Searching and asking the AI are now two separate things, so a plain search no longer waits on the AI:
-
-- Plain search is much faster. The results page goes straight to the index instead of starting an AI run and waiting for
-  it to search on your behalf, and the results you get are the same ones the AI would have found.
-- Added an **AI Mode** button in the search bar. Switch it on and your question opens a chat; leave it off and you get
-  the plain list of results. It starts on from the home page and off on the results page.
-- Clicking **AI Mode** while signed out now takes you through sign in and back to your query, instead of being greyed
-  out and doing nothing.
-- The search bar is now a single bar holding the query, a clear button, **AI Mode** and search, and the query can be
-  cleared without selecting the text first.
-- The AI summary box has been removed from the results page. AI answers now live in the chat, where you can ask a
-  follow-up question about them.
-- Results now carry one relevance score instead of two competing ones. The tooltip explains it is for comparing results
-  in this list against each other, rather than a mark out of 100 for how good a dataset is.
-- The chat now shows its work. Each search or lookup it ran appears as a line you can expand ("Searched datasets",
-  "Searched tools", "Listed dataset files") to see what it found, with software tools and dataset files laid out
-  properly instead of as raw data.
-- Datasets mentioned in an AI answer are now clickable: hover or click one to see its full details without leaving the
-  answer.
-- Long AI answers are no longer cut off part way through, and scrolling up to re-read something no longer drags you back
-  to the bottom.
-- The chat no longer apologises for errors that never happened, which it did when an earlier error message was carried
-  back into the conversation.
-- The results page now says "Showing the 30 most relevant datasets" rather than "Found 30 datasets", which suggested
-  that was everything there was to find.
-- Fixed datasets from Zenodo with no publication date failing to load.
-
-For deployment: plain search needs a backend exposing `GET /api/search/search`. LLM reranking has been removed, the
-streaming code now uses `@microsoft/fetch-event-source` instead of a hand-rolled parser, and the coordinator gRPC target
-is set in one place (`GRPC_TARGET`, defaulting to the hosted coordinator in production and a local one in development).
+- Plain search is much faster: it queries the index directly instead of going through the AI.
+- Added an AI Mode button to the search bar; with it on, your question opens a chat.
+- Clicking AI Mode while signed out takes you through sign-in and back to your query.
+- The search bar is now a single bar with a clear button.
+- Removed the AI summary box from the results page; AI answers now live in the chat.
+- Results now have a single relevance score.
+- The chat shows each search or lookup it ran, expandable to see what it found.
+- Datasets mentioned in AI answers can be clicked for their full details.
+- Fixed long AI answers being cut off, scrolling jumping to the bottom, and the chat apologising for no reason.
+- The results page now says "Showing the 30 most relevant datasets".
+- Fixed Zenodo datasets with no publication date failing to load.
+- Removed LLM reranking; streaming now uses `@microsoft/fetch-event-source`.
+- Deployment: needs a backend with `GET /api/search/search`; the coordinator is set with `GRPC_TARGET`.
 
 ## [0.9.8] - 07/08/2026
 
-- Fixed the npm supply-chain guard being inert: `.npmrc` set `in-release-age=3` where npm reads `min-release-age`, so
-  the intended 3 day quarantine on freshly published packages was silently ignored on every install since it was added.
-- Upgraded React Router from 7.17 to 8.3 (`react-router`, `@react-router/dev`, `express`, `fs-routes`, `node` and
-  `serve`), and React from 19.2.4 to 19.2.7.
-- Added a `preversion` script that fetches `origin/main` and aborts the bump when HEAD is behind it, so a release tag
-  can no longer be cut on stale code and published as if it were current.
-- The repository statistics chart now shows each repository the way the project spells its own name (`ONE` as Onedata,
-  `PANOSC` as PaNOSC, `DATAVERSELV` as DataverseLV, `FINBIF` as FinBIF) rather than the backend's upstream short code.
-  Codes not on that list still fall through to whatever the backend sends.
-- Renamed "Dataverse Latvia" to "DataverseLV" in the search result provenance labels, matching the name the repository
-  uses at dataverse.lv.
-- The chat empty state now reads "Welcome to the EOSC Data Commons Chat" instead of "Welcome to EOSC Chat".
+- Fixed the `.npmrc` package age guard (`min-release-age`), which had never taken effect.
+- Upgraded React Router to 8.3 and React to 19.2.7.
+- Added a `preversion` check that stops a version bump when behind `origin/main`.
+- Repository names in the statistics chart now use their proper spelling (e.g. Onedata, PaNOSC).
+- Renamed "Dataverse Latvia" to "DataverseLV".
+- The chat welcome message now reads "Welcome to the EOSC Data Commons Chat".
 
 ## [0.9.7] - 21/07/2026
 
-These four changes were previously listed under 0.9.6, which was tagged before the branch carrying them was merged:
-
-- Search results now show repository provenance logos: records aggregated through a crawler platform (currently OneData,
-  with OpenAIRE and OpenAlex support built in) display both the owning repository and the aggregator that harvested it,
-  instead of only the aggregator's logo, which made harvested data look as though it had been deposited there directly.
-  Records harvested directly from a repository (DANS, HAL, Zenodo, etc.) keep a single source-repository logo.
-- Tool launch failures are no longer silent: a failed launch now stays on the monitoring step and shows the actual error
-  message, instead of bouncing back to the configuration step, which unmounted the only place the error was rendered.
-  Added a "Back to configuration" button alongside "Start Over" on launch failure. Raw backend/gRPC error text (e.g. "5
-  NOT_FOUND: ...") is now replaced with a plain
-  "No tools matched - try a different search term" message.
-- Fixed citation exports (BibTeX, RIS, EndNote, CSL-JSON, RefWorks) showing "1970" as the publication year for datasets
-  with a missing or unparseable date; they now correctly fall back to "n.d.", or to the dataset's `publicationYear`
-  field when available.
-- Chat and search failures caused by a backend timeout now surface the backend's actual error message instead of the
-  stream silently ending and leaving the chat stuck on its loading spinner.
-- Updated `systeminformation` from 5.31.6 to 5.33.0.
+- Harvested search results now show both the source repository and the aggregator logo.
+- Failed tool launches now show the error, with a "Back to configuration" button.
+- Tool search errors now read "No tools matched" instead of raw backend text.
+- Fixed citation exports showing 1970 for datasets with no valid date.
+- Backend timeouts in chat and search now show an error instead of a stuck spinner.
+- Updated `systeminformation` to 5.33.0.
+- These changes were first listed under 0.9.6, which was tagged before they were merged.
 
 ## [0.9.6] - 20/07/2026
 
-- Updated `morgan` from 1.10.1 to 1.11.0. This tag carries no other changes: the work described in the original 0.9.6
-  entry is now listed under 0.9.7 above, where it actually shipped.
+- Updated `morgan` to 1.11.0. The other changes first listed here shipped in 0.9.7.
 
 ## [0.9.5] - 06/07/2026
 
-Release 1 feedback fixes for the dataplayer, tool selection, and AI chat (all frontend):
-
-- The dataplayer file tree now starts collapsed beyond the top level, pages long lists of children behind a "show more"
-  control, and caps indentation depth, so large datasets no longer flood the screen.
-- Added **Remove** on each additional dataset and a **Reset all** control, so the list of added file groups can be
-  cleared instead of only ever growing.
-- Removed the "Back to Search Results" button, which navigated to a fresh empty search when the dataplayer was opened in
-  a new tab.
-- File preview now renders proxy errors as a "preview not available - download instead" message rather than dumping the
-  raw `{"error":...}` payload into the preview body, and falls back gracefully when an image fails to load.
-- The map-files step now has explicit loading, error, and loaded states with a 15s timeout and a retry/back path, so it
-  can no longer hang forever on empty or bad tool config. Tools with no parameters now show a "this tool needs no
-  parameters — click Submit to VRE" message instead of empty input boxes.
-- Tool descriptions are stripped of raw Markdown and line-clamped, so cards stay compact and readable.
-- The tool list empty state now offers starter suggestion chips (`jupyter`, `notebook`, `python`) plus a loading
-  indicator, and surfaces an error message when a tool search fails instead of silently showing "No tools found."
-- The AI chat now renders an in-chat error bubble (including a friendly "the search timed out" message) when the chat
-  stream fails, instead of dead-ending silently after the user's message.
+- The dataplayer file tree starts collapsed and pages long lists.
+- Added Remove and Reset all for additional datasets.
+- Removed the "Back to Search Results" button.
+- File preview errors now suggest downloading the file instead.
+- The map-files step can no longer hang, and tools without parameters say so.
+- Tool descriptions are shorter and free of Markdown.
+- The tool list suggests starter searches (`jupyter`, `notebook`, `python`) and shows search errors.
+- Chat failures now show an error message in the chat.
 
 ## [0.9.4] - 02/07/2026
 
-- Task launches no longer fail when the EGI Secret Store is unreachable (e.g. dev environments, which only have the
-  Secret Store provisioned in production) — the API-key lookup now degrades gracefully and launches the task without
-  keys instead of returning a 500.
+- Task launches no longer fail when the EGI Secret Store is unreachable.
 
 ## [0.9.3] - 02/07/2026
 
-- Added per-user API key support for tool launches: matchmaker now reads a user's stored VIP and GitHub keys from the
-  EGI Secret Store and forwards them to the coordinator so tools can authenticate on the user's behalf.
+- Tool launches now pass the user's VIP and GitHub keys from the EGI Secret Store to the coordinator.
 
 ## [0.9.2] - 02/07/2026
 
-- Fixed the whole site returning HTTP 500 in deployments (v0.9.0 and v0.9.1) on Node runtimes without the `sessionStorage`
-  global (e.g. the `node:24-alpine` container image): the alpha disclaimer read `sessionStorage` in its `useState`
-  initializer, which runs during server-side rendering and crashed every request with
-  `ReferenceError: sessionStorage is not defined`. The read is back in a client-only effect.
-- Reverted the recent-searches panel to reading search history after hydration, avoiding a server/client hydration
-  mismatch when history exists.
+- Fixed the site returning HTTP 500 on Node runtimes without `sessionStorage` (0.9.0 and 0.9.1).
+- Fixed a hydration mismatch in the recent searches panel.
 
 ## [0.9.1] - 02/07/2026
 
-- Added explicit least-privilege `permissions: contents: read` blocks to the Test, Build, and Dependency Audit GitHub
-  Actions workflows, resolving the CodeQL "missing workflow permissions" warning.
-- The Test workflow still blocks PRs on failing tests but no longer enforces coverage thresholds; it now runs the plain
-  test suite instead of `test:coverage`.
-- Removed the tests for the post-play dataplayer flow (coordinator API, dataplayer hooks, and file preview parsing),
-  as everything downstream of the Play button is owned by the coordinator backend.
+- Added least-privilege `permissions` to the GitHub Actions workflows.
+- The Test workflow no longer enforces coverage thresholds.
+- Removed tests for the dataplayer flow after the Play button, which the coordinator owns.
 
 ## [0.9.0] - 02/07/2026
 
-- Added an automated test suite (Vitest + React Testing Library + MSW): 221 tests covering the citation generators,
-  local filters and shared utilities, the SSE search/chat API layer, the Secret Store API-key client, the coordinator
-  API, the data/auth/search hooks, and interaction tests for the search input, filter panel, citation export,
-  pagination, and user menus. Coverage gates enforce 80% line coverage on `src/lib` and 70% on `src/hooks`.
-- Added a blocking "Test" GitHub Actions workflow for PRs to main, running typechecking and the test suite with
-  coverage thresholds.
-- Fixed citation generation crashing for datasets that list no creators — BibTeX, RIS, and CSL-JSON exports now omit
-  the author field instead of throwing.
-- Fixed every successful chat message being internally reported as a "No search results received" error, which
-  cluttered the console and made real chat failures indistinguishable from the false alarm.
+- Added an automated test suite (Vitest, React Testing Library, MSW).
+- Added a blocking Test workflow for PRs to main.
+- Fixed citation exports crashing for datasets without creators.
+- Fixed successful chat messages being logged as "No search results received" errors.
 
 ## [0.8.9] - 01/07/2026
 
-- Updated the default model to `cesnet/agentic` across components and API calls.
-- Switched to the `en-GB` locale for consistent number formatting across components.
+- Updated the default model to `cesnet/agentic`.
+- Switched number formatting to the `en-GB` locale.
 
 ## [0.8.8] - 30/06/2026
 
-- Fixed the search results page showing a red "Search Error / No search results received" panel when a query returned no
-  datasets (e.g. when the backend answered conversationally instead of returning results).
+- Fixed an error panel showing when a search returned no datasets.
 
 ## [0.8.7] - 26/06/2026
 
-- Added updated more in-depth stats on the landing page.
+- Added more detailed statistics to the landing page.
 
 ## [0.8.6] - 26/06/2026
 
-- Fixed a bug where starting a new chat from the landing page did not update the conversation sidebar or chat title
-  until a hard refresh.
-- Capped the number of files sent to the tool-registry match API at 10 and added a warning log when the list is
-  truncated, preventing oversized payloads.
+- Fixed new chats from the landing page not appearing in the sidebar until a refresh.
+- Capped the files sent to the tool-registry match API at 10.
 
 ## [0.8.5] - 24/06/2026
 
-- Fixed the Data Sandbox showing a usable page with misleading "failed to fetch files" / "no tools found" errors when
-  opened while logged out (e.g. via a shared dataset link)
-- Added return-to-page after login: signing in from a gated page (Sandbox, chat, or profile) now returns the user to
-  the page they came from instead of dropping them on the landing page.
+- Fixed the Data Sandbox showing misleading errors when opened while logged out.
+- Signing in from a gated page now returns you to that page.
 
 ## [0.8.4] - 23/06/2026
 
-- Data Sandbox tool/VRE launches now pass richer context to the coordinator
+- Data Sandbox launches now pass more context to the coordinator.
 
 ## [0.8.3] - 19/06/2026
 
-- Added a user profile page at `/profile` for managing per-user API keys, stored in the EGI Secret Store and reached
-  through the cookie-authenticated `/auth/keys` API. Keys can be set, replaced, revealed, and removed, with per-key
-  configured status. Surfaced via an "API Keys" entry in the user menu.
-- Fixed the Sandbox file list to show "Unknown size" instead of "0 B" for files with no reported size, and to hide the
-  preview action for those files.
+- Added a profile page (`/profile`) for managing API keys stored in the EGI Secret Store.
+- Files with no reported size now show "Unknown size" and cannot be previewed.
 
 ## [0.8.2] - 18/06/2026
 
-- Fixed the production server failing to start in the container (`ERR_MODULE_NOT_FOUND` for the gRPC client): the server
-  entry is now bundled with `esbuild` into a single self-contained `build/server.js` instead of being emitted by `tsc`,
-  which left native-ESM relative imports without the required `.js` extensions. Added `esbuild` as a dev dependency.
+- Fixed the production server failing to start in the container; the server is now bundled with `esbuild`.
 
 ## [0.8.1] - 18/06/2026
 
-- Added Matomo custom event tracking for key user actions: search submissions, AI mode toggles, dataset play/source
-  clicks, citation open/copy/download, and filter apply/remove.
-- Added a "Were these results helpful?" thumbs-up/down feedback widget to the search results page, submitting responses
-  as Matomo events.
+- Added Matomo event tracking for searches, AI mode, Play, Source, citations and filters.
+- Added a "Were these results helpful?" feedback widget to the search results.
 
 ## [0.8.0] - 18/06/2026
 
-- Rebuilt the Data Sandbox (data player) end-to-end: launch analysis tools and VREs against a dataset through the gRPC
-  coordinator, with tool-registry/matchmaker search, file mapping, value and free-text parameters, optional parameters
-  surfaced from tool slots, and live task updates streamed over SSE.
-- Added file browsing in the Sandbox: file tree view, a file preview modal for text, CSV, PDF and image files, adding
-  extra files to a run, and file renaming when sending files to a tool.
-- Added a repository statistics feature with API integration and chart visualization (`recharts`).
-- Gated the Data Sandbox behind login: the Play button in `SearchResultItem` is always visible but requires sign-in to
-  use, matching the existing gating on chat and AI mode.
-- Refactored `DataplayerPage` into smaller components and hooks, made gRPC clients singletons, and moved all gRPC calls
-  to the server.
-- Removed the legacy dataplayer POC UI and the old dispatcher run page.
-- Security: added SSRF protection for file previews via URL validation and redirect handling, and applied
-  `noopener,noreferrer` to externally opened windows.
+- Rebuilt the Data Sandbox: launch tools and VREs on a dataset, with live task updates.
+- Added a file tree, file previews (text, CSV, PDF, images) and adding extra files to a run.
+- Added repository statistics with charts.
+- The Play button now requires sign-in.
+- Moved all gRPC calls to the server and split `DataplayerPage` into smaller parts.
+- Removed the old dataplayer POC and dispatcher run page.
+- Security: SSRF protection for file previews, and `noopener,noreferrer` on external windows.
 
 ## [0.7.4] - 11/06/2026
 
-- Added the EOSC Data Commons Privacy Policy page at `/privacy-policy`.
-- Added the EOSC Data Commons Services AUP page at `/acceptable-use-policy`.
+- Added the Privacy Policy (`/privacy-policy`) and Acceptable Use Policy (`/acceptable-use-policy`) pages.
 
 ## [0.7.3] - 08/06/2026
 
-- Updated default model to `cesnet/qwen3-coder` across all entry points.
-- Improved chat message summary logic to avoid truncation.
-- Aligned the collapse button to the right in chat messages.
-- Added programmatic focus support for the chat input via `chatInputRef`.
-- Added EU funding acknowledgment and logo to the Footer component.
-- Security: updated `react-router` and all `@react-router/*` packages to 7.17.0, resolving 5 high-severity CVEs
-  (RCE via turbo-stream deserialization, open redirect, XSS in RSC redirects, stored XSS in prerendered HTML, DoS via
-  manifest endpoint and single-fetch).
-- Security: updated `pm2` to 7.0.1 (resolves ReDoS) and overrode `ws` to `^8.21.0` (resolves uninitialized memory
-  disclosure in pm2's bundled `ws`).
+- Updated the default model to `cesnet/qwen3-coder`.
+- Chat message summaries are no longer truncated, and the collapse button is right-aligned.
+- Added programmatic focus for the chat input.
+- Added the EU funding acknowledgement to the footer.
+- Security: updated `react-router` to 7.17.0 (5 high-severity CVEs), `pm2` to 7.0.1 and `ws` to 8.21.
 
 ## [0.7.2] - 01/06/2026
 
-- Added an option to delete a chat conversation in the ChatPage, with a confirmation prompt to prevent accidental
-  deletions.
-- Refactored user initials logic into the shared `getUserInitials` utility and updated all usages for consistency
+- Added deleting a chat conversation, with confirmation.
+- Moved the user initials logic into a shared `getUserInitials` utility.
 
 ## [0.7.0] - 22/05/2026
 
-- Enhanced `SearchInput` with an AI mode toggle (available to authenticated users), sign-in prompt for locked AI mode
-- Added ChatPage with chat-style interaction support, including message history
-- Updated landing page to render user menu.
-- Added repository logo support for `HAL` and `PaNOSC`, and updated the `DABAR` logo in `RepoLogo`.
-- Added `.npmrc` policy `in-release-age=3` to prefer package versions at least 3 days old, and documented this behavior
-  in `README.md`.
+- Added an AI mode toggle to the search input for signed-in users.
+- Added the chat page with message history.
+- The landing page now shows the user menu.
+- Added logos for HAL and PaNOSC, and updated the DABAR logo.
+- Added an `.npmrc` rule preferring packages at least 3 days old.
 
 ## [0.6.1 -> 0.6.4] - 04/2026 -> 05/2026
 
-- Updated project dependencies and dev dependencies as maintenance updates.
+- Dependency updates.
 
 ## [0.6.0] - 17/03/2026
 
-- Introduced user authentication with login/logout functionality and user profile menu.
-- Updated default search model to `einfracz/qwen3-coder` and added `einfracz/deepseek-v3.2-thinking`.
-- Improved error handling for search, including specific UI for rate limiting and server errors.
+- Added login, logout and a user menu.
+- Updated the default search model to `einfracz/qwen3-coder` and added `einfracz/deepseek-v3.2-thinking`.
+- Clearer search errors for rate limits and server errors.
 
 ## [0.5.3] - 23/02/2026
 
-- Updated deployment workflow to only run on `main` branch
-- Removed changelog and version bump check on every PR for `main` branch
+- The deployment workflow now runs only on `main`.
+- Removed the changelog and version bump check on PRs to `main`.
 
 ## [0.5.1] - 23/02/2026
 
-- Updated Docker build and deployment workflow to trigger on version tags and improve image tagging strategy.
-- Updated `docker-compose.yml` to use `npm run prod` for the frontend service.
+- Docker images are now built and deployed on version tags.
+- `docker-compose.yml` now uses `npm run prod` for the frontend.
 
 ## [0.5.0] - 12/02/2026
 
-- Moved the project from Client Side Rendering (CSR) to Server Side Rendering (SSR) using React Router.
+- Moved from client-side to server-side rendering with React Router.
 
 ## [0.4.2] - 22/12/2025
 
-- Enhanced search result score badges with informative tooltips
+- Added tooltips to search result score badges.
 
 ## [0.4.1] - 18/12/2025
 
-- Refactored filter management: filter options now update dynamically based on currently selected filters for more
-  accurate and responsive filtering
+- Filter options now update based on the selected filters.
 
 ## [0.4.0] - 17/12/2025
 
-- Added local filtering and aggregation utilities for faster, client-side dataset filtering
-- Refactored SearchPage to use new hooks and components, with filter state synced to URL
+- Added faster client-side filtering of search results.
+- Filters are now kept in the URL.
 
 ## [0.3.10] - 11/12/2025
 
-- Updated react-dom and related libraries due to security vulnerabilities
-  found. [See details](https://www.heise.de/en/news/Patch-Now-Critical-Malware-Vulnerability-Threatens-React-11102482.html)
+- Updated `react-dom` and related libraries for a critical React
+  vulnerability. [See details](https://www.heise.de/en/news/Patch-Now-Critical-Malware-Vulnerability-Threatens-React-11102482.html)
 
 ## [0.3.9] - 05/12/2025
 
-- Integrated DOI.org API for citation fetching: citations are now retrieved from official DOI metadata when available,
-  with local fallback
+- Citations are now fetched from DOI.org when available, with a local fallback.
 
 ## [0.3.8] - 03/12/2025
 
-- Updated Dispatcher API endpoint: switched from dev3 to dev1.
+- Switched the Dispatcher API from dev3 to dev1.
 
 ## [0.3.7] - 01/12/2025
 
-- Fixed the issue where the "AI is analyzing" message would persist when no search results were found.
+- Fixed "AI is analyzing" staying on screen when no results were found.
 
 ## [0.3.6] - 28/11/2025
 
-- Improved favicon handling: ensured favicon is copied to the correct output directory and referenced with a non-hashed
-  path for consistent browser support (including Firefox and direct /favicon.ico access).
+- Fixed the favicon in Firefox and at `/favicon.ico`.
 
 ## [0.3.5] - 27/11/2025
 
-- Fixed favicon not displaying across all browsers and platforms
+- Fixed the favicon not showing in some browsers.
 
 ## [0.3.4] - 27/11/2025
 
-- Minor UI enhancements and interaction improvements on the landing page.
+- Minor landing page improvements.
 
 ## [0.3.3] - 26/11/2025
 
-- Implemented a standardized timeout mechanism for all backend API calls to improve application reliability and provide
-  clearer error messages when services are unresponsive.
+- Added timeouts to all backend API calls, with clearer error messages.
 
 ## [0.3.2] - 25/11/2025
 
-- Updated terminology throughout the application: replaced "analysis" references with "Virtual Research Environment (
-  VRE)" to accurately reflect that the VRE is being prepared to run analyses, not running them directly.
+- Renamed "analysis" to "Virtual Research Environment (VRE)" throughout the app.
 
 ## [0.3.1] - 24/11/2025
 
-- Renamed repository to `EOSC-Data-Commons/matchmaker` and updated all in-app links, Docker image names, and
-  documentation to use the new GitHub and GHCR locations.
+- Renamed the repository to `EOSC-Data-Commons/matchmaker` and updated links and image names.
 
 ## [0.3.0] - 24/11/2025
 
-- Integrated EOSC Player Dispatcher, allowing users to run analyses on datasets directly from search results.
-- Added `RepoLogo` component to display repository logos in search results for better dataset origin identification.
-- Standardized citation export to consistently use the `publication_date` field.
-- Updated "Cite" button color to gray for improved UI consistency.
-- Fixed the homepage link in the footer to use HTTPS.
-- Added API functions, utility helpers, and proxy configuration for dispatcher integration.
+- Added the EOSC Player Dispatcher for running analyses on datasets from search results.
+- Added repository logos to search results.
+- Citation exports now use `publication_date`.
+- The Cite button is now gray.
+- Fixed the footer homepage link to use HTTPS.
 
 ## [0.2.1] - 13/11/2025
 
-- Enhanced search results UI: descriptions and author lists are now expandable, and OpenSearch scores for non-AI-ranked
-  results are shown with proportional stars and percentages.
-- Minor UI improvements in citation export.
-- Updated multiple dependencies and devDependencies to the latest versions for improved compatibility and security.
-- GitHub issue template configuration updated: blank issues are disabled, and a contact link to Discussions is added for
-  questions/help.
+- Descriptions and author lists in search results are now expandable.
+- Search scores are now shown as stars and percentages.
+- Minor citation export improvements.
+- Dependency updates.
+- Disabled blank GitHub issues and added a link to Discussions.
 
 ## [0.2.0] - 07/11/2025
 
-- Refactored backend search to support SSE streaming and improved error handling.
-- Added new search model `einfracz/gpt-oss-120b`.
-- Redesigned footer for better responsiveness and added e-INFRA CZ acknowledgement.
-- Enhanced dataset search result rendering for accuracy and consistency.
-- Upgraded dependencies, including Vite.
+- Search now streams results over SSE, with better error handling.
+- Added the `einfracz/gpt-oss-120b` search model.
+- Redesigned the footer and added the e-INFRA CZ acknowledgement.
+- Improved how search results are displayed.
+- Dependency updates, including Vite.
 
 ## [0.1.1] - 03/11/2025
 
-- Added Matomo analytics tracking for page views and route changes.
-- Improved UI throughout the website for better responsiveness and visual clarity.
-- Upgraded Vite to version 7.1.12.
-- Improved changelog update check workflow in CI.
+- Added Matomo analytics for page views.
+- Improved responsiveness across the site.
+- Upgraded Vite to 7.1.12.
+- Improved the changelog check in CI.
 
 ## [0.1.0] - 17/10/2025
 
