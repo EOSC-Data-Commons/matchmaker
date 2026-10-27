@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.10.5] - 10/09/2026
+## [0.12.0] - 27/10/2026
 
 - The Data Sandbox now shows how well a dataset follows the FAIR principles, the standard for whether research data
   is Findable, Accessible, Interoperable and Reusable. The card sits under Files and links out to the principles
@@ -21,12 +21,16 @@ All notable changes to this project will be documented in this file.
   or gateway metadata. A link opens the assessors' untouched output, so every figure on the card can be checked
   against its source.
 - A criterion that nothing could measure reads as "not assessed" rather than as a score of zero.
+- A1 and R1 are marked as summaries of their sub-criteria, and left out of the score, only for FAIR Champion, which
+  derives them. F-UJI tests both directly, so for F-UJI they count like any other criterion.
 - The assessment does not run on its own. Opening the page only checks whether the dataset has been assessed before,
   and shows that result straight away when it has, noting that it is an earlier one. Otherwise there is a "Check FAIR
   score" button, since a fresh assessment takes upwards of a minute and most visits to the page are about launching a
   tool rather than grading the data.
 - Datasets without a DOI are assessed by F-UJI alone, and the card says so. FAIR Champion needs a resolvable
   identifier and reports nothing without one, so it is skipped rather than left to time out.
+- Assessments come from the hosted FAIR assessment service at `fairproxy-api.eosc-data-commons.dansdemo.nl`, reached
+  through this app's own server, so the browser never calls the service directly.
 
 ## [0.11.2] - 27/10/2026
 
