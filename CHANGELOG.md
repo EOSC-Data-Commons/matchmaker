@@ -2,7 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.13.0] - 28/10/2026
+## [0.13.1] - 29/10/2026
+
+- The relevance badge is back to a star and a percentage, without the "Relevance" label.
+
+## [0.13.0] - 29/10/2026
 
 - Added Export to AI Mode conversations: save a conversation as a Markdown file, or as a PDF from a printable page.
 - An export holds every question and answer, each search with the terms used, and the datasets each answer cites.

@@ -27,12 +27,17 @@ export const RelevanceBadge = ({hit}: { hit: BackendDataset }) => {
     // anything below caps at 99% instead of rounding up (0.9986 would otherwise be 100%).
     const percent = score < 1 ? Math.min(99, Math.round(score * 100)) : 100;
     return (
-        <div className="shrink-0 flex items-center space-x-1 bg-yellow-50 px-2 py-1 rounded-full">
+        <div
+            className="shrink-0 flex items-center space-x-1 bg-yellow-50 px-2 py-1 rounded-full cursor-help"
+            title="Relevance: how closely this dataset matches your query, as judged by an AI ranking model. Results are sorted by this score. It is an estimate of fit to your question, not a measure of the dataset's quality."
+        >
             {/* A fraction, not a percentage: the star reads anything up to 1 as a fraction,
-                so a score under 1% passed as a percentage would render as a full star. */}
-            <ProportionalStar percent={score} className="h-4 w-4"/>
+                so a score under 1% passed as a percentage would render as a full star.
+                pointer-events-none lets hover fall through to the badge, so the star's own
+                "<n>%" SVG title does not shadow the explanation in the badge's title. */}
+            <ProportionalStar percent={score} className="h-4 w-4 pointer-events-none"/>
             <span className="text-sm font-medium text-yellow-700">
-                Relevance {percent}%
+                <span className="sr-only">Relevance </span>{percent}%
             </span>
         </div>
     );
