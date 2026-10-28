@@ -20,3 +20,10 @@ export function getUserInitials(user: Pick<UserInfo, 'name' | 'preferred_usernam
     return user.email?.trim().substring(0, 2).toUpperCase() || 'U';
 }
 
+/**
+ * The name to show someone by in public, such as the byline of an exported conversation:
+ * the display name, else the username. Never the email address.
+ */
+export function getPublicName(user: Pick<UserInfo, 'name' | 'preferred_username'> | null | undefined): string | undefined {
+    return user?.name?.trim() || user?.preferred_username?.trim() || undefined;
+}
