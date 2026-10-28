@@ -17,7 +17,7 @@ export type FairState =
     | 'idle'
     /** Looking for a previous result. Cheap, runs on mount. */
     | 'checking'
-    /** An assessment is in flight. Expensive: 35s with a DOI, minutes without one. */
+    /** An assessment is in flight. Expensive: ~35s with a DOI, quicker without one, when only F-UJI runs. */
     | 'running'
     | 'ready'
     | 'error';
@@ -55,6 +55,8 @@ interface InternalState {
     fromCache: boolean;
 }
 
+const FAILED_MESSAGE = 'The assessment failed: no assessor returned a result. Please try again later.';
+
 const initialState = (pid: string | null): InternalState => ({
     pid,
     phase: pid ? 'checking' : 'idle',
@@ -68,9 +70,8 @@ const initialState = (pid: string | null): InternalState => ({
 /**
  * Drives one dataset's FAIR assessment.
  *
- * Deliberately does not assess on mount. A cold run takes ~35s for a DOI and minutes
- * without one, which is far too much to spend on someone who opened the dataplayer to
- * launch a tool. Mount only looks for an already-finished run, which is one cheap
+ * Deliberately does not assess on mount. A cold run takes ~35s for a DOI, which is far
+ * too much to spend on someone who opened the dataplayer to launch a tool. Mount only looks for an already-finished run, which is one cheap
  * request, and the expensive path waits for the user to ask.
  */
 export function useFairAssessment(pid: string | null): UseFairAssessment {
@@ -178,7 +179,7 @@ export function useFairAssessment(pid: string | null): UseFairAssessment {
                 });
                 if (!alive()) return;
 
-                await waitForAssessment(id, {
+                const final = await waitForAssessment(id, {
                     signal: controller.signal,
                     onProgress: (assessment: Assessment) => {
                         if (!alive()) return;
@@ -186,6 +187,12 @@ export function useFairAssessment(pid: string | null): UseFairAssessment {
                     },
                 });
                 if (!alive()) return;
+                // Every assessor failed, so there is no report to show. Rendering the empty
+                // one would read as a dataset that passed every check.
+                if (final.status === 'failed') {
+                    update({phase: 'error', error: FAILED_MESSAGE});
+                    return;
+                }
 
                 const [fresh, record] = await Promise.all([getReport(id), getAssessment(id)]);
                 if (!alive()) return;

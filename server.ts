@@ -131,8 +131,45 @@ app.use(
 //
 // Same-origin keeps the browser out of CORS entirely, so the hosted service's CORS
 // settings never decide whether the card works.
+//
+// Only the routes `src/lib/fairApi.ts` calls are forwarded. Every request leaves from
+// our address, so the service's other endpoints (`/retrieve`, `/auth`, ...) would
+// otherwise be usable by anyone through us, with the abuse pinned on our IP.
+const FAIR_ROUTES: ReadonlyArray<readonly [method: string, path: RegExp]> = [
+    ["GET", /^\/assessors\/$/],
+    ["GET", /^\/assessments\/$/],
+    ["POST", /^\/assessments\/$/],
+    ["GET", /^\/assessments\/[\w-]+(\/(results|raw))?$/],
+];
+
+// Each POST queues a run of ~35s on the service, and the route is unauthenticated.
+// A person clicking "Check FAIR score" and "Re-check" stays far below this.
+// Keyed on `req.ip`, with the same reverse-proxy caveat as `previewRateLimit`.
+const fairCreateRateLimit = rateLimit({
+    windowMs: 60_000,
+    limit: 10,
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
+    // `detail`, like the service's own errors, so the card shows it as is.
+    message: {detail: "Too many FAIR assessments started. Please wait a minute and try again."},
+});
+
+const fairRouteGuard: express.RequestHandler = (req, res, next) => {
+    // `app.use` strips the "/api/fair" mount prefix, so `req.path` is the service path.
+    if (!FAIR_ROUTES.some(([method, path]) => req.method === method && path.test(req.path))) {
+        res.status(404).json({detail: "Not found"});
+        return;
+    }
+    if (req.method === "POST") {
+        void fairCreateRateLimit(req, res, next);
+        return;
+    }
+    next();
+};
+
 app.use(
     "/api/fair",
+    fairRouteGuard,
     createProxyMiddleware({
         target: FAIR_API_URL,
         changeOrigin: true,

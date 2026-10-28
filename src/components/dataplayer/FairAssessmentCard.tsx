@@ -337,7 +337,9 @@ const Report = ({report, assessment}: { report: FairReport; assessment: Assessme
                         Only show what did not pass
                     </label>
                 </div>
-                {shown.length === 0 ? (
+                {guidance.length === 0 ? (
+                    <p className="text-sm font-light text-gray-500">No checks were reported.</p>
+                ) : shown.length === 0 ? (
                     <p className="text-sm font-light text-gray-500">Every check passed.</p>
                 ) : (
                     <ChecksList guidance={shown}/>
@@ -359,8 +361,8 @@ interface FairAssessmentCardProps {
  * including the ones that passed, and the provenance of the run. A report about
  * openness that had to be unfolded to be read would be a poor advertisement for it.
  *
- * The one thing deferred is the assessment itself, which takes ~35s with a DOI and
- * minutes without one. Mount looks for a finished run and otherwise waits to be asked.
+ * The one thing deferred is the assessment itself, which takes ~35s with a DOI. Mount
+ * looks for a finished run and otherwise waits to be asked.
  */
 export const FairAssessmentCard = ({pid}: FairAssessmentCardProps) => {
     const {state, report, assessment, error, finishedAssessors, plannedAssessors, fromCache, isDoiPid, run} =
@@ -411,7 +413,7 @@ export const FairAssessmentCard = ({pid}: FairAssessmentCardProps) => {
             )}
 
             {state === 'checking' && (
-                <p className="text-sm font-light text-gray-500">Looking for an existing assessment...</p>
+                <p role="status" className="text-sm font-light text-gray-500">Looking for an existing assessment...</p>
             )}
 
             {state === 'idle' && (
@@ -431,8 +433,9 @@ export const FairAssessmentCard = ({pid}: FairAssessmentCardProps) => {
                 </div>
             )}
 
+            {/* A live region, so screen readers hear each assessor finish during a long run. */}
             {state === 'running' && (
-                <div className="flex items-center gap-3">
+                <div role="status" aria-live="polite" className="flex items-center gap-3">
                     <LoaderIcon className="h-5 w-5 text-blue-600 animate-spin shrink-0"/>
                     <p className="text-sm font-light text-gray-700">
                         {pending.length > 0
@@ -446,7 +449,7 @@ export const FairAssessmentCard = ({pid}: FairAssessmentCardProps) => {
                 <div className="flex flex-col gap-3 items-start">
                     <div className="flex items-start gap-2">
                         <AlertCircle className="h-5 w-5 text-red-500 shrink-0"/>
-                        <p className="text-sm font-light text-red-600 wrap-break-word">{error}</p>
+                        <p role="alert" className="text-sm font-light text-red-600 wrap-break-word">{error}</p>
                     </div>
                     <button
                         type="button"

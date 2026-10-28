@@ -41,8 +41,9 @@ export const DataplayerPage = () => {
     const datasetUrl = searchParams.get('datasetId');
     // The search page sends the DOI when the dataset has one. Older links (and any
     // opened before that change) only carry `datasetId`, which is often a DOI URL
-    // anyway, so it is a usable fallback rather than a reason to hide the card.
-    const datasetPid = searchParams.get('pid') ?? datasetUrl;
+    // anyway, so it is a usable fallback rather than a reason to hide the card. An
+    // empty or blank `pid` falls back the same way.
+    const datasetPid = searchParams.get('pid')?.trim() || datasetUrl;
     const navigate = useNavigate();
 
     const {user, loading: userLoading} = useAuth();

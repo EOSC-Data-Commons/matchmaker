@@ -4,7 +4,6 @@ import {server} from "@/test/msw/server";
 import {
     FairAssessmentTimeoutError,
     FairServiceUnavailableError,
-    assessDataset,
     assessOffline,
     assessorsForPid,
     createAssessment,
@@ -261,70 +260,5 @@ describe("assessOffline", () => {
         });
         // No pid and no online assessors, so the service scores it inline and queues nothing.
         expect(body).toEqual({assessors: ["offline"], metadata});
-    });
-});
-
-describe("assessDataset", () => {
-    it("reuses a finished assessment instead of queueing a new one", async () => {
-        let posted = false;
-        server.use(
-            http.get("/api/fair/assessments/", () => HttpResponse.json([summary({id: "old"})])),
-            http.post("/api/fair/assessments/", () => {
-                posted = true;
-                return HttpResponse.json({id: "new", status: "queued"});
-            }),
-            http.get("/api/fair/assessments/old/results", () =>
-                HttpResponse.json({id: "old", pid: "10.1", status: "completed", cells: [], results: []})),
-        );
-
-        await expect(assessDataset("10.1")).resolves.toMatchObject({id: "old"});
-        expect(posted).toBe(false);
-    });
-
-    it("queues a run when nothing has finished before", async () => {
-        let requestedAssessors: unknown;
-        server.use(
-            http.get("/api/fair/assessments/", () => HttpResponse.json([])),
-            http.post("/api/fair/assessments/", async ({request}) => {
-                requestedAssessors = ((await request.json()) as Record<string, unknown>).assessors;
-                return HttpResponse.json({id: "new", status: "queued"});
-            }),
-            http.get("/api/fair/assessments/new", () => HttpResponse.json(assessment({id: "new"}))),
-            http.get("/api/fair/assessments/new/results", () =>
-                HttpResponse.json({id: "new", pid: "10.1", status: "completed", cells: [], results: []})),
-        );
-
-        await expect(assessDataset("10.1594/PANGAEA.908011", {intervalMs: 1}))
-            .resolves.toMatchObject({id: "new"});
-        expect(requestedAssessors).toEqual(["fuji", "fair_champion"]);
-    });
-
-    it("still assesses when the reuse lookup fails", async () => {
-        server.use(
-            http.get("/api/fair/assessments/", () => new HttpResponse(null, {status: 503})),
-            http.post("/api/fair/assessments/", () => HttpResponse.json({id: "new", status: "queued"})),
-            http.get("/api/fair/assessments/new", () => HttpResponse.json(assessment({id: "new"}))),
-            http.get("/api/fair/assessments/new/results", () =>
-                HttpResponse.json({id: "new", pid: "10.1", status: "completed", cells: [], results: []})),
-        );
-
-        await expect(assessDataset("10.1", {intervalMs: 1})).resolves.toMatchObject({id: "new"});
-    });
-
-    it("skips the reuse lookup when asked for a fresh run", async () => {
-        let listed = false;
-        server.use(
-            http.get("/api/fair/assessments/", () => {
-                listed = true;
-                return HttpResponse.json([summary({id: "old"})]);
-            }),
-            http.post("/api/fair/assessments/", () => HttpResponse.json({id: "new", status: "queued"})),
-            http.get("/api/fair/assessments/new", () => HttpResponse.json(assessment({id: "new"}))),
-            http.get("/api/fair/assessments/new/results", () =>
-                HttpResponse.json({id: "new", pid: "10.1", status: "completed", cells: [], results: []})),
-        );
-
-        await assessDataset("10.1", {reuseExisting: false, intervalMs: 1});
-        expect(listed).toBe(false);
     });
 });

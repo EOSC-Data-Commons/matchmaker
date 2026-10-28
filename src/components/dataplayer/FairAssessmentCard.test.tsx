@@ -298,8 +298,50 @@ describe("FairAssessmentCard", () => {
         render(<FairAssessmentCard pid={DOI}/>);
         await userEvent.click(await screen.findByRole("button", {name: /check fair score/i}));
 
-        expect(await screen.findByText(/not available right now/i)).toBeInTheDocument();
+        expect(await screen.findByRole("alert")).toHaveTextContent(/not available right now/i);
         expect(screen.getByRole("button", {name: /try again/i})).toBeInTheDocument();
+    });
+
+    it("reports a failed run as an error, not as an empty report", async () => {
+        // Every assessor failed. Rendering the empty report read as "Every check passed."
+        server.use(
+            http.get("/api/fair/assessments/", () => HttpResponse.json([])),
+            http.post("/api/fair/assessments/", () => HttpResponse.json({id: "new", status: "queued"})),
+            http.get("/api/fair/assessments/new", () =>
+                HttpResponse.json({...summary({id: "new", status: "failed"}), results: []})),
+        );
+
+        render(<FairAssessmentCard pid={DOI}/>);
+        await userEvent.click(await screen.findByRole("button", {name: /check fair score/i}));
+
+        expect(await screen.findByRole("alert")).toHaveTextContent(/assessment failed/i);
+        expect(screen.getByRole("button", {name: /try again/i})).toBeInTheDocument();
+        expect(screen.queryByText(/every check passed/i)).not.toBeInTheDocument();
+    });
+
+    it("does not claim every check passed when none were reported", async () => {
+        withStoredReport({results: []});
+        render(<FairAssessmentCard pid={DOI}/>);
+        expect(await screen.findByText("No checks were reported.")).toBeInTheDocument();
+        expect(screen.queryByText(/every check passed/i)).not.toBeInTheDocument();
+    });
+
+    it("announces progress to screen readers while a run is going", async () => {
+        server.use(
+            http.get("/api/fair/assessments/", () => HttpResponse.json([])),
+            http.post("/api/fair/assessments/", () => HttpResponse.json({id: "new", status: "queued"})),
+            http.get("/api/fair/assessments/new", () => HttpResponse.json({
+                ...summary({id: "new", status: "running", completed_at: null}),
+                results: [{assessor: "fuji"}],
+            })),
+        );
+
+        render(<FairAssessmentCard pid={DOI}/>);
+        await userEvent.click(await screen.findByRole("button", {name: /check fair score/i}));
+
+        // F-UJI has reported, so the live region now names only what is still pending.
+        await waitFor(() =>
+            expect(screen.getByRole("status")).toHaveTextContent("Waiting for FAIR Champion..."));
     });
 
     it("re-checks on request instead of reusing the stored result", async () => {

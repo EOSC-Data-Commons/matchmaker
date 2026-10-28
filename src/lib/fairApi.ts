@@ -256,29 +256,3 @@ export async function waitForAssessment(
         await delay(intervalMs, signal);
     }
 }
-
-/**
- * Runs the whole flow for a dataset: reuse a finished assessment when the service
- * already has one, otherwise queue a fresh run and poll it, then fetch the report.
- *
- * Reuse matters because a cold run takes ~35s for a DOI and minutes without one,
- * which is far too long to spend on someone who opened the page to do something else.
- */
-export async function assessDataset(
-    pid: string,
-    {reuseExisting = true, ...options}: PollOptions & { reuseExisting?: boolean } = {},
-): Promise<FairReport> {
-    if (reuseExisting) {
-        try {
-            const existing = await findLatestCompleted(pid);
-            if (existing) return await getReport(existing.id);
-        } catch (error) {
-            // A failed lookup is not a reason to skip the assessment itself.
-            logError(error, 'assessDataset/reuse');
-        }
-    }
-
-    const {id} = await createAssessment({pid, assessors: assessorsForPid(pid)});
-    await waitForAssessment(id, options);
-    return await getReport(id);
-}
