@@ -35,11 +35,11 @@ export const DatasetReference = ({dataset, label, number, onJump}: DatasetRefere
     // Both the URL and the id are backend data, so neither is trusted as a link target.
     const href = sanitizeLinkHref(dataset.dataset_url || dataset._id);
     const source = getProvenanceSource(dataset);
-    // Without a number there is no reference list to lead to, so the citation stays
-    // an ordinary link to the source.
-    const jumpToReference = number === undefined ? null : () => {
+    // Without a number, or with nothing to handle the jump (the printable export), there
+    // is no reference list to lead to, so the citation stays an ordinary link to the source.
+    const jumpToReference = number === undefined || !onJump ? null : () => {
         trackEvent('Chat', 'citation_clicked');
-        onJump?.(number);
+        onJump(number);
     };
 
     const description = number === undefined

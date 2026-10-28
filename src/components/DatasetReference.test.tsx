@@ -81,4 +81,16 @@ describe("DatasetReference", () => {
         }
         expect(onJump).not.toHaveBeenCalled();
     });
+
+    it("follows the link on a plain click when nothing handles the jump", () => {
+        // The printable export shows numbered pills with no reference list to jump to.
+        render(
+            <DatasetReference
+                dataset={makeDataset({dataset_url: DATASET_URL, title: "Ocean Temperatures 2023"})}
+                number={1}
+            />,
+        );
+        expect(screen.getByRole("link", {name: /Ocean Temperatures 2023/})).toHaveTextContent("[1]");
+        expect(clickWith({})).toBe(true);
+    });
 });
