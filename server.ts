@@ -43,6 +43,9 @@ const PORT = Number.parseInt(
     process.env.PORT || (DEVELOPMENT ? "5173" : "3000"),
 );
 const SEARCH_API_URL = process.env.SEARCH_API_URL || "http://127.0.0.1:8000";
+// FAIR assessment proxy (dans-labs/fair-assessment-proxy). Defaults to the hosted
+// instance; set FAIR_API_URL to use a local docker-compose stack (http://127.0.0.1:8080).
+const FAIR_API_URL = process.env.FAIR_API_URL || "https://fairproxy-api.eosc-data-commons.dansdemo.nl";
 
 // Express parses `?x=a&x=b` into an array and `?x[y]=a` into an object, so a
 // query value is only a string once we have checked that it is. Everything else
@@ -116,6 +119,68 @@ app.use(
             },
             error: (err, _req, res) => {
                 console.error("Auth API proxy error:", err);
+                (res as express.Response).status(500).send("Proxy error");
+            },
+        },
+    }),
+);
+
+// FAIR assessment proxy. Registered before `express.json()` for the same reason as
+// `/auth`: the body parser would drain the request stream and POST /assessments
+// would hang with no body ever reaching the service.
+//
+// Same-origin keeps the browser out of CORS entirely, so the hosted service's CORS
+// settings never decide whether the card works.
+//
+// Only the routes `src/lib/fairApi.ts` calls are forwarded. Every request leaves from
+// our address, so the service's other endpoints (`/retrieve`, `/auth`, ...) would
+// otherwise be usable by anyone through us, with the abuse pinned on our IP.
+const FAIR_ROUTES: ReadonlyArray<readonly [method: string, path: RegExp]> = [
+    ["GET", /^\/assessors\/$/],
+    ["GET", /^\/assessments\/$/],
+    ["POST", /^\/assessments\/$/],
+    ["GET", /^\/assessments\/[\w-]+(\/(results|raw))?$/],
+];
+
+// Each POST queues a run of ~35s on the service, and the route is unauthenticated.
+// A person clicking "Check FAIR score" and "Re-check" stays far below this.
+// Keyed on `req.ip`, with the same reverse-proxy caveat as `previewRateLimit`.
+const fairCreateRateLimit = rateLimit({
+    windowMs: 60_000,
+    limit: 10,
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
+    // `detail`, like the service's own errors, so the card shows it as is.
+    message: {detail: "Too many FAIR assessments started. Please wait a minute and try again."},
+});
+
+const fairRouteGuard: express.RequestHandler = (req, res, next) => {
+    // `app.use` strips the "/api/fair" mount prefix, so `req.path` is the service path.
+    if (!FAIR_ROUTES.some(([method, path]) => req.method === method && path.test(req.path))) {
+        res.status(404).json({detail: "Not found"});
+        return;
+    }
+    if (req.method === "POST") {
+        void fairCreateRateLimit(req, res, next);
+        return;
+    }
+    next();
+};
+
+app.use(
+    "/api/fair",
+    fairRouteGuard,
+    createProxyMiddleware({
+        target: FAIR_API_URL,
+        changeOrigin: true,
+        // `app.use` has already stripped the "/api/fair" mount prefix by the time the
+        // middleware runs, so the rewrite matches "^/" and prepends the service's own
+        // prefix — the same shape as the "/auth" proxy above. Matching "^/api/fair"
+        // here would never fire and every request would reach the service unprefixed.
+        pathRewrite: {"^/": "/api/v1/"},
+        on: {
+            error: (err, _req, res) => {
+                console.error("FAIR API proxy error:", err);
                 (res as express.Response).status(500).send("Proxy error");
             },
         },
