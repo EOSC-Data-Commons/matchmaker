@@ -25,6 +25,8 @@ import {DeleteConversationDialog} from "@/components/DeleteConversationDialog.ts
 import {ConversationSidebarItem} from "@/components/ConversationSidebarItem.tsx";
 import {CopyMessageButton} from "@/components/CopyMessageButton.tsx";
 import {SearchFeedback} from "@/components/SearchFeedback.tsx";
+import {ExportConversationButton} from "@/components/ExportConversationButton.tsx";
+import {AI_DISCLAIMER} from "@/lib/branding.ts";
 import useMatomo from "@/hooks/useMatomo.ts";
 import {errorKind} from "@/lib/analytics.ts";
 
@@ -479,6 +481,10 @@ const ChatPage: FC = () => {
     // Markdown link in the answer can be resolved back to the dataset it cites.
     const datasetsByUrl = useMemo(() => buildDatasetUrlMap(messages), [messages]);
 
+    const conversationTitle = selectedConversation
+        ? sidebarConversations.find(c => c.id === selectedConversation.id)?.title || selectedConversation.title
+        : '';
+
     // The assistant bubble already shows its own progress once blocks arrive.
     const lastMessage = messages[messages.length - 1];
     const lastMessageIsStreaming = !!lastMessage?.isStreaming && (lastMessage.blocks?.length ?? 0) > 0;
@@ -614,10 +620,20 @@ const ChatPage: FC = () => {
                 <div className="flex-1 flex flex-col bg-white min-w-0 relative">
                     {/* Header */}
                     {selectedConversation && (
-                        <div className="px-4 py-3 md:px-6 md:py-4 border-b border-gray-100 bg-white shrink-0">
-                            <h1 className="text-base md:text-lg font-semibold text-gray-800 wrap-break-word line-clamp-2 md:line-clamp-none">
-                                {sidebarConversations.find(c => c.id === selectedConversation.id)?.title || selectedConversation.title}
+                        <div
+                            className="px-4 py-3 md:px-6 md:py-4 border-b border-gray-100 bg-white shrink-0 flex items-start justify-between gap-3">
+                            <h1 className="min-w-0 text-base md:text-lg font-semibold text-gray-800 wrap-break-word line-clamp-2 md:line-clamp-none">
+                                {conversationTitle}
                             </h1>
+                            {messages.length > 0 && (
+                                <ExportConversationButton
+                                    conversationId={selectedConversation.id}
+                                    title={conversationTitle}
+                                    messages={messages}
+                                    user={user}
+                                    answering={isSending || messages.some(m => m.isStreaming)}
+                                />
+                            )}
                         </div>
                     )}
 
@@ -818,8 +834,7 @@ const ChatPage: FC = () => {
                             />
                         </div>
                         <div className="max-w-6xl mx-auto text-center mt-3 text-xs text-gray-400">
-                            AI-generated content may be incomplete or occasionally incorrect. Please verify critical
-                            data.
+                            {AI_DISCLAIMER}
                         </div>
                     </div>
                 </div>
