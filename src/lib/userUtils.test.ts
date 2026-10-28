@@ -1,5 +1,5 @@
 import {describe, it, expect} from "vitest";
-import {getUserInitials} from "./userUtils";
+import {getPublicName, getUserInitials} from "./userUtils";
 
 describe("getUserInitials", () => {
     it("returns 'U' for missing users", () => {
@@ -27,5 +27,14 @@ describe("getUserInitials", () => {
 
     it("returns 'U' when all fields are empty", () => {
         expect(getUserInitials({name: "", preferred_username: " ", email: ""})).toBe("U");
+    });
+});
+
+describe("getPublicName", () => {
+    it("prefers the display name, then the username, and never the email address", () => {
+        expect(getPublicName({name: "  Jane Doe ", preferred_username: "jdoe"})).toBe("Jane Doe");
+        expect(getPublicName({name: " ", preferred_username: "jdoe"})).toBe("jdoe");
+        expect(getPublicName({sub: "u", email: "jane@example.org"} as never)).toBeUndefined();
+        expect(getPublicName(null)).toBeUndefined();
     });
 });

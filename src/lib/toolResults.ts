@@ -6,6 +6,16 @@ import type {DatasetFile} from "@/types/commons.ts";
  * output view, which is what keeps a newly added backend tool from breaking the UI.
  */
 
+/** How each of the agent's tools is named in the thread and in an exported conversation. */
+const TOOL_LABELS: Record<string, string> = {
+    search_data: 'Searched datasets',
+    search_tools: 'Searched tools',
+    get_dataset_files: 'Listed dataset files',
+};
+
+/** The reader-facing name of a tool; a tool added on the backend later shows its own name. */
+export const toolLabel = (name: string): string => TOOL_LABELS[name] ?? name;
+
 /**
  * Recognises a `get_dataset_files` payload (`{files: [{name, link, …}]}`).
  * Returns null for anything else.

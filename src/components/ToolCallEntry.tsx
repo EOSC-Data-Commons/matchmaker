@@ -5,17 +5,23 @@ import {prettyJson} from "../lib/utils.ts";
 import {SearchResultItem} from "./SearchResultItem.tsx";
 import {ToolResultCard} from "./ToolResultCard.tsx";
 import {DatasetFilesList} from "./DatasetFilesList.tsx";
-import {parseDatasetFiles} from "../lib/toolResults.ts";
+import {parseDatasetFiles, toolLabel} from "../lib/toolResults.ts";
 
 interface ToolCallEntryProps {
     toolCall: ToolCall;
     isLoggedIn?: boolean;
 }
 
-const META: Record<string, {label: string; Icon: typeof Search}> = {
-    search_data: {label: 'Searched datasets', Icon: Search},
-    search_tools: {label: 'Searched tools', Icon: Wrench},
-    get_dataset_files: {label: 'Listed dataset files', Icon: FileIcon},
+const ICONS: Record<string, typeof Search> = {
+    search_data: Search,
+    search_tools: Wrench,
+    get_dataset_files: FileIcon,
+};
+
+/** The icon a tool call is shown with, here and in an exported conversation. */
+export const ToolIcon = ({name, className}: { name: string; className?: string }) => {
+    const Icon = ICONS[name] ?? Wrench;
+    return <Icon className={className} aria-hidden="true"/>;
 };
 
 /**
@@ -27,8 +33,6 @@ const META: Record<string, {label: string; Icon: typeof Search}> = {
 export const ToolCallEntry = ({toolCall, isLoggedIn = false}: ToolCallEntryProps) => {
     const [open, setOpen] = useState(false);
 
-    const meta = META[toolCall.name] || {label: toolCall.name, Icon: Wrench};
-    const Icon = meta.Icon;
     const hits = toolCall.hits;
     const args = prettyJson(toolCall.args);
     const output = toolCall.output ? prettyJson(toolCall.output) : '';
@@ -48,8 +52,8 @@ export const ToolCallEntry = ({toolCall, isLoggedIn = false}: ToolCallEntryProps
                 className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
             >
                 {open ? <ChevronDown className="h-4 w-4 shrink-0 text-gray-400"/> : <ChevronRight className="h-4 w-4 shrink-0 text-gray-400"/>}
-                <Icon className="h-4 w-4 shrink-0 text-blue-600"/>
-                <span className="font-medium">{meta.label}</span>
+                <ToolIcon name={toolCall.name} className="h-4 w-4 shrink-0 text-blue-600"/>
+                <span className="font-medium">{toolLabel(toolCall.name)}</span>
                 {count !== null && (
                     <span className="text-gray-400">· {count} {noun}{count !== 1 ? 's' : ''}</span>
                 )}

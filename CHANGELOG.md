@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.12.0] - 29/10/2026
+## [0.13.0] - 28/10/2026
+
+- Added Export to AI Mode conversations: save a conversation as a Markdown file, or as a PDF from a printable page.
+- An export holds every question and answer, each search with the terms used, and the datasets each answer cites.
+- Your name is left out of an export unless you tick "Add my name".
+
+## [0.12.0] - 28/10/2026
 
 - Added a FAIR assessment card to the Data Sandbox, scoring a dataset with F-UJI and FAIR Champion side by side.
 - Lists all 15 FAIR criteria, quoted from the FAIR principles, with a plain-language reading of each.

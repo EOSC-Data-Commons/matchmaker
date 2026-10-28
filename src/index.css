@@ -129,3 +129,20 @@
     will-change: transform;
 }
 
+
+/*
+ * Printing an exported conversation (ChatExportPage). The page size is left to the
+ * reader's print settings, so A4 and Letter both work. Browsers drop background colours
+ * when printing unless told otherwise, which would strip the citation pills and the
+ * question and code blocks of their fills.
+ */
+@media print {
+    @page {
+        margin: 15mm 15mm 12mm;
+    }
+
+    [data-export-document] {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}
