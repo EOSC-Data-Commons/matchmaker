@@ -3,6 +3,7 @@ import {type RouteConfig, index, route} from "@react-router/dev/routes";
 export default [
     index("pages/LandingPage.tsx"),
     route("search", "pages/SearchPage.tsx"),
+    route("chat/:id/export", "pages/ChatExportPage.tsx"),
     route("chat/:id?", "pages/ChatPage.tsx"),
     route("privacy-policy", "pages/PrivacyPolicyPage.tsx"),
     route("acceptable-use-policy", "pages/AcceptableUsePage.tsx"),
