@@ -1,4 +1,4 @@
-import {useState} from "react";
+import {useEffect, useState} from "react";
 import {useNavigate} from "react-router";
 import {
     ArrowLeft,
@@ -15,6 +15,7 @@ import {
     User,
 } from "lucide-react";
 import {useAuth} from "@/hooks/useAuth.ts";
+import useMatomo from "@/hooks/useMatomo.ts";
 import {loginWithReturn} from "@/lib/authRedirect.ts";
 import {useApiKeys} from "@/hooks/useApiKeys.ts";
 import {API_KEYS, type ApiKeyMeta} from "@/lib/apiKeys.ts";
@@ -232,8 +233,15 @@ const ApiKeyCard = ({meta, configured, disabled, onSave, onRemove, onReveal}: Ap
 export const ProfilePage = () => {
     const navigate = useNavigate();
     const {user, loading: userLoading} = useAuth();
+    const {trackEvent} = useMatomo();
     const {configured, loading: keysLoading, unavailable, error, save, remove, reveal, reload} =
         useApiKeys(!userLoading && !!user);
+
+    // Counted once when the gate appears, so the funnel into login_started reads.
+    const gateShown = !userLoading && !user;
+    useEffect(() => {
+        if (gateShown) trackEvent('Auth', 'gate_shown', 'profile');
+    }, [gateShown, trackEvent]);
 
     return (
         <div className="min-h-screen bg-[#FAFAFA] flex flex-col">
@@ -251,7 +259,7 @@ export const ProfilePage = () => {
                         </p>
                         <div className="flex flex-col gap-3">
                             <button
-                                onClick={loginWithReturn}
+                                onClick={() => loginWithReturn('gate_profile')}
                                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors shadow-sm cursor-pointer"
                             >
                                 Log In to Continue

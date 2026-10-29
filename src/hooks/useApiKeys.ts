@@ -7,6 +7,7 @@ import {
     SecretStoreUnavailableError,
 } from '@/lib/apiKeys.ts';
 import {getUserErrorMessage} from '@/lib/utils.ts';
+import {trackEvent} from '@/lib/analytics.ts';
 
 /**
  * Tracks which API keys the user has configured and exposes save/remove/reveal
@@ -28,6 +29,7 @@ export function useApiKeys(enabled: boolean) {
             setUnavailable(false);
         } catch (e) {
             if (e instanceof SecretStoreUnavailableError) {
+                trackEvent('API Keys', 'store_unavailable');
                 setUnavailable(true);
             } else {
                 setError(getUserErrorMessage(e));
@@ -42,13 +44,27 @@ export function useApiKeys(enabled: boolean) {
         reload().catch(e => console.error(e));
     }, [enabled, reload]);
 
+    // Only the key id ever reaches an event; the value is a secret.
     const save = useCallback(async (id: string, value: string) => {
-        await saveApiKey(id, value);
+        const wasConfigured = configured.has(id);
+        try {
+            await saveApiKey(id, value);
+        } catch (e) {
+            trackEvent('API Keys', 'save_failed', id);
+            throw e;
+        }
+        trackEvent('API Keys', 'saved', `${id}:${wasConfigured ? 'replace' : 'set'}`);
         setConfigured(prev => new Set(prev).add(id));
-    }, []);
+    }, [configured]);
 
     const remove = useCallback(async (id: string) => {
-        await deleteApiKey(id);
+        try {
+            await deleteApiKey(id);
+        } catch (e) {
+            trackEvent('API Keys', 'remove_failed', id);
+            throw e;
+        }
+        trackEvent('API Keys', 'removed', id);
         setConfigured(prev => {
             const next = new Set(prev);
             next.delete(id);
