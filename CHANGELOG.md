@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+- Reworked Matomo analytics from the ground up. Every event now comes from a typed catalogue in `src/lib/analytics.ts`,
+  so queries, dataset titles and author names can no longer end up in a report. Categories follow the product's
+  current wording: `Search`, `AI Mode`, `Dataset`, `Citation`, `Feedback`, `Auth`, `Data Player`, `File Preview`,
+  `FAIR`, `API Keys`, `Landing`, `Error`. Figures from before this release use the old names and are inflated
+  (`Search/submitted` also fired for every AI Mode question), so they do not line up with the new ones.
+- Matomo no longer sets cookies. Visits are still counted, but a visitor is only recognised within the same day.
+- Local dev servers (localhost, 127.0.0.1) no longer send anything to Matomo. Team members can stop their own browser
+  being counted by opening the site once with `?analytics=off`, and undo it with `?analytics=on`.
+- Conversations and the Data Player are reported as `/chat/:id` and `/dataplayer`, instead of one URL per conversation
+  or dataset. Campaign parameters (`mtm_*`, `utm_*`) are kept, so tagged links are still attributed. Every screen also
+  reports a stable page title.
+- Plain searches and AI Mode questions both go to Matomo's Site Search reports, under the categories `search` and `ai`,
+  each with its result count. That is the one place query text is recorded.
+- Hit counts, latencies, list positions and file counts travel as event values instead of separate events.
+- New events cover what was missing: opening a launched tool, login gates being shown, logouts, signed-in visits,
+  FAIR checks and scores, API key actions, past conversations being opened, first-token latency, and which
+  repository a played or cited dataset came from.
+
 ## [0.13.1] - 29/10/2026
 
 - The relevance badge is back to a star and a percentage, without the "Relevance" label.
