@@ -87,7 +87,7 @@ const ExportAnswer = ({message, datasets}: { message: Message; datasets: Map<str
                         key={`text-${index}`}
                         className="whitespace-pre-wrap break-words [&_table]:min-w-0 [&_.overflow-x-auto]:overflow-visible [&_tr]:break-inside-avoid"
                     >
-                        <MessageMarkdown text={block.text} datasets={datasets} citations={citations}/>
+                        <MessageMarkdown text={block.text} datasets={datasets} citations={citations} referenceContext="export"/>
                     </div>
                 );
             })}

@@ -1,6 +1,7 @@
 import {ExternalLinkIcon, TagIcon, Wrench} from "lucide-react";
 import type {BackendDataset} from "../types/commons.ts";
 import {stripHtml} from "../lib/utils";
+import useMatomo from "../hooks/useMatomo";
 
 interface ToolResultCardProps {
     hit: BackendDataset;
@@ -19,6 +20,7 @@ interface ToolResultCardProps {
  * as a percentage would be meaningless.
  */
 export const ToolResultCard = ({hit}: ToolResultCardProps) => {
+    const {trackEvent} = useMatomo();
     const url = hit.dataset_url || hit._source.url || null;
     const description = stripHtml(hit.description || '');
     const formats = hit.fileExtensions ?? [];
@@ -57,6 +59,7 @@ export const ToolResultCard = ({hit}: ToolResultCardProps) => {
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
+                    onClick={() => trackEvent('AI Mode', 'tool_link_opened', hit.title || 'unknown')}
                     className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700"
                 >
                     <ExternalLinkIcon className="h-4 w-4"/>
