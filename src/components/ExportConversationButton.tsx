@@ -48,12 +48,13 @@ export const ExportConversationButton = ({
             version,
             author,
         });
-        trackEvent('Chat', 'conversation_exported', 'markdown');
+        trackEvent('AI Mode', 'exported', 'markdown', messages.length);
         setOpen(false);
     };
 
     const exportPdf = () => {
-        trackEvent('Chat', 'conversation_exported', 'pdf');
+        // Not counted here: the printable view's page view already is, and it reports
+        // `exported/pdf` itself when it actually prints.
         // Same tab: a turn that has only just finished may exist only in this page's run
         // store until the backend has stored it. Only a yes/no for the byline goes into
         // the address; the name itself is read from the session on the other side.

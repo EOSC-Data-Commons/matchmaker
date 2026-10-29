@@ -102,8 +102,10 @@ const ChatExportPage: FC = () => {
             window.removeEventListener('afterprint', restore);
         };
         window.addEventListener('afterprint', restore);
+        // Every print is one export, whether the reader asked for it or the page opened it.
+        trackEvent('AI Mode', 'exported', 'pdf', messages.length);
         window.print();
-    }, [title]);
+    }, [title, messages.length, trackEvent]);
 
     // Open the print dialog once, after the fonts and the logos have loaded, or they print blank.
     useEffect(() => {
@@ -132,8 +134,14 @@ const ChatExportPage: FC = () => {
 
     const downloadMarkdown = () => {
         downloadConversationMarkdown({title, messages}, {origin, exportedAt: new Date(), version, author});
-        trackEvent('Chat', 'conversation_exported', 'markdown');
+        trackEvent('AI Mode', 'exported', 'markdown', messages.length);
     };
+
+    // The sign-in card is counted once per appearance, not once per render behind it.
+    const gated = !userLoading && !signedIn;
+    useEffect(() => {
+        if (gated) trackEvent('Auth', 'gate_shown', 'export');
+    }, [gated, trackEvent]);
 
     const status = (() => {
         if (userLoading) return 'Preparing the export…';
@@ -185,13 +193,13 @@ const ChatExportPage: FC = () => {
             </div>
 
             <main className="px-4 py-6 print:p-0">
-                {!userLoading && !signedIn && (
+                {gated && (
                     <div className="mx-auto max-w-md rounded-xl border border-gray-200 bg-white p-8 text-center">
                         <h1 className="text-xl font-semibold text-gray-900">Sign in to export this conversation</h1>
                         <p className="mt-2 text-sm text-gray-600">Your conversations are only available to you.</p>
                         <button
                             type="button"
-                            onClick={loginWithReturn}
+                            onClick={() => loginWithReturn('gate_export')}
                             className="mt-6 w-full rounded-lg bg-blue-600 px-4 py-2.5 font-medium text-white hover:bg-blue-700 cursor-pointer"
                         >
                             Log in

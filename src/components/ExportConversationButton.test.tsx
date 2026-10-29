@@ -84,7 +84,8 @@ describe("ExportConversationButton", () => {
         expect(markdown).toContain("# Ocean data");
         expect(markdown).toContain("## Question\n\nocean data");
         expect(markdown).not.toContain("Jane");
-        expect(paq()).toContainEqual(["trackEvent", "Chat", "conversation_exported", "markdown"]);
+        // Two messages exported: the question and its answer.
+        expect(paq()).toContainEqual(["trackEvent", "AI Mode", "exported", "markdown", 2]);
         // The panel closes once the file is saved.
         expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
@@ -136,7 +137,8 @@ describe("ExportConversationButton", () => {
         const target = screen.getByTestId("target").textContent!;
         expect(target).toBe('/chat/t-1/export?byline=1|{"title":"Ocean data"}');
         expect(target).not.toContain("Jane");
-        expect(paq()).toContainEqual(["trackEvent", "Chat", "conversation_exported", "pdf"]);
+        // The printable view counts the PDF when it prints; nothing is sent from here.
+        expect(paq().filter(cmd => cmd[0] === "trackEvent")).toEqual([]);
     });
 
     it("opens the printable view without a byline by default", async () => {

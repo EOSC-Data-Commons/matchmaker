@@ -1,6 +1,8 @@
 import {sendChatMessage, RateLimitError, ServerError, type SSEEvent} from "@/lib/api.ts";
-import {applyChatEvent, finalizeStream} from "@/lib/chatMessages.ts";
-import type {Message} from "@/types/chat.ts";
+import {applyChatEvent, countHits, finalizeStream} from "@/lib/chatMessages.ts";
+import {parseDatasetFiles} from "@/lib/toolResults.ts";
+import {errorKind, trackEvent, trackSiteSearch} from "@/lib/analytics.ts";
+import type {Message, ToolCall} from "@/types/chat.ts";
 
 /**
  * Chat runs that outlive the view that started them.
@@ -48,12 +50,19 @@ interface StartRunOptions {
     onError?: (error: unknown) => void;
 }
 
+/** A run still streaming: how to stop it, and what timing its analytics from the send needs. */
+interface LiveRun {
+    controller: AbortController;
+    model: string;
+    startedAt: number;
+}
+
 const EMPTY: readonly ChatRun[] = [];
 
 let runs: readonly ChatRun[] = EMPTY;
 let nextRunId = 1;
 const listeners = new Set<() => void>();
-const controllers = new Map<number, AbortController>();
+const live = new Map<number, LiveRun>();
 
 const warnBeforeUnload = (event: BeforeUnloadEvent) => {
     event.preventDefault();
@@ -108,6 +117,22 @@ const errorText = (error: unknown): string => {
     return "Something went wrong while searching. Please try again.";
 };
 
+/** The tool call `id` in the message being streamed, once its result has been applied. */
+const toolCallIn = (messages: Message[], id: string): ToolCall | undefined => {
+    const blocks = messages[messages.length - 1]?.blocks ?? [];
+    for (const block of blocks) {
+        if (block.kind === 'tool' && block.toolCall.id === id) return block.toolCall;
+    }
+    return undefined;
+};
+
+/**
+ * How much a tool returned, by the shape of its result: search hits, or the files of a
+ * dataset listing. Undefined for a payload we do not recognise, so the event carries no value.
+ */
+const toolResultCount = (toolCall: ToolCall): number | undefined =>
+    toolCall.hits?.length ?? (toolCall.output ? parseDatasetFiles(toolCall.output)?.length : undefined);
+
 /**
  * Starts a run and streams it into the store. Resolves once the run has ended,
  * however it ended; failures become an error bubble in the thread, never a rejection.
@@ -122,7 +147,8 @@ export const startRun = async (
 
     const runId = nextRunId++;
     const controller = new AbortController();
-    controllers.set(runId, controller);
+    const startedAt = Date.now();
+    live.set(runId, {controller, model, startedAt});
     emit([
         {runId, key, threadId, title, messages, status: 'running', seen: true},
         ...runs.filter(run => run !== previous),
@@ -134,11 +160,54 @@ export const startRun = async (
     let failed = false;
     const publish = () => patch(runId, run => ({...run, messages: streamed}));
 
+    // Analytics, timed from the send. The question goes to Matomo's site search exactly
+    // once: with its hit count when the run finishes, as `false` when it ends any other
+    // way. Event names only ever carry the model, a tool name or an error kind.
+    const question = [...messages].reverse().find(m => m.sender === 'user')?.content.trim() ?? '';
+    let questionRecorded = false;
+    const recordQuestion = (hits: number | false) => {
+        if (questionRecorded || !question) return;
+        questionRecorded = true;
+        trackSiteSearch(question, 'ai', hits);
+    };
+    let firstTokenSeen = false;
+    let failureReported = false;
+    const report = (event: SSEEvent) => {
+        switch (event.type) {
+            case 'TEXT_MESSAGE_START':
+            case 'TEXT_MESSAGE_CHUNK':
+            case 'TEXT_MESSAGE_CONTENT':
+                // Not every model emits START, so the first chunk counts as well.
+                if (firstTokenSeen) return;
+                firstTokenSeen = true;
+                trackEvent('AI Mode', 'first_token', model, Date.now() - startedAt);
+                return;
+            case 'TOOL_CALL_RESULT': {
+                const toolCall = event.tool_call_id ? toolCallIn(streamed, event.tool_call_id) : undefined;
+                const name = toolCall?.name ?? event.tool_call_name;
+                if (name) trackEvent('AI Mode', 'tool_called', name, toolCall ? toolResultCount(toolCall) : undefined);
+                return;
+            }
+            case 'RUN_FINISHED': {
+                trackEvent('AI Mode', 'answer_completed', model, Date.now() - startedAt);
+                const answer = streamed[streamed.length - 1];
+                recordQuestion(answer ? countHits(answer) : 0);
+                return;
+            }
+        }
+    };
+
     // The bubble goes into `streamed` too, or the next publish would drop it. Hands
     // `onError` the raw error rather than the formatted text, from the one place every
     // failure path converges on.
     const appendErrorBubble = (error: unknown) => {
         failed = true;
+        // One outcome per run: further failures after the first are the same failed answer.
+        if (!failureReported) {
+            failureReported = true;
+            trackEvent('AI Mode', 'answer_failed', errorKind(error), Date.now() - startedAt);
+        }
+        recordQuestion(false);
         onError?.(error);
         streamed = [...finalizeStream(streamed), {sender: 'bot', content: errorText(error), isError: true}];
         publish();
@@ -164,6 +233,7 @@ export const startRun = async (
                 }
                 streamed = applyChatEvent(streamed, event);
                 publish();
+                report(event);
                 onEvent?.(event, streamed);
             },
             (error) => {
@@ -176,11 +246,13 @@ export const startRun = async (
         console.error("Failed to send message", error);
         appendErrorBubble(error);
     } finally {
-        controllers.delete(runId);
+        live.delete(runId);
         // A stream that ends without RUN_FINISHED would otherwise leave the message
         // flagged as still streaming.
         streamed = finalizeStream(streamed);
         const status: RunStatus = controller.signal.aborted ? 'stopped' : failed ? 'failed' : 'finished';
+        // Stopped, discarded, or a stream that dropped: the question got no answer to count.
+        recordQuestion(false);
         patch(runId, run => ({...run, messages: streamed, status, seen: false}));
     }
 };
@@ -188,7 +260,11 @@ export const startRun = async (
 /** Stops a running run. What it produced so far stays in the thread. */
 export const stopRun = (id: string) => {
     const run = findRun(runs, id);
-    if (run) controllers.get(run.runId)?.abort();
+    const running = run && live.get(run.runId);
+    if (!running) return;
+    // Only a run still going can be stopped, so this is the user giving up on an answer.
+    trackEvent('AI Mode', 'answer_stopped', running.model, Date.now() - running.startedAt);
+    running.controller.abort();
 };
 
 /** Records that the run's conversation has been shown since the run ended. */
@@ -201,7 +277,7 @@ export const markRunSeen = (id: string) => {
 export const discardRun = (id: string) => {
     const run = findRun(runs, id);
     if (!run) return;
-    controllers.get(run.runId)?.abort();
-    controllers.delete(run.runId);
+    live.get(run.runId)?.controller.abort();
+    live.delete(run.runId);
     emit(runs.filter(r => r !== run));
 };

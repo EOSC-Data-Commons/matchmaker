@@ -12,6 +12,12 @@ import ChatPage from "./ChatPage";
 const DATASET_URL = "https://doi.org/10.5281/zenodo.1234567";
 const hit = makeDataset({dataset_url: DATASET_URL, title: "Ocean Temperatures 2023"});
 
+type Paq = Array<Array<string | number | boolean>>;
+const paq = () => window._paq as unknown as Paq;
+/** The Matomo events with this action, in the order they were sent. */
+const eventsNamed = (action: string) => paq().filter(cmd => cmd[0] === "trackEvent" && cmd[2] === action);
+const siteSearches = () => paq().filter(cmd => cmd[0] === "trackSiteSearch");
+
 // One assistant turn: a search tool call, then a streamed answer citing the hit
 // as a plain Markdown link plus an unrelated external link.
 const chatRun = sse([
@@ -30,6 +36,7 @@ const chatRun = sse([
 beforeEach(() => {
     vi.spyOn(console, "error").mockImplementation(() => {
     });
+    window._paq = [];
     server.use(
         http.get("/auth/user", () => HttpResponse.json({sub: "u-1", name: "Jane Doe"})),
         http.get("/api/search/conversations", () => HttpResponse.json([])),
@@ -40,6 +47,7 @@ beforeEach(() => {
 // Runs live in module state, outside any one render of the page.
 afterEach(() => {
     getChatRuns().forEach(run => discardRun(run.key));
+    delete (window as Partial<Window>)._paq;
 });
 
 /**
@@ -176,6 +184,7 @@ describe("ChatPage", () => {
         const [question] = await screen.findAllByRole("button", {name: "Copy message"});
         await user.click(question);
         expect(await navigator.clipboard.readText()).toBe("ocean data");
+        expect(eventsNamed("message_copied")).toEqual([["trackEvent", "AI Mode", "message_copied", "user"]]);
     });
 
     it("copies an answer once it has finished streaming", async () => {
@@ -195,6 +204,7 @@ describe("ChatPage", () => {
         await waitFor(() => expect(screen.getAllByRole("button", {name: "Copy message"})).toHaveLength(2));
         await user.click(screen.getAllByRole("button", {name: "Copy message"})[1]);
         expect(await navigator.clipboard.readText()).toBe("First half, second half.");
+        expect(eventsNamed("message_copied")).toEqual([["trackEvent", "AI Mode", "message_copied", "assistant"]]);
     });
 
     it("does not carry one conversation's open citation into another", async () => {
@@ -341,6 +351,7 @@ describe("ChatPage", () => {
         expect(await screen.findByText("First half,")).toBeInTheDocument();
 
         await user.click(screen.getByRole("button", {name: /new conversation/i}));
+        expect(eventsNamed("new_conversation_clicked")).toEqual([["trackEvent", "AI Mode", "new_conversation_clicked"]]);
 
         // The new chat can be used straight away, and the answer does not follow into it.
         expect(screen.getByRole("button", {name: /send/i})).toBeEnabled();
@@ -407,9 +418,128 @@ describe("ChatPage", () => {
 
         expect(await screen.findByRole("button", {name: /send/i})).toBeEnabled();
         expect(input).toHaveValue("next question");
+        // Stopping is an outcome of its own, and the question is recorded without a result.
+        expect(eventsNamed("answer_stopped"))
+            .toEqual([["trackEvent", "AI Mode", "answer_stopped", "cesnet/agentic", expect.any(Number)]]);
+        await waitFor(() => expect(siteSearches()).toEqual([["trackSiteSearch", "ocean data", "ai", false]]));
         run.finish();
         await waitFor(() => expect(screen.getByText("First half,")).toBeInTheDocument());
         expect(screen.queryByText(/second half/)).not.toBeInTheDocument();
         expect(screen.getAllByText("ocean data", {selector: "p"})).toHaveLength(1);
+    });
+
+    it("counts the question as the first turn of a new conversation, then as a follow-up", async () => {
+        const user = userEvent.setup();
+        renderChat();
+
+        await user.type(await screen.findByRole("textbox"), "ocean data");
+        await user.click(screen.getByRole("button", {name: /send/i}));
+        await screen.findByRole("link", {name: /Ocean temps/});
+        await waitFor(() => expect(getChatRuns()[0]?.status).toBe("finished"));
+
+        await user.type(screen.getByRole("textbox"), "and the files?");
+        await user.click(screen.getByRole("button", {name: /send/i}));
+
+        await waitFor(() => expect(eventsNamed("question_sent")).toEqual([
+            ["trackEvent", "AI Mode", "question_sent", "new", 1],
+            ["trackEvent", "AI Mode", "question_sent", "follow_up", 2],
+        ]));
+        // The question text travels only as a site search keyword, never in an event.
+        expect(paq().filter(cmd => cmd[0] === "trackEvent").some(cmd => String(cmd[3]).includes("ocean"))).toBe(false);
+    });
+
+    it("counts a question handed over from the landing page as such", async () => {
+        render(
+            <MemoryRouter initialEntries={[{pathname: "/chat", state: {initialQuery: "ocean data", source: "landing"}}]}>
+                <Routes>
+                    <Route path="/chat/:id?" element={<ChatPage/>}/>
+                </Routes>
+            </MemoryRouter>,
+        );
+
+        await screen.findByRole("link", {name: /Ocean temps/});
+        expect(eventsNamed("question_sent")).toEqual([["trackEvent", "AI Mode", "question_sent", "from_landing", 1]]);
+    });
+
+    it("records the question against site search once the answer is in, with what the tools found", async () => {
+        const user = userEvent.setup();
+        renderChat();
+
+        await user.type(await screen.findByRole("textbox"), "ocean data");
+        await user.click(screen.getByRole("button", {name: /send/i}));
+        await waitFor(() => expect(getChatRuns()[0]?.status).toBe("finished"));
+
+        expect(siteSearches()).toEqual([["trackSiteSearch", "ocean data", "ai", 1]]);
+        expect(eventsNamed("tool_called")).toEqual([["trackEvent", "AI Mode", "tool_called", "search_data", 1]]);
+        expect(eventsNamed("first_token"))
+            .toEqual([["trackEvent", "AI Mode", "first_token", "cesnet/agentic", expect.any(Number)]]);
+        expect(eventsNamed("answer_completed"))
+            .toEqual([["trackEvent", "AI Mode", "answer_completed", "cesnet/agentic", expect.any(Number)]]);
+        expect(eventsNamed("answer_failed")).toEqual([]);
+    });
+
+    it("records a failed question against site search without a result, once", async () => {
+        server.use(http.post("/api/search/chat", () => sseResponse(sse([
+            {type: "RUN_STARTED", thread_id: "t-2"},
+            {type: "RUN_ERROR", message: "LLM generation timed out"},
+        ]))));
+        const user = userEvent.setup();
+        renderChat();
+
+        await user.type(await screen.findByRole("textbox"), "ocean data");
+        await user.click(screen.getByRole("button", {name: /send/i}));
+        await screen.findByText(/timed out/);
+        await waitFor(() => expect(getChatRuns()[0]?.status).toBe("failed"));
+
+        expect(siteSearches()).toEqual([["trackSiteSearch", "ocean data", "ai", false]]);
+        expect(eventsNamed("answer_failed"))
+            .toEqual([["trackEvent", "AI Mode", "answer_failed", "timeout", expect.any(Number)]]);
+        expect(eventsNamed("answer_completed")).toEqual([]);
+    });
+
+    it("counts a conversation opened from the sidebar once, and one opened at its address as such", async () => {
+        server.use(
+            http.get("/api/search/conversations", () => HttpResponse.json([
+                {thread_id: "t-9", label: "Earlier chat"},
+            ])),
+            http.get("/api/search/conversation/t-9", () => HttpResponse.json({
+                thread_id: "t-9",
+                label: "Earlier chat",
+                items: [{type: "message", role: "user", content: "earlier question"}],
+            })),
+        );
+        const user = userEvent.setup();
+        const {unmount} = renderChat();
+
+        await user.click(await screen.findByText("Earlier chat"));
+        await screen.findByText("earlier question");
+        // The click also moves the URL to the conversation, which must not count again.
+        expect(eventsNamed("conversation_opened")).toEqual([["trackEvent", "AI Mode", "conversation_opened", "sidebar"]]);
+        unmount();
+
+        window._paq = [];
+        render(
+            <MemoryRouter initialEntries={["/chat/t-9"]}>
+                <Routes>
+                    <Route path="/chat/:id?" element={<ChatPage/>}/>
+                </Routes>
+            </MemoryRouter>,
+        );
+        await screen.findByText("earlier question");
+        expect(eventsNamed("conversation_opened")).toEqual([["trackEvent", "AI Mode", "conversation_opened", "url"]]);
+    });
+
+    it("counts the login gate once when it appears, and starts the login from it", async () => {
+        server.use(http.get("/auth/user", () => new HttpResponse(null, {status: 401})));
+        const user = userEvent.setup();
+        renderChat();
+
+        await screen.findByRole("heading", {name: "Authentication Required"});
+        expect(eventsNamed("gate_shown")).toEqual([["trackEvent", "Auth", "gate_shown", "chat"]]);
+
+        await user.click(screen.getByRole("button", {name: "Log In to Continue"}));
+        expect(eventsNamed("login_started")).toEqual([["trackEvent", "Auth", "login_started", "gate_chat"]]);
+        // The login stashed a return path; it must not send a later test's signed-in user anywhere.
+        sessionStorage.clear();
     });
 });
