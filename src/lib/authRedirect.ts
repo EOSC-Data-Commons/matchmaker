@@ -6,20 +6,36 @@
 // `useAuth` confirms the user is authenticated it consumes the stash and navigates
 // back. No backend change is required.
 
+import {type LoginTrigger, trackEvent} from './analytics.ts';
+
 const POST_LOGIN_REDIRECT_KEY = 'postLoginRedirect';
+const POST_LOGIN_TRIGGER_KEY = 'postLoginTrigger';
 const AI_MODE_LOGIN_KEY = 'postLoginAiMode';
+
+const LOGIN_TRIGGERS: ReadonlySet<string> = new Set<LoginTrigger>([
+    'header_landing', 'header_search', 'ai_mode_toggle', 'play_button',
+    'gate_chat', 'gate_data_player', 'gate_profile', 'gate_export',
+]);
 
 /**
  * Remember the current location and start the login flow.
  * Call this instead of `window.location.href = '/auth/login'` whenever the user
  * is logging in from a page they should be returned to.
+ *
+ * `trigger` names the control the user clicked. It is reported at once as
+ * `Auth/login_started` and stashed so `useAuth` can report `Auth/login_completed`
+ * with the same name, which is what makes the conversion per entry point
+ * readable. matomo.js sends with `sendBeacon`, so the event survives the
+ * navigation that follows.
  */
-export function loginWithReturn() {
+export function loginWithReturn(trigger: LoginTrigger, returnTo?: string) {
+    trackEvent('Auth', 'login_started', trigger);
     try {
         sessionStorage.setItem(
             POST_LOGIN_REDIRECT_KEY,
-            window.location.pathname + window.location.search,
+            returnTo ?? window.location.pathname + window.location.search,
         );
+        sessionStorage.setItem(POST_LOGIN_TRIGGER_KEY, trigger);
     } catch {
         // sessionStorage may be unavailable (private mode / blocked) — fall back
         // to a plain login without a return path.
@@ -44,6 +60,23 @@ export function consumePostLoginRedirect(): string | null {
 }
 
 /**
+ * Read and clear the trigger stashed by `loginWithReturn`. Returns null when
+ * none was stashed or the stored value is not one we know, so a stale or
+ * tampered entry can never become an event name.
+ */
+export function consumeLoginTrigger(): LoginTrigger | null {
+    try {
+        const trigger = sessionStorage.getItem(POST_LOGIN_TRIGGER_KEY);
+        if (trigger) {
+            sessionStorage.removeItem(POST_LOGIN_TRIGGER_KEY);
+        }
+        return trigger && LOGIN_TRIGGERS.has(trigger) ? trigger as LoginTrigger : null;
+    } catch {
+        return null;
+    }
+}
+
+/**
  * Start the login flow from the AI Mode toggle. The page the user returns to is
  * marked so that its search bar comes back with AI mode on, instead of making the
  * user click the toggle a second time.
@@ -57,7 +90,7 @@ export function loginForAiMode() {
     } catch {
         // Without sessionStorage the user just has to turn AI mode on again.
     }
-    loginWithReturn();
+    loginWithReturn('ai_mode_toggle');
 }
 
 /**

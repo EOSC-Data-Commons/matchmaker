@@ -10,15 +10,21 @@ const setUrl = (url: string) => {
     (window as unknown as {happyDOM: {setURL: (u: string) => void}}).happyDOM.setURL(url);
 };
 
+type Paq = Array<Array<string | number | boolean>>;
+const paq = () => window._paq as unknown as Paq;
+const events = () => paq().filter(c => c[0] === "trackEvent");
+
 describe("useAuth", () => {
     beforeEach(() => {
         sessionStorage.clear();
+        window._paq = [];
         setUrl("http://localhost:5173/profile");
         vi.spyOn(console, "error").mockImplementation(() => {});
     });
 
     afterEach(() => {
         vi.restoreAllMocks();
+        delete (window as Partial<Window>)._paq;
     });
 
     it("exposes the user once /auth/user resolves", async () => {
@@ -102,5 +108,60 @@ describe("useAuth", () => {
 
         result.current.logout();
         expect(window.location.pathname).toBe("/auth/logout");
+    });
+
+    it("reports the completed login under the trigger that started it", async () => {
+        server.use(http.get("/auth/user", () => HttpResponse.json(jane)));
+        sessionStorage.setItem("postLoginRedirect", "/profile");
+        sessionStorage.setItem("postLoginTrigger", "gate_profile");
+        const {result} = renderHook(() => useAuth());
+
+        await waitFor(() => expect(result.current.loading).toBe(false));
+        expect(events()).toContainEqual(["trackEvent", "Auth", "login_completed", "gate_profile"]);
+        expect(sessionStorage.getItem("postLoginTrigger")).toBeNull();
+    });
+
+    it("reports an unknown trigger when only the target survived", async () => {
+        server.use(http.get("/auth/user", () => HttpResponse.json(jane)));
+        sessionStorage.setItem("postLoginRedirect", "/profile");
+        const {result} = renderHook(() => useAuth());
+
+        await waitFor(() => expect(result.current.loading).toBe(false));
+        expect(events()).toContainEqual(["trackEvent", "Auth", "login_completed", "unknown"]);
+    });
+
+    it("does not report a login on an ordinary reload with a session", async () => {
+        server.use(http.get("/auth/user", () => HttpResponse.json(jane)));
+        const {result} = renderHook(() => useAuth());
+
+        await waitFor(() => expect(result.current.loading).toBe(false));
+        expect(events().some(c => c[2] === "login_completed")).toBe(false);
+    });
+
+    // Several components mount this hook on every page; the visit is marked once.
+    it("marks a signed-in visit once per session", async () => {
+        server.use(http.get("/auth/user", () => HttpResponse.json(jane)));
+        const first = renderHook(() => useAuth());
+        await waitFor(() => expect(first.result.current.loading).toBe(false));
+        const second = renderHook(() => useAuth());
+        await waitFor(() => expect(second.result.current.loading).toBe(false));
+
+        expect(events().filter(c => c[2] === "signed_in_visit")).toEqual([["trackEvent", "Auth", "signed_in_visit"]]);
+    });
+
+    it("does not mark an anonymous visit", async () => {
+        server.use(http.get("/auth/user", () => new HttpResponse(null, {status: 401})));
+        const {result} = renderHook(() => useAuth());
+        await waitFor(() => expect(result.current.loading).toBe(false));
+        expect(events()).toEqual([]);
+    });
+
+    it("reports the logout before leaving", async () => {
+        server.use(http.get("/auth/user", () => HttpResponse.json(jane)));
+        const {result} = renderHook(() => useAuth());
+        await waitFor(() => expect(result.current.loading).toBe(false));
+
+        result.current.logout();
+        expect(events()).toContainEqual(["trackEvent", "Auth", "logout"]);
     });
 });
