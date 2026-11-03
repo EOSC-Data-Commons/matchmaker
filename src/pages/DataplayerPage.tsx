@@ -79,17 +79,16 @@ export const DataplayerPage = () => {
 
     const {queryToolResults: toolMatchResults} = useFilesToQueryTool(files);
     const {
-        debouncedSearch,
+        search: searchTools,
+        activeSearch,
         queryToolResults: toolSearchResults,
+        searchStatus,
         searchError
-    } = useSearchTextToQueryTool(toolSearchText);
+    } = useSearchTextToQueryTool();
 
-    // if user start type text to search, give the search result
-    // otherwise, output the tool match result.
-    const queryToolResults =
-        debouncedSearch.trim().length >= 2
-            ? toolSearchResults
-            : toolMatchResults;
+    // The results of the last submitted search while there is one;
+    // otherwise the tools matched to the files.
+    const queryToolResults = activeSearch ? toolSearchResults : toolMatchResults;
 
     const {
         toolConfig,
@@ -353,11 +352,13 @@ export const DataplayerPage = () => {
                                 <ToolSelectionStep
                                     toolSearchText={toolSearchText}
                                     setToolSearchText={setToolSearchText}
+                                    onSearch={searchTools}
+                                    isSearching={searchStatus === 'loading'}
                                     isFilesLoading={isFilesLoading}
                                     queryToolResults={queryToolResults}
                                     handleToolSelect={handleToolSelect}
                                     filesError={filesError}
-                                    searchError={debouncedSearch.trim().length >= 2 ? searchError : null}
+                                    searchError={searchError}
                                     selectedToolId={selectedToolId}
                                 />
                             )}

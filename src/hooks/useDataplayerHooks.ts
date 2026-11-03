@@ -1,4 +1,4 @@
-import {useEffect, useRef, useState} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
 import {DispatchResult, FileMeta, TaskStatus, ToolConfig, TypedValue} from '@/types/dataplayerTypes';
 import {
     fetchFilesMetaByDatasetHandle,
@@ -164,60 +164,52 @@ export function useFilesToQueryTool(files: FileMeta[]) {
     return {queryToolResults};
 }
 
-export function useSearchTextToQueryTool(toolSearchText: string) {
-    const [debouncedSearch, setDebouncedSearch] = useState("");
+/**
+ * Text search over the tool registry, run on demand rather than while typing:
+ * every query costs the registry an embedding call, so the input submits on
+ * Enter or the search button. `activeSearch` is the query whose results are
+ * showing, empty when none, so the page knows when to fall back to the tools
+ * matched to the files. A query shorter than the registry accepts is not sent
+ * and just restores that fallback.
+ */
+export function useSearchTextToQueryTool() {
+    const [activeSearch, setActiveSearch] = useState("");
     const [queryToolResults, setQueryToolResults] = useState<Record<string, ToolConfig>>({});
     const [searchStatus, setSearchStatus] = useState<ToolConfigStatus>('idle');
     const [searchError, setSearchError] = useState<string | null>(null);
+    // Only the latest submission may publish its outcome.
+    const requestRef = useRef(0);
 
-    useEffect(() => {
-        let cancelled = false;
+    const search = useCallback(async (text: string) => {
+        const requestId = ++requestRef.current;
+        const query = text.trim();
 
-        async function load() {
-            if (debouncedSearch.trim().length < 2) {
-                if (!cancelled) {
-                    setSearchStatus('idle');
-                    setSearchError(null);
-                }
-                return;
-            }
-
-            if (!cancelled) {
-                setSearchStatus('loading');
-                setSearchError(null);
-            }
-
-            try {
-                const tools = await searchToolsByText(debouncedSearch);
-                if (!cancelled) {
-                    setQueryToolResults(tools);
-                    setSearchStatus('loaded');
-                }
-            } catch (err) {
-                if (!cancelled) {
-                    setQueryToolResults({});
-                    setSearchError(err instanceof Error ? err.message : String(err));
-                    setSearchStatus('error');
-                }
-            }
+        if (query.length < 2) {
+            setActiveSearch("");
+            setQueryToolResults({});
+            setSearchStatus('idle');
+            setSearchError(null);
+            return;
         }
 
-        load();
+        setActiveSearch(query);
+        setSearchStatus('loading');
+        setSearchError(null);
 
-        return () => {
-            cancelled = true;
-        };
-    }, [debouncedSearch]);
+        try {
+            const tools = await searchToolsByText(query);
+            if (requestId !== requestRef.current) return;
+            setQueryToolResults(tools);
+            setSearchStatus('loaded');
+        } catch (err) {
+            if (requestId !== requestRef.current) return;
+            setQueryToolResults({});
+            setSearchError(err instanceof Error ? err.message : String(err));
+            setSearchStatus('error');
+        }
+    }, []);
 
-    useEffect(() => {
-        const timeout = setTimeout(() => {
-            setDebouncedSearch(toolSearchText);
-        }, 500);
-
-        return () => clearTimeout(timeout);
-    }, [toolSearchText]);
-
-    return {debouncedSearch, queryToolResults, searchStatus, searchError};
+    return {search, activeSearch, queryToolResults, searchStatus, searchError};
 }
 
 export type ToolConfigStatus = 'idle' | 'loading' | 'loaded' | 'error';

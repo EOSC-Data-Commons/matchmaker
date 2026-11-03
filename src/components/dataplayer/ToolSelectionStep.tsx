@@ -1,24 +1,58 @@
 import {ToolConfig} from '@/types/dataplayerTypes';
 import {stripMarkdown} from '@/lib/utils';
+import {Search} from 'lucide-react';
 
-// component: textbox to input text to search tool
+// component: textbox to input text to search tool. The search runs on Enter or
+// the button, not while typing: each query costs the registry an embedding call.
 export function ToolSearchInput({
-                                    value, onChange
+                                    value, onChange, onSearch, isSearching
                                 }: {
     value: string;
     onChange: (v: string) => void;
+    onSearch: (text: string) => void;
+    isSearching: boolean;
 }) {
     return (
-        <div className="p-4 bg-white border border-eosc-border rounded-lg">
-            <p className="text-sm font-light text-eosc-text mb-2">Search for a tool</p>
-            <input
-                type="text"
-                placeholder="Search tools..."
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                className="w-full font-light p-3 border border-eosc-border rounded-lg focus:ring-2 focus:ring-eosc-light-blue text-eosc-text bg-white"
-            />
-        </div>
+        <form
+            className="p-4 bg-white border border-eosc-border rounded-lg"
+            onSubmit={(e) => {
+                e.preventDefault();
+                onSearch(value);
+            }}
+        >
+            <label htmlFor="tool-search" className="block text-sm font-light text-eosc-text mb-2">
+                Search for a tool
+            </label>
+            <div className="flex gap-2">
+                <input
+                    id="tool-search"
+                    type="text"
+                    placeholder="Search tools by name or purpose"
+                    value={value}
+                    onChange={(e) => {
+                        const next = e.target.value;
+                        onChange(next);
+                        // Clearing the box restores the tools matched to the files
+                        // without waiting for a submit; nothing is sent for it.
+                        if (next === '') onSearch('');
+                    }}
+                    className="w-full min-w-0 font-light p-3 border border-eosc-border rounded-lg focus:ring-2 focus:ring-eosc-light-blue text-eosc-text bg-white"
+                />
+                <button
+                    type="submit"
+                    aria-label="Search tools"
+                    title="Search tools"
+                    className="shrink-0 flex items-center justify-center px-4 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 cursor-pointer"
+                >
+                    {isSearching ? (
+                        <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin"
+                             role="status" aria-label="Searching"/>
+                    ) : (
+                        <Search className="h-5 w-5"/>
+                    )}
+                </button>
+            </div>
+        </form>
     );
 }
 
@@ -93,6 +127,8 @@ export function ToolResultSelect({
 interface ToolSelectionStepProps {
     toolSearchText: string;
     setToolSearchText: (text: string) => void;
+    onSearch: (text: string) => void;
+    isSearching: boolean;
     isFilesLoading: boolean;
     queryToolResults: Record<string, ToolConfig>;
     handleToolSelect: (key: string) => Promise<void>;
@@ -104,6 +140,8 @@ interface ToolSelectionStepProps {
 export const ToolSelectionStep = ({
                                       toolSearchText,
                                       setToolSearchText,
+                                      onSearch,
+                                      isSearching,
                                       isFilesLoading,
                                       queryToolResults,
                                       handleToolSelect,
@@ -123,6 +161,8 @@ export const ToolSelectionStep = ({
                 <ToolSearchInput
                     value={toolSearchText}
                     onChange={setToolSearchText}
+                    onSearch={onSearch}
+                    isSearching={isSearching}
                 />
             </div>
 
@@ -136,7 +176,10 @@ export const ToolSelectionStep = ({
                 isFilesLoading={isFilesLoading}
                 results={queryToolResults}
                 handleToolSelect={handleToolSelect}
-                onPickSuggestion={setToolSearchText}
+                onPickSuggestion={(text) => {
+                    setToolSearchText(text);
+                    onSearch(text);
+                }}
             />
 
             {filesError && (
