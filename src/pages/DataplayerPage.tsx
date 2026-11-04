@@ -14,6 +14,7 @@ import {
     areAllParametersMapped,
     useDataset,
     useFilesToQueryTool,
+    useDescriptionToQueryTool,
     useSearchTextToQueryTool,
     useSelectedToolId,
 } from '@/hooks/useDataplayerHooks';
@@ -39,6 +40,7 @@ export const DataplayerPage = () => {
 
     const datasetTitle = searchParams.get('title');
     const datasetUrl = searchParams.get('datasetId');
+    const datasetDescription = searchParams.get('description');
     // The search page sends the DOI when the dataset has one. Older links (and any
     // opened before that change) only carry `datasetId`, which is often a DOI URL
     // anyway, so it is a usable fallback rather than a reason to hide the card. An
@@ -77,7 +79,8 @@ export const DataplayerPage = () => {
 
     const [toolSearchText, setToolSearchText] = useState("");
 
-    const {queryToolResults: toolMatchResults} = useFilesToQueryTool(files);
+    // const {queryToolResults: toolMatchResults} = useFilesToQueryTool(files);
+    const {queryToolResults: toolMatchResults} = useDescriptionToQueryTool(datasetDescription);
     const {
         debouncedSearch,
         queryToolResults: toolSearchResults,

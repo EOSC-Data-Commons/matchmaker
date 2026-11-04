@@ -3,6 +3,28 @@
 import { UserInfo } from "@/hooks/useAuth";
 import {DispatchResult, FileMeta, TaskId, ToolConfig, TypedValue, TypLaunchToolRequest} from "../types/dataplayerTypes";
 
+export async function matchToolsByDescription(
+    description: string,
+): Promise<Record<string, ToolConfig>> {
+    const res = await fetch(`/api/coordinator/tool/match_ai`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+        body: JSON.stringify({
+            description: description,
+        }),
+    });
+
+    if (!res.ok) {
+        throw new Error(`Failed to match tools: ${res.status} ${res.statusText}`)
+    }
+
+    const tools: Record<string, ToolConfig> = await res.json();
+    return tools;
+}
+
 export async function matchToolsByFiles(
     files: FileMeta[],
 ): Promise<Record<string, ToolConfig>> {

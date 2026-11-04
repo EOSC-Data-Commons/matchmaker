@@ -369,6 +369,8 @@ app.post("/api/coordinator/tool/match", async (req, res) => {
     try {
         // XXX: @reggie here is the abstract interface to the tool registry.
         const {files} = req.body as { files: FileMeta[] };
+        console.log("Match body:");
+        console.log(req.body)
         const grpc_req: MatchToolsByDataRequest = {
             files: files
                 .filter(f => !f.isDir)

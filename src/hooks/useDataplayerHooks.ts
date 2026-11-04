@@ -145,6 +145,25 @@ export function useDataset(datasetHandle: string | null, enabled: boolean = true
     return {isFilesLoading, files, error, resetDataset};
 }
 
+export function useDescriptionToQueryTool(description: string) {
+    const [queryToolResults, setQueryToolResults] = useState<Record<string, ToolConfig>>({});
+
+    useEffect(() => {
+        if (!description) {
+            return;
+        }
+
+        async function load() {
+            const tools = await matchToolsByDescription(description);
+            setQueryToolResults(tools);
+        }
+
+        load();
+    }, [description]);
+
+    return {queryToolResults};
+}
+
 export function useFilesToQueryTool(files: FileMeta[]) {
     const [queryToolResults, setQueryToolResults] = useState<Record<string, ToolConfig>>({});
 
