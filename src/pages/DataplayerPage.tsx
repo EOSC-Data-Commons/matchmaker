@@ -80,6 +80,7 @@ export const DataplayerPage = () => {
     const [toolSearchText, setToolSearchText] = useState("");
 
     // const {queryToolResults: toolMatchResults} = useFilesToQueryTool(files);
+    console.log("[Dataplayer] Description: ", datasetDescription)
     const {queryToolResults: toolMatchResults} = useDescriptionToQueryTool(datasetDescription);
     const {
         debouncedSearch,

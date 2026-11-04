@@ -41,6 +41,7 @@ export {
     MonitorStateRequest,
     MonitorStateResponse,
     SearchToolsByTextRequest,
+    MatchToolsByDescriptionRequest,
     ToolState_State,
 } from "./generated/coordinator";
 

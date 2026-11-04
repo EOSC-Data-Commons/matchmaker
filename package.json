@@ -79,7 +79,7 @@
     "happy-dom": "^21.0.4",
     "msw": "^2.14.6",
     "tailwindcss": "^4.3.0",
-    "ts-proto": "^2.11.6",
+    "ts-proto": "^2.18.3",
     "tsx": "^4.22.3",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.36.0",
