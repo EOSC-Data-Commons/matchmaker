@@ -1,5 +1,6 @@
 import {ToolConfig} from '@/types/dataplayerTypes';
 import {stripMarkdown} from '@/lib/utils';
+import {LoaderIcon} from 'lucide-react';
 
 // component: textbox to input text to search tool
 export function ToolSearchInput({
@@ -26,24 +27,21 @@ const TOOL_SUGGESTIONS = ['jupyter', 'notebook', 'python'];
 
 // component: list all found tools
 export function ToolResultSelect({
-                                     isFilesLoading, results, handleToolSelect, onPickSuggestion
+                                     isToolsLoading, results, handleToolSelect, onPickSuggestion
                                  }: {
-    isFilesLoading: boolean;
+    isToolsLoading: boolean;
     results: Record<string, ToolConfig>;
     handleToolSelect: (key: string) => Promise<void>;
     onPickSuggestion: (text: string) => void;
 }) {
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {Object.entries(results).length === 0 ? (
-                    isFilesLoading ? (
-                        <div
-                            className="col-span-full text-center py-8 text-eosc-gray font-light bg-white rounded-lg border border-eosc-border flex items-center justify-center gap-3 min-h-[75px]">
-                            <div
-                                className="w-5 h-5 border-2 border-gray-300 border-t-eosc-light-blue rounded-full animate-spin"/>
-                            Finding tools for your files…
-                        </div>
-                    ) : (
+            {isToolsLoading ? (
+                <div className="col-span-full text-center py-8 text-eosc-gray font-light bg-white rounded-lg border border-eosc-border flex items-center justify-center gap-3 min-h-[75px]">
+                    <LoaderIcon className="h-5 w-5 text-blue-600 animate-spin shrink-0"/>
+                    Finding tools matching your dataset description...
+                </div>
+            ) : Object.entries(results).length === 0 ? (
                         <div
                             className="col-span-full text-center py-8 px-4 text-eosc-gray font-light bg-white rounded-lg border border-eosc-border flex flex-col items-center justify-center gap-4 min-h-[75px]">
                             <div>
@@ -63,13 +61,12 @@ export function ToolResultSelect({
                                 ))}
                             </div>
                         </div>
-                    )
                 ) :
                 (Object.entries(results) as [string, ToolConfig][]).map(([key, config]) => (
                     <button
                         key={key}
                         onClick={() => handleToolSelect(key)}
-                        disabled={isFilesLoading}
+                        disabled={isToolsLoading}
                         className="p-5 bg-white border border-eosc-border flex flex-col items-start rounded-xl hover:bg-gray-50 hover:border-eosc-light-blue transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed h-full w-full overflow-hidden cursor-pointer"
                     >
                         <h3 className="text-base sm:text-lg font-light text-eosc-text mb-2 wrap-break-word w-full">{config.name}</h3>
@@ -93,10 +90,9 @@ export function ToolResultSelect({
 interface ToolSelectionStepProps {
     toolSearchText: string;
     setToolSearchText: (text: string) => void;
-    isFilesLoading: boolean;
+    isToolsLoading: boolean;
     queryToolResults: Record<string, ToolConfig>;
     handleToolSelect: (key: string) => Promise<void>;
-    filesError: string | null;
     searchError: string | null;
     selectedToolId: string | null;
 }
@@ -104,10 +100,9 @@ interface ToolSelectionStepProps {
 export const ToolSelectionStep = ({
                                       toolSearchText,
                                       setToolSearchText,
-                                      isFilesLoading,
+                                      isToolsLoading,
                                       queryToolResults,
                                       handleToolSelect,
-                                      filesError,
                                       searchError,
                                       selectedToolId
                                   }: ToolSelectionStepProps) => {
@@ -133,23 +128,11 @@ export const ToolSelectionStep = ({
             )}
 
             <ToolResultSelect
-                isFilesLoading={isFilesLoading}
+                isToolsLoading={isToolsLoading}
                 results={queryToolResults}
                 handleToolSelect={handleToolSelect}
                 onPickSuggestion={setToolSearchText}
             />
-
-            {filesError && (
-                <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-red-50 rounded-lg border border-red-200">
-                    <p className="text-sm sm:text-base text-red-900 font-light wrap-break-word">{filesError}</p>
-                    <button
-                        onClick={() => selectedToolId && handleToolSelect(selectedToolId)}
-                        className="mt-2 sm:mt-3 text-xs sm:text-sm text-red-700 underline font-light"
-                    >
-                        Try again
-                    </button>
-                </div>
-            )}
         </div>
     );
 };

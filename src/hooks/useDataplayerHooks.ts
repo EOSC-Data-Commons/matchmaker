@@ -146,23 +146,65 @@ export function useDataset(datasetHandle: string | null, enabled: boolean = true
     return {isFilesLoading, files, error, resetDataset};
 }
 
+// export function useDescriptionToQueryTool(description: string) {
+//     const [queryToolResults, setQueryToolResults] = useState<Record<string, ToolConfig>>({});
+//
+//     useEffect(() => {
+//         if (!description) {
+//             return;
+//         }
+//
+//         async function load() {
+//             const tools = await matchToolsByDescription(description);
+//             setQueryToolResults(tools);
+//         }
+//
+//         load();
+//     }, [description]);
+//
+//     return {queryToolResults};
+// }
+
 export function useDescriptionToQueryTool(description: string) {
-    const [queryToolResults, setQueryToolResults] = useState<Record<string, ToolConfig>>({});
+    const [queryToolResults, setQueryToolResults] =
+        useState<Record<string, ToolConfig>>({});
+
+    const [isLoading, setIsLoading] = useState(!!description);
 
     useEffect(() => {
         if (!description) {
+            setIsLoading(false);
+            setQueryToolResults({});
             return;
         }
 
+        let cancelled = false;
+        setIsLoading(true);
+
         async function load() {
-            const tools = await matchToolsByDescription(description);
-            setQueryToolResults(tools);
+            try {
+                const tools = await matchToolsByDescription(description);
+
+                if (!cancelled) {
+                    setQueryToolResults(tools);
+                }
+            } catch (error) {
+                console.error("Failed to match tools:", error);
+            } finally {
+                if (!cancelled) {
+                    setIsLoading(false);
+                }
+            }
         }
 
         load();
+
+        return () => {
+            cancelled = true;
+        };
     }, [description]);
 
-    return {queryToolResults};
+    return { queryToolResults, isLoading };
 }
 
 /**

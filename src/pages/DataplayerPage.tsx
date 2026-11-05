@@ -85,7 +85,11 @@ export const DataplayerPage = () => {
      *
      * const {queryToolResults: toolMatchResults} = useFilesToQueryTool(files);
      */
-    const {queryToolResults: toolMatchResults} = useDescriptionToQueryTool(datasetDescription);
+    // const {queryToolResults: toolMatchResults} = useDescriptionToQueryTool(datasetDescription);
+    const {
+        queryToolResults: toolMatchResults,
+        isLoading: isToolMatchLoading,
+    } = useDescriptionToQueryTool(datasetDescription);
     const {
         debouncedSearch,
         queryToolResults: toolSearchResults,
@@ -361,10 +365,9 @@ export const DataplayerPage = () => {
                                 <ToolSelectionStep
                                     toolSearchText={toolSearchText}
                                     setToolSearchText={setToolSearchText}
-                                    isFilesLoading={isFilesLoading}
+                                    isToolsLoading={isToolMatchLoading}
                                     queryToolResults={queryToolResults}
                                     handleToolSelect={handleToolSelect}
-                                    filesError={filesError}
                                     searchError={debouncedSearch.trim().length >= 2 ? searchError : null}
                                     selectedToolId={selectedToolId}
                                 />
