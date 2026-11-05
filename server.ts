@@ -364,12 +364,10 @@ app.get("/api/coordinator/tasks-result/:taskId", async (req, res) => {
     }
 });
 
-app.use(express.json());
 app.post("/api/coordinator/tool/match_ai", async (req, res) => {
     const client = getToolSrcClient();
     try {
         const {description} = req.body 
-        console.log("Match description: ", description);
         const grpc_req: MatchToolsByDescriptionRequest = {
             text: description,
         };
@@ -400,14 +398,15 @@ app.post("/api/coordinator/tool/match_ai", async (req, res) => {
     }
 });
 
+/* @deprecated Using match_ai endpoint instead to
+ * match tools to description using AI (LLM)
+ */
 app.use(express.json());
 app.post("/api/coordinator/tool/match", async (req, res) => {
     const client = getToolSrcClient();
     try {
         // XXX: @reggie here is the abstract interface to the tool registry.
         const {files} = req.body as { files: FileMeta[] };
-        console.log("Match body:");
-        console.log(req.body)
         const grpc_req: MatchToolsByDataRequest = {
             files: files
                 .filter(f => !f.isDir)

@@ -79,8 +79,12 @@ export const DataplayerPage = () => {
 
     const [toolSearchText, setToolSearchText] = useState("");
 
-    // const {queryToolResults: toolMatchResults} = useFilesToQueryTool(files);
-    console.log("[Dataplayer] Description: ", datasetDescription)
+    /*
+     * @ deprecated Using useDescriptionToQueryTool instead.
+     * Tools are matched on dataset description instead of files.
+     *
+     * const {queryToolResults: toolMatchResults} = useFilesToQueryTool(files);
+     */
     const {queryToolResults: toolMatchResults} = useDescriptionToQueryTool(datasetDescription);
     const {
         debouncedSearch,

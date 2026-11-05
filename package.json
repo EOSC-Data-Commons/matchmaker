@@ -18,7 +18,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "preversion": "git fetch origin main && if [ -n \"$(git rev-list HEAD..origin/main)\" ]; then echo \"ERROR: HEAD is behind origin/main — pull before bumping, or the tag will publish stale code. Aborting.\" && exit 1; fi",
-    "postversion": "if [ \"$(git rev-parse --abbrev-ref HEAD)\" = \"main\" ]; then git push --follow-tags origin HEAD; else echo \"Not on main branch, skipping push.\"; fi"
+    "postversion": "if [ \"$(git rev-parse --abbrev-ref HEAD)\" = \"main\" ]; then git push --follow-tags origin HEAD; else echo \"Not on main branch, skipping push.\"; fi",
+    "generate:proto": "protoc --plugin=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=./src/lib/server/generated --ts_proto_opt=outputServices=grpc-js,esModuleInterop=true,env=node,useOptionals=messages --proto_path=./req-packager/proto ./req-packager/proto/coordinator.proto"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.12.0",
@@ -79,7 +80,7 @@
     "happy-dom": "^21.0.4",
     "msw": "^2.14.6",
     "tailwindcss": "^4.3.0",
-    "ts-proto": "^2.18.3",
+    "ts-proto": "^2.11.6",
     "tsx": "^4.22.3",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.36.0",

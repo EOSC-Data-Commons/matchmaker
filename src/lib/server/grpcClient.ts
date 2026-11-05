@@ -37,7 +37,6 @@ import {
 export {
     GetArtifactRequest,
     GetToolRequest,
-    MatchToolsByDataRequest,
     MonitorStateRequest,
     MonitorStateResponse,
     SearchToolsByTextRequest,

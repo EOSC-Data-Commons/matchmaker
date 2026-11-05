@@ -147,20 +147,15 @@ export function useDataset(datasetHandle: string | null, enabled: boolean = true
 }
 
 export function useDescriptionToQueryTool(description: string) {
-    console.log("[useDescriptionToQueryTool] description: ", description)
     const [queryToolResults, setQueryToolResults] = useState<Record<string, ToolConfig>>({});
 
     useEffect(() => {
-        console.log("[useDescriptionToQueryTool] EFFECT EXECUTED");
         if (!description) {
-            console.log("[useDescriptionToQueryTool] returning")
             return;
         }
 
         async function load() {
-            console.log("[useDescriptionToQueryTool] calling matchToolsByDescription")
             const tools = await matchToolsByDescription(description);
-            console.log("[useDescriptionToQueryTool] tools: ", tools)
             setQueryToolResults(tools);
         }
 
@@ -170,6 +165,10 @@ export function useDescriptionToQueryTool(description: string) {
     return {queryToolResults};
 }
 
+/**
+ * @deprecated Using useDescriptionToQueryTool instead.
+ * consider removing for release 1.1
+ */
 export function useFilesToQueryTool(files: FileMeta[]) {
     const [queryToolResults, setQueryToolResults] = useState<Record<string, ToolConfig>>({});
 
