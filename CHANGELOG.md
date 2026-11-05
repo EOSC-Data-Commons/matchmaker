@@ -21,6 +21,9 @@ All notable changes to this project will be documented in this file.
 - New events cover what was missing: opening a launched tool, login gates being shown, logouts, signed-in visits,
   FAIR checks and scores, API key actions, past conversations being opened, first-token latency, and which
   repository a played or cited dataset came from.
+- The Data Player reports file loading and completed analyses per repository, and a FAIR re-check reports whether
+  the score improved against the report it replaced, so the project's repository and FAIRness KPIs can be read
+  from Matomo without recording dataset identities.
 
 ## [0.13.1] - 29/10/2026
 
