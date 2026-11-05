@@ -1,6 +1,7 @@
 import {FileMeta, ToolConfig, TypedValue} from '@/types/dataplayerTypes';
 import {useState} from 'react';
 import type {ToolConfigStatus} from '@/hooks/useDataplayerHooks';
+import useMatomo from '@/hooks/useMatomo';
 
 interface slotsMappingAndFilesSetProps {
     selectedToolId: string | null;
@@ -36,6 +37,12 @@ export const SlotsMappingAndFilesSetStep = ({
                                                 onSubmit
                                             }: slotsMappingAndFilesSetProps) => {
     const [promotedOptional, setPromotedOptional] = useState<string[]>([]);
+    const {trackEvent} = useMatomo();
+    // Every "Reselect Tool" button on this step is the same step back.
+    const reselectTool = () => {
+        trackEvent('Data Player', 'step_back', 'reselect_tool');
+        onReselectTool();
+    };
     const requiredParams = toolConfig?.slots.filter(
         (p) => !p.isOptional || promotedOptional.includes(p.name)
     );
@@ -53,7 +60,7 @@ export const SlotsMappingAndFilesSetStep = ({
                 <div className="w-8 h-8 border-2 border-gray-300 border-t-eosc-light-blue rounded-full animate-spin"/>
                 <p className="text-sm text-eosc-gray">Loading tool configuration…</p>
                 <button
-                    onClick={onReselectTool}
+                    onClick={reselectTool}
                     className="text-sm font-light text-eosc-gray hover:text-eosc-light-blue transition-colors cursor-pointer"
                 >
                     <span className="mr-2">←</span> Reselect Tool
@@ -73,7 +80,7 @@ export const SlotsMappingAndFilesSetStep = ({
                 </div>
                 <div className="flex items-center gap-4">
                     <button
-                        onClick={onReselectTool}
+                        onClick={reselectTool}
                         className="text-sm font-light text-eosc-gray hover:text-eosc-light-blue transition-colors cursor-pointer px-4 py-2 rounded-md hover:bg-eosc-bg"
                     >
                         <span className="mr-2">←</span> Reselect Tool
@@ -410,7 +417,7 @@ export const SlotsMappingAndFilesSetStep = ({
             <div
                 className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-eosc-border">
                 <button
-                    onClick={onReselectTool}
+                    onClick={reselectTool}
                     className="text-sm font-light text-eosc-gray hover:text-eosc-light-blue flex items-center transition-colors px-4 py-2 rounded-md hover:bg-eosc-bg cursor-pointer"
                 >
                     <span className="mr-2">←</span> Reselect Tool

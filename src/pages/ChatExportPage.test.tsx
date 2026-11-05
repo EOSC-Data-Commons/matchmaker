@@ -26,12 +26,16 @@ const stored = {
 
 let print: ReturnType<typeof vi.fn>;
 
+type Paq = Array<Array<string | number | boolean>>;
+const paq = () => window._paq as unknown as Paq;
+
 beforeEach(() => {
     vi.spyOn(console, "error").mockImplementation(() => {
     });
     // happy-dom has no print dialog to spy on.
     print = vi.fn();
     window.print = print as unknown as typeof window.print;
+    window._paq = [];
     server.use(
         http.get("/auth/user", () => HttpResponse.json({sub: "u-1", name: "Jane Doe", email: "jane@example.org"})),
         http.get("/api/search/conversation/:id", () => HttpResponse.json(stored)),
@@ -41,6 +45,7 @@ beforeEach(() => {
 afterEach(() => {
     vi.restoreAllMocks();
     delete (window as Partial<Window>).print;
+    delete (window as Partial<Window>)._paq;
     getChatRuns().forEach(run => discardRun(run.key));
 });
 
@@ -155,5 +160,40 @@ describe("ChatExportPage", () => {
 
         await user.click(screen.getByRole("button", {name: "Back to conversation"}));
         expect(screen.getByText("conversation page")).toBeInTheDocument();
+    });
+
+    it("counts each print as a PDF export and each download as a Markdown one, by message count", async () => {
+        const user = userEvent.setup();
+        vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:export");
+        vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {
+        });
+        vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {
+        });
+        renderExport();
+
+        // The automatic print on load is an export; the page load itself is not.
+        await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
+        expect(paq()).toEqual([["trackEvent", "AI Mode", "exported", "pdf", 2]]);
+
+        await user.click(screen.getByRole("button", {name: "Save as PDF"}));
+        await user.click(screen.getByRole("button", {name: "Download Markdown"}));
+        expect(paq().slice(1)).toEqual([
+            ["trackEvent", "AI Mode", "exported", "pdf", 2],
+            ["trackEvent", "AI Mode", "exported", "markdown", 2],
+        ]);
+    });
+
+    it("counts the sign-in card once, and starts the login from it", async () => {
+        const user = userEvent.setup();
+        server.use(http.get("/auth/user", () => new HttpResponse(null, {status: 401})));
+        renderExport();
+
+        await screen.findByRole("heading", {name: "Sign in to export this conversation"});
+        expect(paq()).toEqual([["trackEvent", "Auth", "gate_shown", "export"]]);
+
+        await user.click(screen.getByRole("button", {name: "Log in"}));
+        expect(paq()).toContainEqual(["trackEvent", "Auth", "login_started", "gate_export"]);
+        // The login stashed a return path; it must not send a later test's signed-in user anywhere.
+        sessionStorage.clear();
     });
 });

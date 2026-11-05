@@ -1,4 +1,4 @@
-import {describe, it, expect, vi, beforeEach} from "vitest";
+import {describe, it, expect, vi, beforeEach, afterEach} from "vitest";
 import type {ReactNode} from "react";
 import {render, screen} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -20,11 +20,34 @@ const renderInput = (props: Partial<Parameters<typeof SearchInput>[0]> = {}) => 
     return {onSearch, input: screen.getByRole("textbox")};
 };
 
+type Paq = Array<Array<string | number | boolean>>;
+const events = () => (window._paq as unknown as Paq).filter(c => c[0] === "trackEvent");
+
 describe("SearchInput", () => {
     beforeEach(() => {
         localStorage.clear();
+        window._paq = [];
         vi.mocked(loginForAiMode).mockClear();
         vi.mocked(returnedFromAiModeLogin).mockReturnValue(false);
+    });
+
+    afterEach(() => {
+        delete (window as Partial<Window>)._paq;
+    });
+
+    it("reports nothing itself on submit: the page owns Search/submitted", async () => {
+        // This component is also the chat composer, where a submit used to be
+        // counted as a search. The origin travels to the page instead.
+        const user = userEvent.setup();
+        localStorage.setItem("searchHistory", JSON.stringify(["ocean currents"]));
+        const {onSearch, input} = renderInput();
+
+        await user.click(input);
+        await user.click(screen.getByText("ocean currents"));
+        await user.type(input, "{Enter}");
+        expect(onSearch).toHaveBeenNthCalledWith(1, "ocean currents", "cesnet/agentic", false, "history");
+        expect(onSearch).toHaveBeenNthCalledWith(2, "ocean currents", "cesnet/agentic", false, "typed");
+        expect(events()).toEqual([]);
     });
 
     it("submits the trimmed query with the default model", async () => {
@@ -34,7 +57,7 @@ describe("SearchInput", () => {
         await user.type(input, "  climate data  ");
         await user.click(screen.getByRole("button", {name: "Search"}));
 
-        expect(onSearch).toHaveBeenCalledExactlyOnceWith("climate data", "cesnet/agentic", false);
+        expect(onSearch).toHaveBeenCalledExactlyOnceWith("climate data", "cesnet/agentic", false, "typed");
     });
 
     it("submits on Enter", async () => {
@@ -80,7 +103,7 @@ describe("SearchInput", () => {
             expect(screen.getByText("ocean currents")).toBeInTheDocument();
 
             await user.click(screen.getByText("climate data"));
-            expect(onSearch).toHaveBeenCalledExactlyOnceWith("climate data", "cesnet/agentic", false);
+            expect(onSearch).toHaveBeenCalledExactlyOnceWith("climate data", "cesnet/agentic", false, "history");
             expect(screen.queryByText("ocean currents")).not.toBeInTheDocument();
         });
 
@@ -99,7 +122,7 @@ describe("SearchInput", () => {
 
             await user.click(input);
             await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
-            expect(onSearch).toHaveBeenCalledExactlyOnceWith("climate data", "cesnet/agentic", false);
+            expect(onSearch).toHaveBeenCalledExactlyOnceWith("climate data", "cesnet/agentic", false, "history");
         });
 
         it("can be disabled entirely", async () => {
@@ -123,7 +146,7 @@ describe("SearchInput", () => {
             expect(screen.getByRole("button", {name: "Toggle AI mode"})).toHaveAttribute("aria-pressed", "true");
             expect(screen.queryByRole("button", {name: "Search"})).not.toBeInTheDocument();
             await user.type(screen.getByRole("textbox"), "ocean{Enter}");
-            expect(onSearch).toHaveBeenCalledExactlyOnceWith("ocean", "cesnet/agentic", true);
+            expect(onSearch).toHaveBeenCalledExactlyOnceWith("ocean", "cesnet/agentic", true, "typed");
         });
 
         it("brings the Search button back when turned off, and Ask AI when turned on again", async () => {
@@ -135,12 +158,34 @@ describe("SearchInput", () => {
             expect(screen.queryByRole("button", {name: "Ask AI"})).not.toBeInTheDocument();
             await user.type(input, "ocean");
             await user.click(screen.getByRole("button", {name: "Search"}));
-            expect(onSearch).toHaveBeenCalledExactlyOnceWith("ocean", "cesnet/agentic", false);
+            expect(onSearch).toHaveBeenCalledExactlyOnceWith("ocean", "cesnet/agentic", false, "typed");
 
             await user.click(toggle);
             expect(screen.queryByRole("button", {name: "Search"})).not.toBeInTheDocument();
             await user.click(screen.getByRole("button", {name: "Ask AI"}));
-            expect(onSearch).toHaveBeenLastCalledWith("ocean", "cesnet/agentic", true);
+            expect(onSearch).toHaveBeenLastCalledWith("ocean", "cesnet/agentic", true, "typed");
+        });
+
+        it("reports each toggle as AI Mode/toggled with the new state", async () => {
+            const user = userEvent.setup();
+            renderInput({showAiToggle: true, isLoggedIn: true});
+            const toggle = screen.getByRole("button", {name: "Toggle AI mode"});
+
+            await user.click(toggle);
+            await user.click(toggle);
+            expect(events()).toEqual([
+                ["trackEvent", "AI Mode", "toggled", "off"],
+                ["trackEvent", "AI Mode", "toggled", "on"],
+            ]);
+        });
+
+        it("reports no event of its own for an anonymous click: the login start covers it", async () => {
+            const user = userEvent.setup();
+            renderInput({showAiToggle: true, isLoggedIn: false});
+
+            await user.click(screen.getByRole("button", {name: "Toggle AI mode"}));
+            expect(loginForAiMode).toHaveBeenCalledOnce();
+            expect(events()).toEqual([]);
         });
 
         it("stays off for anonymous users and sends them to log in", async () => {
@@ -153,7 +198,7 @@ describe("SearchInput", () => {
             expect(loginForAiMode).toHaveBeenCalledOnce();
 
             await user.type(input, "ocean{Enter}");
-            expect(onSearch).toHaveBeenCalledExactlyOnceWith("ocean", "cesnet/agentic", false);
+            expect(onSearch).toHaveBeenCalledExactlyOnceWith("ocean", "cesnet/agentic", false, "typed");
         });
 
         it("comes back on after a login started from the toggle", () => {
@@ -180,7 +225,7 @@ describe("SearchInput", () => {
 
             expect(screen.queryByRole("button", {name: "Ask AI"})).not.toBeInTheDocument();
             await user.type(input, "ocean{Enter}");
-            expect(onSearch).toHaveBeenCalledExactlyOnceWith("ocean", "cesnet/agentic", false);
+            expect(onSearch).toHaveBeenCalledExactlyOnceWith("ocean", "cesnet/agentic", false, "typed");
         });
     });
 

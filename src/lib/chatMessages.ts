@@ -39,6 +39,10 @@ const textOf = (blocks: MessageBlock[]): string =>
         .join('\n\n')
         .trim();
 
+/** Total number of search hits returned by a bot message's tool calls. */
+export const countHits = (message: Message): number =>
+    (message.blocks ?? []).reduce((acc, b) => acc + (b.kind === 'tool' ? (b.toolCall.hits?.length ?? 0) : 0), 0);
+
 /** Index of the bot message still open for streaming (always the last one), or -1. */
 const openIndex = (messages: Message[]): number => {
     const last = messages.length - 1;

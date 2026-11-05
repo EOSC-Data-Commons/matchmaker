@@ -1,4 +1,4 @@
-import {describe, it, expect} from "vitest";
+import {afterEach, beforeEach, describe, expect, it} from "vitest";
 import type {ReactNode} from "react";
 import {render, screen} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -28,6 +28,14 @@ const makeToolHit = () => ({
 });
 
 describe("ToolCallEntry", () => {
+    beforeEach(() => {
+        window._paq = [];
+    });
+
+    afterEach(() => {
+        delete (window as Partial<Window>)._paq;
+    });
+
     it("labels the known tools instead of showing the raw name", () => {
         const {unmount} = renderEntry({id: "c1", name: "search_tools", args: "", hits: [], done: true});
         expect(screen.getByText("Searched tools")).toBeInTheDocument();
@@ -92,5 +100,18 @@ describe("ToolCallEntry", () => {
 
         await user.click(screen.getByRole("button"));
         expect(screen.getByText("Output")).toBeInTheDocument();
+    });
+
+    it("counts the registry tool whose link was opened, by its title", async () => {
+        const user = userEvent.setup();
+        renderEntry({id: "c1", name: "search_tools", args: "", hits: [makeToolHit()], done: true});
+
+        await user.click(screen.getByRole("button"));
+        const link = screen.getByRole("link", {name: /Open tool/});
+        // happy-dom would otherwise follow the link and fetch example.org.
+        link.addEventListener("click", event => event.preventDefault());
+        await user.click(link);
+
+        expect(window._paq).toContainEqual(["trackEvent", "AI Mode", "tool_link_opened", "Samtools"]);
     });
 });

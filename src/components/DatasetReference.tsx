@@ -3,6 +3,7 @@ import {FileText} from "lucide-react";
 import type {BackendDataset} from "../types/commons.ts";
 import {getProvenanceSource} from "../lib/repoProvenance.ts";
 import {sanitizeLinkHref} from "../lib/utils.ts";
+import {type DatasetContext, datasetEventName} from "../lib/analytics.ts";
 import useMatomo from "../hooks/useMatomo";
 
 interface DatasetReferenceProps {
@@ -14,6 +15,8 @@ interface DatasetReferenceProps {
     number?: number;
     // Called with the reference number when the citation is activated.
     onJump?: (number: number) => void;
+    // Where the citation is shown, for analytics: inside an answer unless told otherwise.
+    context?: DatasetContext;
 }
 
 /**
@@ -28,7 +31,7 @@ interface DatasetReferenceProps {
  * opens expanded — the description, the details and the Source button all live there,
  * so the citation leads to one place rather than two. Nothing opens on hover.
  */
-export const DatasetReference = ({dataset, label, number, onJump}: DatasetReferenceProps) => {
+export const DatasetReference = ({dataset, label, number, onJump, context = 'ai_answer'}: DatasetReferenceProps) => {
     const {trackEvent} = useMatomo();
 
     const title = dataset.title || dataset._source?.titles?.[0]?.title || 'dataset';
@@ -38,7 +41,7 @@ export const DatasetReference = ({dataset, label, number, onJump}: DatasetRefere
     // Without a number, or with nothing to handle the jump (the printable export), there
     // is no reference list to lead to, so the citation stays an ordinary link to the source.
     const jumpToReference = number === undefined || !onJump ? null : () => {
-        trackEvent('Chat', 'citation_clicked');
+        trackEvent('AI Mode', 'reference_jumped');
         onJump(number);
     };
 
@@ -90,7 +93,7 @@ export const DatasetReference = ({dataset, label, number, onJump}: DatasetRefere
         const opensElsewhere = event.metaKey || event.ctrlKey || event.shiftKey
             || event.altKey || event.button !== 0;
         if (!jumpToReference || opensElsewhere) {
-            trackEvent('Dataset', 'citation_source_clicked', title);
+            trackEvent('Dataset', 'source_opened', datasetEventName(context, dataset));
             return;
         }
         event.preventDefault();

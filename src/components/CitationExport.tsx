@@ -14,11 +14,14 @@ import {
 } from '../lib/citation';
 import {BookOpenIcon, ClipboardIcon, CheckIcon, DownloadIcon, Loader2Icon} from 'lucide-react';
 import useMatomo from '../hooks/useMatomo';
+import {type DatasetContext, datasetEventName} from '../lib/analytics.ts';
 
 interface CitationExportProps {
     dataset: BackendDataset;
     // Smaller button, to sit in a list row next to Play and Source.
     compact?: boolean;
+    // Where the dataset's card is shown, for the reports.
+    context: DatasetContext;
 }
 
 // Reference-manager files, offered after the formatted text styles.
@@ -39,7 +42,7 @@ const GENERATORS: Record<FileFormat, (d: BackendDataset) => string> = {
 
 const isFileFormat = (format: CitationFormat): format is FileFormat => format in FILE_FORMATS;
 
-export const CitationExport = ({dataset, compact = false}: CitationExportProps) => {
+export const CitationExport = ({dataset, compact = false, context}: CitationExportProps) => {
     const [open, setOpen] = useState(false);
     const [format, setFormat] = useState<CitationFormat>('apa');
     const [copied, setCopied] = useState(false);
@@ -123,7 +126,7 @@ export const CitationExport = ({dataset, compact = false}: CitationExportProps) 
             open={open}
             onOpenChange={next => {
                 setOpen(next);
-                if (next) trackEvent('Citation', 'opened', dataset.title);
+                if (next) trackEvent('Citation', 'opened', datasetEventName(context, dataset));
             }}
         >
             <Popover.Trigger asChild>

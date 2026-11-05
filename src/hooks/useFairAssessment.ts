@@ -1,6 +1,7 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {
     FairAssessmentTimeoutError,
+    FairServiceUnavailableError,
     assessorsForPid,
     createAssessment,
     findLatestCompleted,
@@ -11,6 +12,7 @@ import {
 } from '@/lib/fairApi.ts';
 import type {Assessment, AssessorId, FairReport} from '@/types/fairTypes.ts';
 import {getUserErrorMessage} from '@/lib/utils.ts';
+import {errorKind, type FairFailure, type FairOutcome, trackEvent} from '@/lib/analytics.ts';
 
 export type FairState =
 /** No result yet, and none stored. Waiting for the user to ask for one. */
@@ -57,6 +59,45 @@ interface InternalState {
 
 const FAILED_MESSAGE = 'The assessment failed: no assessor returned a result. Please try again later.';
 
+/**
+ * One `check_completed` per report shown, plus each assessor's overall score on the
+ * scale the card displays (0-100, one decimal), so the score distribution of what
+ * people actually look at can be read without a custom dimension.
+ */
+const reportReady = (report: FairReport, outcome: FairOutcome, elapsedMs: number) => {
+    trackEvent('FAIR', 'check_completed', outcome, elapsedMs);
+    for (const result of report.results) {
+        if (result.scores.overall !== null) {
+            trackEvent('FAIR', 'score', result.assessor, result.scores.overall);
+        }
+    }
+};
+
+/**
+ * A re-check against the report it replaces, per assessor: whether the overall
+ * score went up, stayed or went down, with the size of the change as the value.
+ * This is how "datasets with improved FAIRness" can be counted from the UI
+ * without recording which dataset it was.
+ */
+const compareRecheck = (before: FairReport, after: FairReport) => {
+    for (const result of after.results) {
+        const was = before.results.find(r => r.assessor === result.assessor)?.scores.overall;
+        const now = result.scores.overall;
+        if (was === null || was === undefined || now === null) continue;
+        const delta = Math.round((now - was) * 10) / 10;
+        const direction = delta > 0 ? 'improved' : delta < 0 ? 'declined' : 'unchanged';
+        trackEvent('FAIR', 'recheck_compared', `${result.assessor}:${direction}`, Math.abs(delta));
+    }
+};
+
+/** A stable label for why a run did not produce a report; never its message. */
+const failureKind = (err: unknown): FairFailure => {
+    if (err instanceof FairAssessmentTimeoutError) return 'timeout';
+    if (err instanceof FairServiceUnavailableError) return 'unavailable';
+    const kind = errorKind(err);
+    return kind === 'network' || kind === 'timeout' ? kind : 'unknown';
+};
+
 const initialState = (pid: string | null): InternalState => ({
     pid,
     phase: pid ? 'checking' : 'idle',
@@ -81,6 +122,11 @@ export function useFairAssessment(pid: string | null): UseFairAssessment {
     // started for one dataset cannot resolve into another dataset's card.
     const abortRef = useRef<AbortController | null>(null);
     const liveRef = useRef(true);
+    // The report on screen when a re-check starts, so the two can be compared.
+    const shownRef = useRef<{pid: string | null; report: FairReport | null}>({pid, report: null});
+    useEffect(() => {
+        shownRef.current = {pid: state.pid, report: state.report};
+    }, [state.pid, state.report]);
 
     // Reset during render rather than in an effect: the card then never paints one
     // dataset's score while another dataset's PID is already in props. Aborting the
@@ -123,6 +169,8 @@ export function useFairAssessment(pid: string | null): UseFairAssessment {
                 setState(prev => (prev.pid === pid && prev.phase === 'checking'
                     ? {...prev, phase: 'ready', report: previous, assessment: record, fromCache: true}
                     : prev));
+                // Shown at once, so there is no wait to measure.
+                reportReady(previous, 'cached', 0);
             } catch {
                 // A failed lookup is not worth showing: the user can still run an
                 // assessment, which is what the idle state offers.
@@ -154,7 +202,11 @@ export function useFairAssessment(pid: string | null): UseFairAssessment {
         const update = (patch: Partial<InternalState>) =>
             setState(prev => (prev.pid === pid ? {...prev, ...patch} : prev));
 
+        // Only a forced run replaces a report the user has already seen.
+        const before = force && shownRef.current.pid === pid ? shownRef.current.report : null;
         update({phase: 'running', error: null, finishedAssessors: [], fromCache: false});
+        const requestedAt = Date.now();
+        const elapsed = () => Date.now() - requestedAt;
 
         const execute = async () => {
             try {
@@ -168,6 +220,7 @@ export function useFairAssessment(pid: string | null): UseFairAssessment {
                         ]);
                         if (!alive()) return;
                         update({phase: 'ready', report: previous, assessment: record, fromCache: true});
+                        reportReady(previous, 'cached', 0);
                         return;
                     }
                 }
@@ -190,6 +243,7 @@ export function useFairAssessment(pid: string | null): UseFairAssessment {
                 // Every assessor failed, so there is no report to show. Rendering the empty
                 // one would read as a dataset that passed every check.
                 if (final.status === 'failed') {
+                    trackEvent('FAIR', 'check_failed', 'failed', elapsed());
                     update({phase: 'error', error: FAILED_MESSAGE});
                     return;
                 }
@@ -197,9 +251,12 @@ export function useFairAssessment(pid: string | null): UseFairAssessment {
                 const [fresh, record] = await Promise.all([getReport(id), getAssessment(id)]);
                 if (!alive()) return;
                 update({phase: 'ready', report: fresh, assessment: record});
+                reportReady(fresh, final.status === 'completed_with_errors' ? 'completed_with_errors' : 'completed', elapsed());
+                if (before) compareRecheck(before, fresh);
             } catch (err) {
                 if (!alive()) return;
                 if (err instanceof DOMException && err.name === 'AbortError') return;
+                trackEvent('FAIR', 'check_failed', failureKind(err), elapsed());
                 update({
                     phase: 'error',
                     error: err instanceof FairAssessmentTimeoutError

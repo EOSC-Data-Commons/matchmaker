@@ -1,8 +1,11 @@
-import {describe, it, expect, vi} from "vitest";
+import {describe, it, expect, vi, beforeEach, afterEach} from "vitest";
 import {render, screen} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type {Aggregations} from "@/types/commons";
 import {FilterPanel} from "./FilterPanel";
+
+type Paq = Array<Array<string | number | boolean>>;
+const events = () => (window._paq as unknown as Paq).filter(c => c[0] === "trackEvent");
 
 const aggregations: Aggregations = {
     publicationYear: {
@@ -19,6 +22,14 @@ const aggregations: Aggregations = {
 };
 
 describe("FilterPanel", () => {
+    beforeEach(() => {
+        window._paq = [];
+    });
+
+    afterEach(() => {
+        delete (window as Partial<Window>)._paq;
+    });
+
     it("opens the year section by default and keeps others collapsed", () => {
         render(
             <FilterPanel
@@ -81,5 +92,38 @@ describe("FilterPanel", () => {
 
         const params: URLSearchParams = onFilterChange.mock.calls[0][0];
         expect(params.getAll("publicationYear")).toEqual(["2021"]);
+    });
+
+    describe("analytics", () => {
+        it("reports applying a filter by facet, with the active count as the value", async () => {
+            const user = userEvent.setup();
+            render(
+                <FilterPanel
+                    aggregations={aggregations}
+                    activeFilters={new URLSearchParams([["creator", "Doe, Jane"]])}
+                    onFilterChange={() => {}}
+                />,
+            );
+            await user.click(screen.getByLabelText("2023 (1,234)"));
+
+            // One author already active plus this year makes two.
+            expect(events()).toEqual([["trackEvent", "Search", "filter_applied", "publicationYear", 2]]);
+        });
+
+        it("reports removing a filter and never the value, which can be an author name", async () => {
+            const user = userEvent.setup();
+            render(
+                <FilterPanel
+                    aggregations={aggregations}
+                    activeFilters={new URLSearchParams([["creator", "Doe, Jane"], ["publicationYear", "2023"]])}
+                    onFilterChange={() => {}}
+                />,
+            );
+            await user.click(screen.getByRole("button", {name: "Author"}));
+            await user.click(screen.getByLabelText("Doe, Jane (3)"));
+
+            expect(events()).toEqual([["trackEvent", "Search", "filter_removed", "creator", 1]]);
+            expect(JSON.stringify(window._paq)).not.toContain("Doe");
+        });
     });
 });

@@ -5,6 +5,8 @@ import useMatomo from "../hooks/useMatomo";
 interface CopyMessageButtonProps {
     // The text placed on the clipboard.
     text: string;
+    // Whose message it is, for analytics.
+    sender: 'user' | 'assistant';
     // Extra classes, e.g. where the button sits beside its bubble.
     className?: string;
 }
@@ -16,7 +18,7 @@ interface CopyMessageButtonProps {
  * text. Always visible rather than revealed on hover, so it can be found without
  * a mouse: on touch screens, and when tabbing through the thread.
  */
-export const CopyMessageButton = ({text, className = ''}: CopyMessageButtonProps) => {
+export const CopyMessageButton = ({text, sender, className = ''}: CopyMessageButtonProps) => {
     const [copied, setCopied] = useState(false);
     const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const {trackEvent} = useMatomo();
@@ -35,7 +37,7 @@ export const CopyMessageButton = ({text, className = ''}: CopyMessageButtonProps
             if (typeof console !== 'undefined') console.warn('Message copy failed', error);
             return;
         }
-        trackEvent('Chat', 'message_copied');
+        trackEvent('AI Mode', 'message_copied', sender);
         setCopied(true);
         if (timer.current) clearTimeout(timer.current);
         timer.current = setTimeout(() => setCopied(false), 1500);

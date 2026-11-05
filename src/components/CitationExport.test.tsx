@@ -20,8 +20,12 @@ const openPanel = async (user: ReturnType<typeof userEvent.setup>) => {
     return dialog;
 };
 
+type Paq = Array<Array<string | number | boolean>>;
+const events = () => (window._paq as unknown as Paq).filter(c => c[0] === "trackEvent");
+
 describe("CitationExport", () => {
     beforeEach(() => {
+        window._paq = [];
         URL.createObjectURL = vi.fn(() => "blob:mock");
         URL.revokeObjectURL = vi.fn();
         vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -30,6 +34,35 @@ describe("CitationExport", () => {
 
     afterEach(() => {
         vi.restoreAllMocks();
+        delete (window as Partial<Window>)._paq;
+    });
+
+    it("reports opening by context and repository, never by title", async () => {
+        const user = userEvent.setup();
+        render(<CitationExport context="ai_cited" dataset={makeDataset({
+            _id: "https://example.org/dataset/2",
+            _source: {_repo: "DANS"},
+        })}/>);
+
+        await openPanel(user);
+        expect(events()).toEqual([["trackEvent", "Citation", "opened", "ai_cited:dans"]]);
+        expect(JSON.stringify(window._paq)).not.toContain("Test Dataset Title");
+    });
+
+    it("reports copy and download with the format", async () => {
+        const user = userEvent.setup();
+        vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+        render(<CitationExport context="search" dataset={datasetWithoutDoi}/>);
+
+        await openPanel(user);
+        await user.click(screen.getByRole("button", {name: "Copy citation"}));
+        await user.selectOptions(screen.getByRole("combobox"), "bibtex");
+        await user.click(await screen.findByRole("button", {name: "Download citation file"}));
+
+        expect(events().slice(1)).toEqual([
+            ["trackEvent", "Citation", "copied", "apa"],
+            ["trackEvent", "Citation", "downloaded", "bibtex"],
+        ]);
     });
 
     it("opens on an APA citation from DOI metadata, as plain text", async () => {
@@ -39,7 +72,7 @@ describe("CitationExport", () => {
             accept = request.headers.get("accept");
             return HttpResponse.text("Doe, J., &amp; Smith, J. (2023). <i>Ocean data</i> [Dataset]. Zenodo.");
         }));
-        render(<CitationExport dataset={datasetWithDoi("10.1111/doi.apa")}/>);
+        render(<CitationExport context="search" dataset={datasetWithDoi("10.1111/doi.apa")}/>);
 
         await openPanel(user);
         expect(screen.getByRole("combobox")).toHaveValue("apa");
@@ -53,7 +86,7 @@ describe("CitationExport", () => {
     it("prefers official DOI metadata when the DOI resolves", async () => {
         const user = userEvent.setup();
         server.use(http.get("https://doi.org/:doi", () => HttpResponse.text("@misc{official_citation}")));
-        render(<CitationExport dataset={datasetWithDoi("10.1111/doi.ok")}/>);
+        render(<CitationExport context="search" dataset={datasetWithDoi("10.1111/doi.ok")}/>);
 
         await openPanel(user);
         expect(screen.getByText("@misc{official_citation}")).toBeInTheDocument();
@@ -63,7 +96,7 @@ describe("CitationExport", () => {
     it("falls back to a locally generated citation when the DOI lookup fails", async () => {
         const user = userEvent.setup();
         server.use(http.get("https://doi.org/:doi", () => new HttpResponse(null, {status: 404})));
-        render(<CitationExport dataset={datasetWithDoi("10.2222/doi.missing")}/>);
+        render(<CitationExport context="search" dataset={datasetWithDoi("10.2222/doi.missing")}/>);
 
         await openPanel(user);
         expect(screen.getByText(
@@ -74,7 +107,7 @@ describe("CitationExport", () => {
 
     it("generates locally without any network call when the dataset has no DOI", async () => {
         const user = userEvent.setup();
-        render(<CitationExport dataset={datasetWithoutDoi}/>);
+        render(<CitationExport context="search" dataset={datasetWithoutDoi}/>);
 
         await openPanel(user);
         expect(screen.getByText(/^Doe, J\., & Smith, J\. \(2023\)\. Test Dataset Title \[Data set\]\. https:\/\/example\.org\/dataset\/1$/))
@@ -83,7 +116,7 @@ describe("CitationExport", () => {
 
     it("switching format regenerates the citation", async () => {
         const user = userEvent.setup();
-        render(<CitationExport dataset={datasetWithoutDoi}/>);
+        render(<CitationExport context="search" dataset={datasetWithoutDoi}/>);
 
         await openPanel(user);
         await user.selectOptions(screen.getByRole("combobox"), "ris");
@@ -95,7 +128,7 @@ describe("CitationExport", () => {
         // The chat's cited-datasets list and a tool call's results both clip overflow.
         const user = userEvent.setup();
         render(<div data-testid="clipping-list" className="overflow-hidden"><CitationExport
-            dataset={datasetWithoutDoi}/></div>);
+            context="search" dataset={datasetWithoutDoi}/></div>);
 
         const dialog = await openPanel(user);
         expect(screen.getByTestId("clipping-list")).not.toContainElement(dialog);
@@ -103,7 +136,7 @@ describe("CitationExport", () => {
 
     it("closes on Escape and hands focus back to the Cite button", async () => {
         const user = userEvent.setup();
-        render(<CitationExport dataset={datasetWithoutDoi}/>);
+        render(<CitationExport context="search" dataset={datasetWithoutDoi}/>);
 
         await openPanel(user);
         await user.keyboard("{Escape}");
@@ -127,7 +160,7 @@ describe("CitationExport", () => {
             }
             return HttpResponse.text("TY  - DATA\nER  - ");
         }));
-        render(<CitationExport dataset={datasetWithDoi("10.3333/doi.race")}/>);
+        render(<CitationExport context="search" dataset={datasetWithDoi("10.3333/doi.race")}/>);
 
         await user.click(screen.getByRole("button", {name: /cite/i}));
         await user.selectOptions(screen.getByRole("combobox"), "ris");
@@ -143,7 +176,7 @@ describe("CitationExport", () => {
     it("copies the citation to the clipboard", async () => {
         // userEvent.setup() installs a working clipboard stub — read it back
         const user = userEvent.setup();
-        render(<CitationExport dataset={datasetWithoutDoi}/>);
+        render(<CitationExport context="search" dataset={datasetWithoutDoi}/>);
 
         await openPanel(user);
         await user.click(screen.getByRole("button", {name: "Copy citation"}));
@@ -161,7 +194,7 @@ describe("CitationExport", () => {
         click.mockImplementation(function (this: HTMLAnchorElement) {
             downloadName = this.download;
         });
-        render(<CitationExport dataset={datasetWithoutDoi}/>);
+        render(<CitationExport context="search" dataset={datasetWithoutDoi}/>);
 
         await openPanel(user);
         await user.selectOptions(screen.getByRole("combobox"), "bibtex");

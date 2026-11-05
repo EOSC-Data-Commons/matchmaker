@@ -1,19 +1,22 @@
 import {useState} from 'react';
 import {ThumbsUp, ThumbsDown} from 'lucide-react';
 import useMatomo from '../hooks/useMatomo';
+import type {FeedbackContext} from '../lib/analytics.ts';
 
 interface SearchFeedbackProps {
-    query: string;
+    // Which results were voted on. The parent keys the widget on the query so it
+    // resets per search; the query itself is not reported.
+    context: FeedbackContext;
 }
 
-export const SearchFeedback = ({query}: SearchFeedbackProps) => {
+export const SearchFeedback = ({context}: SearchFeedbackProps) => {
     const [voted, setVoted] = useState<'up' | 'down' | null>(null);
     const {trackEvent} = useMatomo();
 
     const handleVote = (vote: 'up' | 'down') => {
         if (voted) return;
         setVoted(vote);
-        trackEvent('Feedback', vote === 'up' ? 'thumbs_up' : 'thumbs_down', query);
+        trackEvent('Feedback', vote === 'up' ? 'thumbs_up' : 'thumbs_down', context);
     };
 
     if (voted) {

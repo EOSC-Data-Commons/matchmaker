@@ -4,7 +4,7 @@ import {useAuth} from "@/hooks/useAuth.ts";
 import {loginWithReturn} from "@/lib/authRedirect.ts";
 import {UserMenu} from "@/components/UserMenu.tsx";
 import {Conversation, Message} from "@/types/chat.ts";
-import {parseConversationItems} from "@/lib/chatMessages.ts";
+import {countHits, parseConversationItems} from "@/lib/chatMessages.ts";
 import {
     discardRun,
     findRun,
@@ -28,11 +28,13 @@ import {SearchFeedback} from "@/components/SearchFeedback.tsx";
 import {ExportConversationButton} from "@/components/ExportConversationButton.tsx";
 import {AI_DISCLAIMER} from "@/lib/branding.ts";
 import useMatomo from "@/hooks/useMatomo.ts";
-import {errorKind} from "@/lib/analytics.ts";
+import type {QuestionOrigin} from "@/lib/analytics.ts";
 
 type ChatLocationState = {
     initialQuery?: string;
     initialModel?: string;
+    // The page that handed the question over, for analytics.
+    source?: 'landing' | 'search';
 };
 
 const isChatLocationState = (state: unknown): state is ChatLocationState => {
@@ -40,12 +42,9 @@ const isChatLocationState = (state: unknown): state is ChatLocationState => {
     const candidate = state as Record<string, unknown>;
     const hasValidInitialQuery = candidate.initialQuery === undefined || typeof candidate.initialQuery === 'string';
     const hasValidInitialModel = candidate.initialModel === undefined || typeof candidate.initialModel === 'string';
-    return hasValidInitialQuery && hasValidInitialModel;
+    const hasValidSource = candidate.source === undefined || candidate.source === 'landing' || candidate.source === 'search';
+    return hasValidInitialQuery && hasValidInitialModel && hasValidSource;
 };
-
-/** Total number of search hits returned by a bot message's tool calls. */
-const countHits = (msg: Message): number =>
-    (msg.blocks ?? []).reduce((acc, b) => acc + (b.kind === 'tool' ? (b.toolCall.hits?.length ?? 0) : 0), 0);
 
 const NO_MESSAGES: Message[] = [];
 
@@ -201,13 +200,17 @@ const ChatPage: FC = () => {
         fetchConversations();
     }, [fetchConversations]);
 
-    const handleSelectConversation = useCallback((id: string) => {
+    // `via` says what opened the conversation: a sidebar click, or arriving at its URL.
+    // A sidebar click also changes the URL, but the URL effect below sees the
+    // conversation already active by then, so each open is counted once.
+    const handleSelectConversation = useCallback((id: string, via: 'sidebar' | 'url') => {
         // A conversation with a run from this visit is shown from the run: it holds the
         // whole thread, including a turn the backend has not stored yet.
         const run = findRun(getChatRuns(), id);
         if (run) {
             markRunSeen(id);
             setSelectedConversation({id, title: run.title, messages: run.messages});
+            trackEvent('AI Mode', 'conversation_opened', via);
             if (urlId !== id) {
                 navigate(`/chat/${id}`);
             }
@@ -231,6 +234,7 @@ const ChatPage: FC = () => {
                 };
 
                 setSelectedConversation(formattedConversation);
+                trackEvent('AI Mode', 'conversation_opened', via);
                 setLoading(false);
                 if (urlId !== id) {
                     navigate(`/chat/${id}`);
@@ -240,12 +244,12 @@ const ChatPage: FC = () => {
                 console.error("Failed to fetch conversation", err);
                 setLoading(false);
             });
-    }, [navigate, urlId]);
+    }, [navigate, urlId, trackEvent]);
 
     useEffect(() => {
         if (urlId) {
             if (activeIdRef.current !== urlId) {
-                handleSelectConversation(urlId);
+                handleSelectConversation(urlId, 'url');
             }
         } else {
             setSelectedConversation(null);
@@ -318,14 +322,16 @@ const ChatPage: FC = () => {
             state.initialQuery &&
             !initialQueryProcessed.current
         ) {
-            const {initialQuery, initialModel} = state;
+            const {initialQuery, initialModel, source} = state;
             initialQueryProcessed.current = true;
             // Clear the state so a refresh doesn't trigger it again
             navigate(location.pathname, {replace: true, state: {}});
 
+            const origin: QuestionOrigin = source === 'landing' ? 'from_landing'
+                : source === 'search' ? 'from_search' : 'new';
             // Wait slightly for layout to settle before sending
             setTimeout(() => {
-                handleSendMessage(initialQuery, initialModel || 'cesnet/agentic');
+                handleSendMessage(initialQuery, initialModel || 'cesnet/agentic', origin);
             }, 100);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -375,6 +381,7 @@ const ChatPage: FC = () => {
             if (!res.ok) {
                 throw new Error(`Failed to delete conversation: ${res.statusText}`);
             }
+            trackEvent('AI Mode', 'conversation_deleted');
 
             setConversations(prev => prev.filter(c => c.id !== id));
             if (selectedConversation?.id === id || urlId === id) {
@@ -414,12 +421,9 @@ const ChatPage: FC = () => {
         return [...unlisted, ...conversations];
     }, [runs, conversations]);
 
-    const handleSendMessage = (messageText: string, model: string) => {
+    const handleSendMessage = (messageText: string, model: string, origin: QuestionOrigin) => {
         if (!messageText.trim()) return;
         if (isSending) return; // One run per conversation at a time
-
-        trackEvent('Chat', 'message_sent', model);
-        const runStartedAt = Date.now();
 
         const userMessage: Message = {sender: 'user', content: messageText};
 
@@ -431,6 +435,9 @@ const ChatPage: FC = () => {
         const isNew = currentConversation.id.startsWith('new-');
 
         const updatedMessages = [...messages, userMessage];
+        // Where the question came from and which turn it is. The question text itself is
+        // recorded against site search by the run, once it knows how many hits it found.
+        trackEvent('AI Mode', 'question_sent', origin, updatedMessages.filter(m => m.sender === 'user').length);
 
         setSelectedConversation({
             ...currentConversation,
@@ -449,7 +456,8 @@ const ChatPage: FC = () => {
         }, 50);
 
         // Not awaited: the run streams into the store whether or not this
-        // conversation is still on screen.
+        // conversation is still on screen. The run reports its own timing, tool
+        // results and outcome (see chatRuns).
         void startRun({
             key: currentConversation.id,
             threadId: isNew ? undefined : currentConversation.id,
@@ -458,22 +466,6 @@ const ChatPage: FC = () => {
                 : sidebarConversations.find(c => c.id === currentConversation.id)?.title ?? currentConversation.title,
             messages: updatedMessages,
             model,
-            onEvent: (event, streamed) => {
-                if (event.type === 'TOOL_CALL_START' && event.tool_call_name) {
-                    trackEvent('Chat', 'tool_call', event.tool_call_name);
-                }
-                if (event.type === 'RUN_FINISHED') {
-                    // Latency and hit count are the two things the chat funnel
-                    // could not be judged on before: whether the agent answered,
-                    // and whether it found anything.
-                    const finished = streamed[streamed.length - 1];
-                    trackEvent('Chat', 'run_latency_ms', model, Date.now() - runStartedAt);
-                    if (finished?.sender === 'bot') {
-                        trackEvent('Chat', 'results_returned', model, countHits(finished));
-                    }
-                }
-            },
-            onError: (error) => trackEvent('Chat', 'run_error', errorKind(error)),
         });
     };
 
@@ -489,6 +481,12 @@ const ChatPage: FC = () => {
     const lastMessage = messages[messages.length - 1];
     const lastMessageIsStreaming = !!lastMessage?.isStreaming && (lastMessage.blocks?.length ?? 0) > 0;
 
+    // The login gate is counted once per appearance, not once per render behind it.
+    const gated = !userLoading && !user;
+    useEffect(() => {
+        if (gated) trackEvent('Auth', 'gate_shown', 'chat');
+    }, [gated, trackEvent]);
+
     return (
         <div className="flex flex-col h-dvh bg-white overflow-hidden">
             <DeleteConversationDialog
@@ -496,7 +494,7 @@ const ChatPage: FC = () => {
                 onClose={() => setDeletingId(null)}
                 onConfirm={() => deletingId && handleDeleteConversation(deletingId)}
             />
-            {!userLoading && !user && (
+            {gated && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
                     <div
                         className="bg-white rounded-xl shadow-xl max-w-md w-full p-8 text-center border border-gray-100">
@@ -510,7 +508,7 @@ const ChatPage: FC = () => {
                         </p>
                         <div className="flex flex-col gap-3">
                             <button
-                                onClick={loginWithReturn}
+                                onClick={() => loginWithReturn('gate_chat')}
                                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors shadow-sm cursor-pointer"
                             >
                                 Log In to Continue
@@ -568,6 +566,7 @@ const ChatPage: FC = () => {
                     <div className="p-4 border-b border-gray-200">
                         <button
                             onClick={() => {
+                                trackEvent('AI Mode', 'new_conversation_clicked');
                                 setSelectedConversation(null);
                                 if (urlId) navigate('/chat');
                                 setSidebarOpen(false);
@@ -597,7 +596,7 @@ const ChatPage: FC = () => {
                                         activity={activity}
                                         menuOpen={menuOpenId === convo.id}
                                         onClick={() => {
-                                            handleSelectConversation(convo.id);
+                                            handleSelectConversation(convo.id, 'sidebar');
                                             setSidebarOpen(false);
                                         }}
                                         onMenuToggle={(e) => {
@@ -726,12 +725,12 @@ const ChatPage: FC = () => {
                                                 )}
                                             </div>
                                             {msg.sender === 'user' && (
-                                                <CopyMessageButton text={msg.content} className="self-center"/>
+                                                <CopyMessageButton text={msg.content} sender="user" className="self-center"/>
                                             )}
                                             {/* Answers can be long, so their button sits at the end of the
                                                 answer. Held back while streaming, when the text is unfinished. */}
                                             {msg.sender === 'bot' && !msg.isError && !msg.isStreaming && msg.content.trim() !== '' && (
-                                                <CopyMessageButton text={msg.content} className="self-end"/>
+                                                <CopyMessageButton text={msg.content} sender="assistant" className="self-end"/>
                                             )}
                                         </div>
                                     </div>
@@ -767,7 +766,7 @@ const ChatPage: FC = () => {
                                     <div className="pl-11">
                                         <SearchFeedback
                                             key={`${selectedConversation.id}-${messages.length}`}
-                                            query={[...messages].reverse().find(m => m.sender === 'user')?.content ?? selectedConversation.title}
+                                            context="ai_mode"
                                         />
                                     </div>
                                 )}
@@ -810,7 +809,8 @@ const ChatPage: FC = () => {
                     <div className="p-3 md:p-4 bg-white border-t border-gray-200 shrink-0">
                         <div className="max-w-6xl mx-auto">
                             <SearchInput
-                                onSearch={handleSendMessage}
+                                // A typed question opens a conversation or continues the one on screen.
+                                onSearch={(text, model) => handleSendMessage(text, model, selectedConversation ? 'follow_up' : 'new')}
                                 loading={isSending}
                                 onStop={() => stopRun(selectedConversation?.id ?? '')}
                                 placeholder="Ask anything or search for datasets..."
