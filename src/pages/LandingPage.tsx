@@ -9,10 +9,29 @@ import eoscLogo from '@/assets/logo-eosc-data-commons.svg';
 import {useAuth} from "@/hooks/useAuth.ts";
 import {UserMenu} from "@/components/UserMenu.tsx";
 import {RepositoryStats} from "@/components/RepositoryStats.tsx";
+import useMatomo from "@/hooks/useMatomo.ts";
+import {type LandingTool, type SearchOrigin, trackLink} from "@/lib/analytics.ts";
+import {loginWithReturn} from "@/lib/authRedirect.ts";
+
+const ABOUT_URL = 'https://www.eosc-data-commons.eu/service/eosc-matchmaker';
+
+// The example searches. `index` is what the report shows, so a reworded card keeps its row.
+const dataCards: Array<{ index: '1' | '2' | '3'; query: string }> = [
+    {index: '1', query: "Glucose level changes in the liver of individuals with type 1 diabetes from 1980 to 2020"},
+    {index: '2', query: "Data about CO2 levels in europe between 1960 and 2020"},
+    {index: '3', query: "Water quality Adriatic beaches Croatia 2015-2024"}
+];
+
+const toolCards: Array<{ tool: LandingTool; text: string; url: string }> = [
+    {tool: 'galaxy', text: "Analyze biomedical data with Galaxy", url: "https://galaxyproject.org/"},
+    {tool: 'jupyterlab', text: "JupyterLab", url: "https://jupyter.org/"},
+    {tool: 'rstudio', text: "RStudio", url: "https://posit.co/products/open-source/rstudio/"}
+];
 
 export const LandingPage = () => {
     const navigate = useNavigate();
     const {user, loading, logout} = useAuth();
+    const {trackEvent} = useMatomo();
     const [logoClickCount, setLogoClickCount] = useState(0);
     const [showEasterEgg, setShowEasterEgg] = useState(false);
 
@@ -26,13 +45,19 @@ export const LandingPage = () => {
         }
     };
 
-    const handleSearch = (query: string, model: string, aiMode?: boolean) => {
+    const handleSearch = (query: string, model: string, aiMode?: boolean, origin: SearchOrigin = 'typed') => {
         if (aiMode) {
-            // Using state to potentially start chat if the backend/chat page leverages it, as per instructions.
-            navigate('/chat', {state: {initialQuery: query, initialModel: model}});
+            // The chat page reports the question itself, with `source` as its origin.
+            navigate('/chat', {state: {initialQuery: query, initialModel: model, source: 'landing'}});
         } else {
+            trackEvent('Search', 'submitted', origin);
             navigate(`/search?q=${encodeURIComponent(query)}&model=${encodeURIComponent(model)}`);
         }
+    };
+
+    const handleExample = (card: typeof dataCards[number]) => {
+        trackEvent('Landing', 'example_clicked', card.index);
+        handleSearch(card.query, "cesnet/agentic", false, 'example');
     };
 
     const handleChat = () => {
@@ -54,26 +79,22 @@ export const LandingPage = () => {
     //     window.open(`/dataplayer?${params.toString()}`, '_blank');
     // };
 
+    // window.open is invisible to Matomo's link tracking, so the outlink is reported by hand.
     const handleAbout = () => {
-        window.open('https://www.eosc-data-commons.eu/service/eosc-matchmaker', '_blank', 'noopener,noreferrer');
+        trackEvent('Landing', 'about_clicked');
+        trackLink(ABOUT_URL, 'link');
+        window.open(ABOUT_URL, '_blank', 'noopener,noreferrer');
+    };
+
+    const handleTool = (card: typeof toolCards[number]) => {
+        trackEvent('Landing', 'tool_card_clicked', card.tool);
+        trackLink(card.url, 'link');
+        window.open(card.url, '_blank', 'noopener,noreferrer');
     };
 
     const handleLogin = () => {
-        window.location.href = '/auth/login';
+        loginWithReturn('header_landing');
     };
-
-    const dataCards = [
-        "Glucose level changes in the liver of individuals with type 1 diabetes from 1980 to 2020",
-        "Data about CO2 levels in europe between 1960 and 2020",
-        "Water quality Adriatic beaches Croatia 2015-2024"
-    ];
-
-    const toolCards = [
-        {text: "Analyze biomedical data with Galaxy", url: "https://galaxyproject.org/"},
-        {text: "JupyterLab", url: "https://jupyter.org/"},
-        {text: "RStudio", url: "https://posit.co/products/open-source/rstudio/"}
-    ];
-
 
     return (
         <div className="min-h-screen bg-eosc-bg flex flex-col items-center px-4 relative">
@@ -170,14 +191,14 @@ export const LandingPage = () => {
                                 Data
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {dataCards.map((card, index) => (
+                                {dataCards.map((card) => (
                                     <div
-                                        key={index}
-                                        onClick={() => handleSearch(card, "cesnet/agentic")}
+                                        key={card.index}
+                                        onClick={() => handleExample(card)}
                                         className="bg-white border border-eosc-border rounded-xl p-6 min-h-[75px] flex items-center justify-center cursor-pointer hover:bg-gray-50 hover:border-eosc-light-blue transition-colors"
                                     >
                                         <p className="text-sm font-light text-black text-center">
-                                            {card}
+                                            {card.query}
                                         </p>
                                     </div>
                                 ))}
@@ -200,10 +221,10 @@ export const LandingPage = () => {
                                 Tools
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {toolCards.map((card, index) => (
+                                {toolCards.map((card) => (
                                     <div
-                                        key={index}
-                                        onClick={() => window.open(card.url, '_blank', 'noopener,noreferrer')}
+                                        key={card.tool}
+                                        onClick={() => handleTool(card)}
                                         className="bg-white border border-eosc-border rounded-xl p-6 min-h-[75px] flex items-center justify-center cursor-pointer hover:bg-gray-50 hover:border-eosc-light-blue transition-colors"
                                     >
                                         <p className="text-sm font-light text-black text-center">

@@ -7,12 +7,19 @@ import {FairAssessmentCard} from "./FairAssessmentCard";
 import {FAIR_CELLS} from "@/types/fairTypes";
 import type {AssessmentSummary, FairAssessorResult, FairCell, FairOutcome, FairReport} from "@/types/fairTypes";
 
+type Paq = Array<Array<string | number | boolean>>;
+const paq = () => window._paq as unknown as Paq;
+const events = () => paq().filter(c => c[0] === "trackEvent");
+const named = (action: string) => events().filter(c => c[2] === action);
+
 beforeEach(() => {
+    window._paq = [];
     vi.spyOn(console, "error").mockImplementation(() => {
     });
 });
 afterEach(() => {
     vi.restoreAllMocks();
+    delete (window as Partial<Window>)._paq;
 });
 
 const DOI = "https://doi.org/10.1594/PANGAEA.908011";
@@ -362,5 +369,113 @@ describe("FairAssessmentCard", () => {
 
         // Re-check must force a fresh run, not hand back what was already on screen.
         await waitFor(() => expect(postedCached).toBe(false));
+    });
+
+    describe("analytics", () => {
+        it("reports a stored assessment as cached, with each assessor's score", async () => {
+            withStoredReport();
+            render(<FairAssessmentCard pid={DOI}/>);
+            await screen.findByText("94.4% overall");
+
+            // Shown at once, so there is no wait to measure.
+            expect(named("check_completed")).toEqual([["trackEvent", "FAIR", "check_completed", "cached", 0]]);
+            // One score per assessor, on the scale the card shows.
+            expect(named("score")).toEqual([
+                ["trackEvent", "FAIR", "score", "fair_champion", 83.3],
+                ["trackEvent", "FAIR", "score", "fuji", 94.4],
+            ]);
+            expect(named("check_requested")).toEqual([]);
+        });
+
+        it("reports a first check from request to result", async () => {
+            server.use(
+                http.get("/api/fair/assessments/", () => HttpResponse.json([])),
+                http.post("/api/fair/assessments/", () => HttpResponse.json({id: "new", status: "queued"})),
+                http.get("/api/fair/assessments/new", () =>
+                    HttpResponse.json({...summary({id: "new"}), results: []})),
+                http.get("/api/fair/assessments/new/results", () => HttpResponse.json(report({id: "new"}))),
+            );
+
+            render(<FairAssessmentCard pid={DOI}/>);
+            await userEvent.click(await screen.findByRole("button", {name: /check fair score/i}));
+            await screen.findByText("94.4% overall");
+
+            expect(named("check_requested")).toEqual([["trackEvent", "FAIR", "check_requested", "new"]]);
+            const [completed] = named("check_completed");
+            expect(completed.slice(0, 4)).toEqual(["trackEvent", "FAIR", "check_completed", "completed"]);
+            expect(typeof completed[4]).toBe("number");
+            expect(named("score")).toHaveLength(2);
+        });
+
+        it("tells a partial run apart from a complete one", async () => {
+            server.use(
+                http.get("/api/fair/assessments/", () => HttpResponse.json([])),
+                http.post("/api/fair/assessments/", () => HttpResponse.json({id: "new", status: "queued"})),
+                http.get("/api/fair/assessments/new", () =>
+                    HttpResponse.json({...summary({id: "new", status: "completed_with_errors"}), results: []})),
+                http.get("/api/fair/assessments/new/results", () =>
+                    HttpResponse.json(report({id: "new", status: "completed_with_errors", results: [fujiResult]}))),
+            );
+
+            render(<FairAssessmentCard pid={DOI}/>);
+            await userEvent.click(await screen.findByRole("button", {name: /check fair score/i}));
+            await screen.findByText("94.4% overall");
+
+            expect(named("check_completed")[0][3]).toBe("completed_with_errors");
+            // Only the assessor that finished has a score to report.
+            expect(named("score")).toEqual([["trackEvent", "FAIR", "score", "fuji", 94.4]]);
+        });
+
+        it("names a re-check as such", async () => {
+            withStoredReport();
+            server.use(
+                http.post("/api/fair/assessments/", () => HttpResponse.json({id: "new", status: "queued"})),
+                http.get("/api/fair/assessments/new", () =>
+                    HttpResponse.json({...summary({id: "new"}), results: []})),
+                http.get("/api/fair/assessments/new/results", () => HttpResponse.json(report({id: "new"}))),
+            );
+
+            render(<FairAssessmentCard pid={DOI}/>);
+            await userEvent.click(await screen.findByRole("button", {name: /re-check/i}));
+
+            expect(named("check_requested")).toEqual([["trackEvent", "FAIR", "check_requested", "recheck"]]);
+            await waitFor(() => expect(named("check_completed")).toHaveLength(2));
+            expect(named("check_completed")[1][3]).toBe("completed");
+            // Same fixture both times, so the comparison reads as no change.
+            expect(named("recheck_compared")).toContainEqual(["trackEvent", "FAIR", "recheck_compared", "fuji:unchanged", 0]);
+        });
+
+        it("reports a run in which every assessor failed", async () => {
+            server.use(
+                http.get("/api/fair/assessments/", () => HttpResponse.json([])),
+                http.post("/api/fair/assessments/", () => HttpResponse.json({id: "new", status: "queued"})),
+                http.get("/api/fair/assessments/new", () =>
+                    HttpResponse.json({...summary({id: "new", status: "failed"}), results: []})),
+            );
+
+            render(<FairAssessmentCard pid={DOI}/>);
+            await userEvent.click(await screen.findByRole("button", {name: /check fair score/i}));
+            await screen.findByRole("alert");
+
+            const [failed] = named("check_failed");
+            expect(failed.slice(0, 4)).toEqual(["trackEvent", "FAIR", "check_failed", "failed"]);
+            expect(typeof failed[4]).toBe("number");
+            expect(named("check_completed")).toEqual([]);
+        });
+
+        it("reports a network failure as such, and a retry as a retry", async () => {
+            server.use(
+                http.get("/api/fair/assessments/", () => HttpResponse.json([])),
+                http.post("/api/fair/assessments/", () => HttpResponse.error()),
+            );
+
+            render(<FairAssessmentCard pid={DOI}/>);
+            await userEvent.click(await screen.findByRole("button", {name: /check fair score/i}));
+            await screen.findByRole("alert");
+            expect(named("check_failed")[0][3]).toBe("network");
+
+            await userEvent.click(screen.getByRole("button", {name: /try again/i}));
+            expect(named("check_requested").map(c => c[3])).toEqual(["new", "retry"]);
+        });
     });
 });

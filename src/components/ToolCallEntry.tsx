@@ -77,7 +77,15 @@ export const ToolCallEntry = ({toolCall, isLoggedIn = false}: ToolCallEntryProps
                                 {hits.map((hit, idx) => (
                                     hit._source?.resourceType === 'tool'
                                         ? <ToolResultCard key={`${toolCall.id}-${idx}`} hit={hit}/>
-                                        : <SearchResultItem key={`${toolCall.id}-${idx}`} hit={hit} isLoggedIn={isLoggedIn}/>
+                                        : (
+                                            <SearchResultItem
+                                                key={`${toolCall.id}-${idx}`}
+                                                hit={hit}
+                                                isLoggedIn={isLoggedIn}
+                                                context="ai_results"
+                                                position={idx + 1}
+                                            />
+                                        )
                                 ))}
                             </div>
                         ) : (

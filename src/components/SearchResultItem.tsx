@@ -8,10 +8,14 @@ import {useState} from 'react';
 import {useSearchParams} from 'react-router';
 import {RepoProvenance} from "./RepoProvenance.tsx";
 import useMatomo from "../hooks/useMatomo";
+import {type DatasetContext, datasetEventName, datasetRepoCode} from "../lib/analytics.ts";
 
 interface SearchResultItemProps {
     hit: BackendDataset;
     isLoggedIn?: boolean;
+    // Where the card is shown and its 1-based place in that list, for the reports.
+    context: DatasetContext;
+    position?: number;
 }
 
 /**
@@ -47,6 +51,17 @@ export const RelevanceBadge = ({hit}: { hit: BackendDataset }) => {
 export const DatasetDetails = ({hit}: { hit: BackendDataset }) => {
     const [descExpanded, setDescExpanded] = useState(false);
     const [authorsExpanded, setAuthorsExpanded] = useState(false);
+    const {trackEvent} = useMatomo();
+
+    // Only expanding is of interest: it says the card's summary was not enough.
+    const toggleDescription = () => {
+        if (!descExpanded) trackEvent('Dataset', 'details_expanded', 'description');
+        setDescExpanded(v => !v);
+    };
+    const toggleAuthors = () => {
+        if (!authorsExpanded) trackEvent('Dataset', 'details_expanded', 'authors');
+        setAuthorsExpanded(v => !v);
+    };
 
     const fullDescription = stripHtml(hit.description || '');
     const descLimit = 300;
@@ -72,7 +87,7 @@ export const DatasetDetails = ({hit}: { hit: BackendDataset }) => {
                 {isDescTruncated && (
                     <button
                         type="button"
-                        onClick={() => setDescExpanded(v => !v)}
+                        onClick={toggleDescription}
                         aria-expanded={descExpanded}
                         className="ml-2 text-blue-700 hover:text-blue-800 hover:underline text-sm font-medium align-baseline cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
                     >
@@ -93,7 +108,7 @@ export const DatasetDetails = ({hit}: { hit: BackendDataset }) => {
                             {creators.length > baseAuthorsToShow && (
                                 <button
                                     type="button"
-                                    onClick={() => setAuthorsExpanded(v => !v)}
+                                    onClick={toggleAuthors}
                                     aria-expanded={authorsExpanded}
                                     className="ml-2 text-blue-700 hover:text-blue-800 hover:underline text-xs font-medium cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
                                 >
@@ -141,22 +156,27 @@ interface DatasetActionsProps {
     isLoggedIn?: boolean;
     // Smaller buttons, to sit in a list row.
     compact?: boolean;
+    // Where the card is shown and its 1-based place in that list, for the reports.
+    context: DatasetContext;
+    position?: number;
 }
 
 /** Play, Source and Cite for a dataset. */
-export const DatasetActions = ({hit, isLoggedIn = false, compact = false}: DatasetActionsProps) => {
+export const DatasetActions = ({hit, isLoggedIn = false, compact = false, context, position}: DatasetActionsProps) => {
     const [searchParams] = useSearchParams();
     const {trackEvent} = useMatomo();
 
     const handleDataplayer = () => {
         if (!isLoggedIn) {
-            trackEvent('Auth', 'gate_triggered', 'data_player');
-            loginWithReturn();
+            // loginWithReturn reports the login start itself.
+            loginWithReturn('play_button');
             return;
         }
-        trackEvent('Dataset', 'play_clicked', hit.title);
+        trackEvent('Dataset', 'play_clicked', datasetEventName(context, hit), position);
         const params = new URLSearchParams();
         params.set('datasetId', hit._id);
+        // For the dataplayer's own events: which repository the dataset came from.
+        params.set('repo', datasetRepoCode(hit));
         if (hit.title) {
             params.set('title', hit.title);
         }
@@ -203,19 +223,19 @@ export const DatasetActions = ({hit, isLoggedIn = false, compact = false}: Datas
             </div>
             {sourceHref && (
                 <a href={sourceHref} target="_blank" rel="noopener noreferrer"
-                   onClick={() => trackEvent('Dataset', 'source_clicked', hit.title)}
+                   onClick={() => trackEvent('Dataset', 'source_opened', datasetEventName(context, hit), position)}
                    aria-label={`Redirect to the source of dataset ${hit.title}`}
                    className={`inline-flex items-center justify-center gap-1 rounded-md bg-blue-600 ${size} font-medium text-white shadow-sm hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-colors cursor-pointer`}>
                     <ExternalLinkIcon className={icon}/>
                     <span className="leading-none">Source</span>
                 </a>
             )}
-            <CitationExport dataset={hit} compact={compact}/>
+            <CitationExport dataset={hit} compact={compact} context={context}/>
         </div>
     );
 };
 
-export const SearchResultItem = ({hit, isLoggedIn = false}: SearchResultItemProps) => (
+export const SearchResultItem = ({hit, isLoggedIn = false, context, position}: SearchResultItemProps) => (
     <div className="rounded-lg shadow-sm border p-6 bg-white border-gray-200 hover:shadow-md transition-shadow">
         <div className="flex flex-col sm:flex-row justify-between items-start mb-3">
             <h3 className="text-lg font-semibold text-gray-900 pr-4 mb-2 sm:mb-0 min-w-0 break-words">
@@ -228,7 +248,7 @@ export const SearchResultItem = ({hit, isLoggedIn = false}: SearchResultItemProp
 
         <div
             className="flex flex-col sm:flex-row items-center justify-between pt-4 border-t border-gray-100 gap-4 sm:gap-0">
-            <DatasetActions hit={hit} isLoggedIn={isLoggedIn}/>
+            <DatasetActions hit={hit} isLoggedIn={isLoggedIn} context={context} position={position}/>
             <div className="flex items-center space-x-4">
                 <RepoProvenance hit={hit}/>
             </div>

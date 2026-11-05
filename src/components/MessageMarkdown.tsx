@@ -2,6 +2,7 @@ import {Fragment, JSX, useMemo} from "react";
 import type {BackendDataset} from "../types/commons.ts";
 import {lookupDataset, type DatasetCitation} from "../lib/datasetCitations.ts";
 import {sanitizeLinkHref, trimTrailingPartialLink} from "../lib/utils.ts";
+import type {DatasetContext} from "../lib/analytics.ts";
 import {DatasetReference} from "./DatasetReference.tsx";
 
 interface MessageMarkdownProps {
@@ -15,6 +16,8 @@ interface MessageMarkdownProps {
     citations?: DatasetCitation[];
     // Called with the reference number when a [n] marker is activated.
     onCite?: (number: number) => void;
+    // Where the citations are shown, for analytics; an answer in the thread unless told otherwise.
+    referenceContext?: DatasetContext;
 }
 
 /**
@@ -68,7 +71,14 @@ const parseAlignments = (delimiter: string): CellAlignment[] =>
  * an ordinary external link. Anything outside that subset is left as the literal text
  * the model wrote, so an unsupported construct reads as plain prose rather than breaking.
  */
-export const MessageMarkdown = ({text, datasets, streaming = false, citations = [], onCite}: MessageMarkdownProps) => {
+export const MessageMarkdown = ({
+                                    text,
+                                    datasets,
+                                    streaming = false,
+                                    citations = [],
+                                    onCite,
+                                    referenceContext
+                                }: MessageMarkdownProps) => {
     const numbers = useMemo(
         () => new Map(citations.map(citation => [citation.dataset, citation.number])),
         [citations]
@@ -117,6 +127,7 @@ export const MessageMarkdown = ({text, datasets, streaming = false, citations = 
                         label={label}
                         number={numbers.get(dataset)}
                         onJump={onCite}
+                        context={referenceContext}
                     />
                 ) : (
                     <a

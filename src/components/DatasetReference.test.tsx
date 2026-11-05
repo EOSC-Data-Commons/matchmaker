@@ -1,4 +1,4 @@
-import {describe, it, expect, vi} from "vitest";
+import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {fireEvent, render, screen} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {makeDataset} from "@/test/fixtures/datasets";
@@ -6,7 +6,18 @@ import {DatasetReference} from "./DatasetReference";
 
 const DATASET_URL = "https://doi.org/10.5281/zenodo.1234567";
 
+type Paq = Array<Array<string | number | boolean>>;
+const paq = () => window._paq as unknown as Paq;
+
 describe("DatasetReference", () => {
+    beforeEach(() => {
+        window._paq = [];
+    });
+
+    afterEach(() => {
+        delete (window as Partial<Window>)._paq;
+    });
+
     it("links the pill to the dataset's source URL", () => {
         render(<DatasetReference dataset={makeDataset({dataset_url: DATASET_URL, title: "Ocean Temperatures 2023"})}/>);
         const pill = screen.getByRole("link", {name: /Ocean Temperatures 2023/});
@@ -53,6 +64,13 @@ describe("DatasetReference", () => {
         return fireEvent(pill, new MouseEvent("click", {bubbles: true, cancelable: true, ...init}));
     };
 
+    // For tests about what is counted, not about navigation: keeps happy-dom from
+    // following the link to doi.org.
+    const holdLink = () => {
+        screen.getByRole("link", {name: /Ocean Temperatures 2023/})
+            .addEventListener("click", event => event.preventDefault());
+    };
+
     it("jumps to the reference on a plain click rather than following the link", () => {
         const onJump = vi.fn();
         render(
@@ -92,5 +110,35 @@ describe("DatasetReference", () => {
         );
         expect(screen.getByRole("link", {name: /Ocean Temperatures 2023/})).toHaveTextContent("[1]");
         expect(clickWith({})).toBe(true);
+    });
+
+    it("counts a jump to the reference, and a source opened from inside an answer by its repository", () => {
+        render(
+            <DatasetReference
+                dataset={makeDataset({dataset_url: DATASET_URL, title: "Ocean Temperatures 2023", _source: {_repo: "Zenodo"}})}
+                number={1}
+                onJump={vi.fn()}
+            />,
+        );
+        holdLink();
+        clickWith({});
+        expect(paq()).toEqual([["trackEvent", "AI Mode", "reference_jumped"]]);
+
+        clickWith({ctrlKey: true});
+        // The repository code, never the dataset's title.
+        expect(paq()[1]).toEqual(["trackEvent", "Dataset", "source_opened", "ai_answer:zenodo"]);
+    });
+
+    it("names where it was shown when the source is opened from somewhere other than an answer", () => {
+        render(
+            <DatasetReference
+                dataset={makeDataset({dataset_url: DATASET_URL, title: "Ocean Temperatures 2023"})}
+                number={1}
+                context="export"
+            />,
+        );
+        holdLink();
+        clickWith({});
+        expect(paq()).toEqual([["trackEvent", "Dataset", "source_opened", "export:unknown"]]);
     });
 });

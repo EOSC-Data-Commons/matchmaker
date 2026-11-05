@@ -16,17 +16,20 @@ import {useAuth} from "@/hooks/useAuth.ts";
 import {SearchFeedback} from "../components/SearchFeedback.tsx";
 import {UserMenu} from "../components/UserMenu.tsx";
 import {loginWithReturn} from "../lib/authRedirect.ts";
+import type {SearchOrigin} from "../lib/analytics.ts";
+import useMatomo from "../hooks/useMatomo.ts";
 
 export const SearchPage = () => {
     const navigate = useNavigate();
     const {user, loading: userLoading, logout} = useAuth();
     const [searchParams, setSearchParams] = useSearchParams();
+    const {trackEvent} = useMatomo();
 
     const query = searchParams.get('q') || '';
     const model = searchParams.get('model') || 'cesnet/agentic';
 
     // Custom hooks for data management
-    const {results, loading, error, performSearch} = useSearchResults(query);
+    const {results, loading, error, performSearch} = useSearchResults(query, model);
 
     // Extract active filters from URL params
     const activeFilters = useMemo(() => {
@@ -52,12 +55,19 @@ export const SearchPage = () => {
         })();
     }, [performSearch]);
 
-    const handleSearch = (newQuery: string, newModel: string, aiMode?: boolean) => {
+    const handleSearch = (newQuery: string, newModel: string, aiMode?: boolean, origin: SearchOrigin = 'typed') => {
         if (aiMode) {
-            navigate('/chat', {state: {initialQuery: newQuery, initialModel: newModel}});
+            // The chat page reports the question itself, with `source` as its origin.
+            navigate('/chat', {state: {initialQuery: newQuery, initialModel: newModel, source: 'search'}});
         } else {
+            trackEvent('Search', 'submitted', origin);
             setSearchParams({q: newQuery, model: newModel});
         }
+    };
+
+    const handleRetry = () => {
+        trackEvent('Search', 'retry_clicked');
+        void performSearch();
     };
 
     const handleFilterChange = (newFilters: URLSearchParams) => {
@@ -129,7 +139,7 @@ export const SearchPage = () => {
                                           onConversations={() => navigate('/chat')}/>
                             ) : (
                                 <button
-                                    onClick={loginWithReturn}
+                                    onClick={() => loginWithReturn('header_search')}
                                     className="bg-white border border-eosc-border rounded-lg px-4 py-2 text-sm font-light text-eosc-text hover:bg-gray-50 hover:border-eosc-light-blue transition-colors cursor-pointer"
                                 >
                                     Login
@@ -166,7 +176,7 @@ export const SearchPage = () => {
                                     </h2>
                                     <p className="text-gray-600 mb-4">{error.message}</p>
                                     <button
-                                        onClick={performSearch}
+                                        onClick={handleRetry}
                                         className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
                                     >
                                         Try Again
@@ -201,11 +211,14 @@ export const SearchPage = () => {
                                                         key={`${dataset._id}-${index}`}
                                                         hit={dataset}
                                                         isLoggedIn={!!user}
+                                                        context="search"
+                                                        position={index + 1}
                                                     />
                                                 ))}
                                             </div>
                                         </div>
-                                        <SearchFeedback key={query} query={query}/>
+                                        {/* Keyed on the query so the widget resets for each new search. */}
+                                        <SearchFeedback key={query} context="search"/>
                                         <p className="mt-6 text-center text-xs text-gray-400">
                                             Search results and metadata may be incomplete, outdated, or inaccurate.
                                             Please verify critical

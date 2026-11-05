@@ -1,5 +1,5 @@
 import {describe, expect, it} from "vitest";
-import {render, screen, within} from "@testing-library/react";
+import {fireEvent, render, screen, within} from "@testing-library/react";
 import {makeDataset} from "@/test/fixtures/datasets";
 import type {Message} from "@/types/chat";
 import {AI_DISCLAIMER, FUNDING_STATEMENT} from "@/lib/branding";
@@ -96,5 +96,19 @@ describe("ConversationExportView", () => {
         expect(screen.getByText(FUNDING_STATEMENT)).toBeInTheDocument();
         expect(screen.getByText("Version 0.12.0")).toBeInTheDocument();
         expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    });
+
+    it("counts a source opened from the export as such", () => {
+        window._paq = [];
+        try {
+            renderView();
+            const pill = screen.getByRole("link", {name: /\[1].*Ocean temps/});
+            // happy-dom would otherwise follow the link to doi.org.
+            pill.addEventListener("click", event => event.preventDefault());
+            fireEvent(pill, new MouseEvent("click", {bubbles: true, cancelable: true}));
+            expect(window._paq).toEqual([["trackEvent", "Dataset", "source_opened", "export:zenodo"]]);
+        } finally {
+            delete (window as Partial<Window>)._paq;
+        }
     });
 });

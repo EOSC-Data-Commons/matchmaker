@@ -1,5 +1,6 @@
 import {ToolConfig} from '@/types/dataplayerTypes';
 import {stripMarkdown} from '@/lib/utils';
+import useMatomo from '@/hooks/useMatomo';
 import {LoaderIcon} from 'lucide-react';
 
 // component: textbox to input text to search tool
@@ -34,6 +35,7 @@ export function ToolResultSelect({
     handleToolSelect: (key: string) => Promise<void>;
     onPickSuggestion: (text: string) => void;
 }) {
+    const {trackEvent} = useMatomo();
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {isToolsLoading ? (
@@ -62,10 +64,14 @@ export function ToolResultSelect({
                             </div>
                         </div>
                 ) :
-                (Object.entries(results) as [string, ToolConfig][]).map(([key, config]) => (
+                (Object.entries(results) as [string, ToolConfig][]).map(([key, config], index) => (
                     <button
                         key={key}
-                        onClick={() => handleToolSelect(key)}
+                        onClick={() => {
+                            // The name as shown on the card and its 1-based place in the list.
+                            trackEvent('Data Player', 'tool_selected', config.name || key, index + 1);
+                            void handleToolSelect(key);
+                        }}
                         disabled={isToolsLoading}
                         className="p-5 bg-white border border-eosc-border flex flex-col items-start rounded-xl hover:bg-gray-50 hover:border-eosc-light-blue transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed h-full w-full overflow-hidden cursor-pointer"
                     >

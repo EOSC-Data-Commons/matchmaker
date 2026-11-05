@@ -1,10 +1,10 @@
-import {useEffect, useMemo, useState} from 'react';
+import {useEffect, useMemo, useRef, useState} from 'react';
 import {createPortal} from 'react-dom';
 import {LoaderIcon, X} from 'lucide-react';
 import {FileMeta} from '@/types/dataplayerTypes';
 import {fetchTextPreview, filePreviewUrl, PreviewError} from '@/lib/coordinatorApi';
 import {CSV_PREVIEW_ROWS, getPreviewKind, parseCsvRows} from '@/lib/filePreview';
-import {trackEvent} from '@/lib/analytics.ts';
+import {trackEvent, trackLink} from '@/lib/analytics.ts';
 
 interface FilePreviewModalProps {
     file: FileMeta;
@@ -32,11 +32,15 @@ export const FilePreviewModal = ({file, onClose}: FilePreviewModalProps) => {
     const [binaryUrl, setBinaryUrl] = useState<string | null>(null);
     const [loading, setLoading] = useState(kind !== 'none');
     const [error, setError] = useState<string | null>(null);
+    // When this preview opened, for the `loaded` timing. Set here rather than in
+    // render so it is taken once; the fetch effects below run after this one.
+    const openedAt = useRef(0);
 
     // Preview and download are the two ways a user actually reaches the data, so
     // both are counted; `kind` says which previewers are worth the maintenance.
     useEffect(() => {
-        trackEvent('FilePreview', 'opened', kind);
+        openedAt.current = Date.now();
+        trackEvent('File Preview', 'opened', kind);
     }, [kind]);
 
     const PREVIEW_UNAVAILABLE = 'Preview not available — download the file instead.';
@@ -52,7 +56,7 @@ export const FilePreviewModal = ({file, onClose}: FilePreviewModalProps) => {
     // Status is the useful signal here: 410 means the signed link aged out and
     // 429 means the preview rate limit is biting, and those want different fixes.
     const reportPreviewFailure = (err: unknown) => {
-        trackEvent('FilePreview', 'failed', err instanceof PreviewError ? String(err.status) : 'unknown');
+        trackEvent('File Preview', 'failed', err instanceof PreviewError ? String(err.status) : 'unknown');
     };
 
     // close on Escape
@@ -76,6 +80,7 @@ export const FilePreviewModal = ({file, onClose}: FilePreviewModalProps) => {
                 if (cancelled) return;
                 setText(text);
                 setTruncated(truncated);
+                trackEvent('File Preview', 'loaded', kind, Date.now() - openedAt.current);
             })
             .catch((err: unknown) => {
                 if (cancelled) return;
@@ -107,6 +112,7 @@ export const FilePreviewModal = ({file, onClose}: FilePreviewModalProps) => {
                 if (cancelled) return;
                 objectUrl = URL.createObjectURL(blob);
                 setBinaryUrl(objectUrl);
+                trackEvent('File Preview', 'loaded', kind, Date.now() - openedAt.current);
             })
             .catch((err: unknown) => {
                 if (!cancelled) {
@@ -265,7 +271,8 @@ export const FilePreviewModal = ({file, onClose}: FilePreviewModalProps) => {
                         <button
                             type="button"
                             onClick={() => {
-                                trackEvent('FilePreview', 'downloaded', kind);
+                                trackEvent('Data Player', 'file_downloaded', kind);
+                                trackLink(downloadUrl, 'download');
                                 window.open(downloadUrl, '_blank');
                             }}
                             className="text-eosc-light-blue hover:text-blue-500 font-light transition-colors border border-eosc-light-blue hover:border-eosc-dark-blue px-3 py-1.5 rounded-md text-sm bg-white hover:bg-gray-50 cursor-pointer"

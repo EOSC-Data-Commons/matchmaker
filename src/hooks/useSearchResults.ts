@@ -17,8 +17,11 @@ interface UseSearchResultsReturn {
  * Drives the plain (non-AI) results page off `GET /search`. An empty result set
  * is a normal outcome here, not an error — the page renders its no-results view
  * from `results.hits` being empty.
+ *
+ * `model` is only reported, as the name of `Search/completed`: the plain search
+ * endpoint does not take one, so it is the page's selection, not a request field.
  */
-export const useSearchResults = (query: string): UseSearchResultsReturn => {
+export const useSearchResults = (query: string, model: string = 'cesnet/agentic'): UseSearchResultsReturn => {
     const navigate = useNavigate();
     const {trackEvent} = useMatomo();
     const [results, setResults] = useState<SearchResults | null>(null);
@@ -46,21 +49,19 @@ export const useSearchResults = (query: string): UseSearchResultsReturn => {
             setResults(searchResults);
             addToSearchHistory(query);
 
-            // Outcome, not just intent: 'submitted' is fired by SearchInput, so
-            // pairing it with these gives the success/zero/error breakdown.
-            const hitCount = searchResults.hits?.length ?? 0;
-            trackEvent('Search', 'results_returned', query, hitCount);
-            trackEvent('Search', 'latency_ms', query, elapsedMs);
-            if (hitCount === 0) trackEvent('Search', 'zero_results', query);
-
             // The action for this navigation. Matomo already counts /search?q= as
             // a site search via its own `q` detection, but cannot know the hit
             // count that way, so MatomoTracker holds the pageview back and this
-            // reports the search with the count attached.
-            trackSiteSearch(query, false, hitCount);
+            // reports the search with the count attached. The keyword and the
+            // zero-result cases live in the Site Search reports from this call.
+            const hitCount = searchResults.hits?.length ?? 0;
+            trackSiteSearch(query, 'search', hitCount);
+            // Outcome, not just intent: pairs with the page's 'submitted' to give
+            // the success/failure breakdown, with the latency as the value.
+            trackEvent('Search', 'completed', model, elapsedMs);
         } catch (err) {
             console.error("Search error:", err);
-            trackEvent('Search', 'error', errorKind(err));
+            trackEvent('Search', 'failed', errorKind(err));
             // A failed search has no meaningful hit count, and reporting zero
             // would file it under no-result keywords. The suppressed pageview is
             // sent instead, which Matomo still detects as a search from `q`.
@@ -70,7 +71,7 @@ export const useSearchResults = (query: string): UseSearchResultsReturn => {
             setLoading(false);
             isSearchingRef.current = false;
         }
-    }, [query, navigate, trackEvent]);
+    }, [query, model, navigate, trackEvent]);
 
     return {
         results,

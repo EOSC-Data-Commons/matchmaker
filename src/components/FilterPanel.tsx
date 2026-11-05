@@ -1,5 +1,6 @@
 import {FilterSection} from "./FilterSection.tsx";
 import type {Aggregations} from "../types/commons";
+import type {FilterKey} from "../lib/analytics.ts";
 import useMatomo from "../hooks/useMatomo";
 
 
@@ -17,7 +18,6 @@ export const FilterPanel = ({aggregations, onFilterChange, activeFilters}: Filte
     const handleFilter = (key: string, value: string) => {
         const currentValues = activeFilters.getAll(key);
         const isRemoving = currentValues.includes(value);
-        trackEvent('Filter', isRemoving ? 'removed' : 'applied', `${key}:${value}`);
         const newParams = new URLSearchParams(activeFilters);
 
         if (isRemoving) {
@@ -26,6 +26,12 @@ export const FilterPanel = ({aggregations, onFilterChange, activeFilters}: Filte
         } else {
             newParams.append(key, value);
         }
+
+        // Only the facet and how many values are active afterwards: the value itself
+        // is an author name or a subject, which must not end up in a report. The
+        // facet keys are the backend's, from the closed set `FilterKey` names.
+        const activeCountAfter = Array.from(newParams.keys()).length;
+        trackEvent('Search', isRemoving ? 'filter_removed' : 'filter_applied', key as FilterKey, activeCountAfter);
 
         onFilterChange(newParams);
     };

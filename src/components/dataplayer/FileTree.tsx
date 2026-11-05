@@ -1,8 +1,10 @@
 import {useMemo, useState} from 'react';
 import {ChevronRight, Download, Eye, File as FileIcon, Folder, FolderOpen} from 'lucide-react';
 import {FileMeta} from '@/types/dataplayerTypes';
-import {isPreviewable} from '@/lib/filePreview';
+import {getPreviewKind, isPreviewable} from '@/lib/filePreview';
 import {FilePreviewModal} from '@/components/dataplayer/FilePreviewModal';
+import useMatomo from '@/hooks/useMatomo';
+import {trackLink} from '@/lib/analytics';
 
 interface TreeNode {
     /** the path segment, e.g. "data" or "README.txt" */
@@ -89,6 +91,7 @@ interface TreeRowProps {
 const TreeRow = ({node, depth, expanded, onToggle, onPreview}: TreeRowProps) => {
     const isOpen = expanded.has(node.path);
     const [visibleCount, setVisibleCount] = useState(CHILDREN_PAGE_SIZE);
+    const {trackEvent} = useMatomo();
     // indent each level (capped) ; base padding keeps content off the card edge
     const indentStyle = {paddingLeft: `${Math.min(depth, MAX_INDENT_DEPTH) * 20 + 16}px`};
 
@@ -175,7 +178,13 @@ const TreeRow = ({node, depth, expanded, onToggle, onPreview}: TreeRowProps) => 
                 {file?.downloadUrl && (
                     <button
                         type="button"
-                        onClick={() => window.open(file.downloadUrl, '_blank')}
+                        onClick={() => {
+                            // Downloads are the other way a user reaches the data; the kind
+                            // says whether a previewer would have served them instead.
+                            trackEvent('Data Player', 'file_downloaded', getPreviewKind(file));
+                            trackLink(file.downloadUrl, 'download');
+                            window.open(file.downloadUrl, '_blank');
+                        }}
                         className="inline-flex items-center gap-1.5 leading-none text-eosc-light-blue hover:text-blue-500 font-light transition-colors border border-eosc-light-blue hover:border-eosc-dark-blue pl-2.5 pr-3 py-1.5 rounded-md text-sm bg-white hover:bg-gray-50 cursor-pointer"
                     >
                         <Download className="h-3.5 w-3.5 shrink-0"/>

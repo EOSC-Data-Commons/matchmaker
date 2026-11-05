@@ -1,8 +1,10 @@
 import {useLocation} from "react-router";
 import {useEffect} from "react";
+import useMatomo from "@/hooks/useMatomo.ts";
 
 const NotFound = () => {
     const location = useLocation();
+    const {trackEvent} = useMatomo();
 
     useEffect(() => {
         console.error(
@@ -10,6 +12,11 @@ const NotFound = () => {
             location.pathname,
         );
     }, [location.pathname]);
+
+    // Once per mount; the path itself is in the pageview, not the event.
+    useEffect(() => {
+        trackEvent('Error', 'not_found');
+    }, [trackEvent]);
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-100">

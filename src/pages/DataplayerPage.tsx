@@ -1,4 +1,4 @@
-import {useMemo, useState} from 'react';
+import {useEffect, useMemo, useState} from 'react';
 import {useSearchParams, useNavigate} from 'react-router';
 import {User} from 'lucide-react';
 import {Footer} from '../components/Footer';
@@ -25,7 +25,7 @@ import {MonitoringStep} from '@/components/dataplayer/MonitoringStep';
 import {FilesList} from '@/components/dataplayer/FilesList';
 import {FairAssessmentCard} from '@/components/dataplayer/FairAssessmentCard';
 import useMatomo from '@/hooks/useMatomo.ts';
-import {errorKind} from '@/lib/analytics.ts';
+import {repoCodeParam} from '@/lib/analytics.ts';
 
 export interface TaskStatusResponse {
     status: TaskStatus;
@@ -46,6 +46,9 @@ export const DataplayerPage = () => {
     // anyway, so it is a usable fallback rather than a reason to hide the card. An
     // empty or blank `pid` falls back the same way.
     const datasetPid = searchParams.get('pid')?.trim() || datasetUrl;
+    // Names this page's events by where the dataset came from, so file loading
+    // and analyses can be read per repository. Never shown, only reported.
+    const datasetRepo = repoCodeParam(searchParams.get('repo'));
     const navigate = useNavigate();
 
     const {user, loading: userLoading} = useAuth();
@@ -63,7 +66,11 @@ export const DataplayerPage = () => {
 
 
     const isAuthenticated = !userLoading && !!user;
-    const {isFilesLoading, files, error, resetDataset} = useDataset(datasetUrl, isAuthenticated);
+    const gateShown = !userLoading && !user;
+    useEffect(() => {
+        if (gateShown) trackEvent('Auth', 'gate_shown', 'data_player');
+    }, [gateShown, trackEvent]);
+    const {isFilesLoading, files, error, resetDataset} = useDataset(datasetUrl, isAuthenticated, datasetRepo);
     const [isAdding, setIsAdding] = useState(false);
     const [fileGroups, setFileGroups] = useState<FileMeta[][]>([]);
 
@@ -117,8 +124,10 @@ export const DataplayerPage = () => {
             const newFiles = await fetchFilesMetaByDatasetHandle(datasetHandle);
 
             setFileGroups((prev) => [...prev, newFiles]);
+            trackEvent('Data Player', 'additional_dataset_added', undefined, fileGroups.length + 1);
         } catch (err) {
             console.error("Failed to fetch files", err);
+            trackEvent('Data Player', 'additional_dataset_failed', undefined, fileGroups.length);
         } finally {
             setIsAdding(false);
         }
@@ -171,7 +180,6 @@ export const DataplayerPage = () => {
 
         setSelectedToolId(tool_id);
         setFilesError(null);
-        trackEvent('Dataplayer', 'tool_selected', tool_id);
 
         try {
             setCurrentStep('map-files');
@@ -185,11 +193,6 @@ export const DataplayerPage = () => {
     const {taskId, taskResult, launch, resetTask} = useTaskLauncher();
     const handleSubmit = async () => {
         if (!selectedToolId) return;
-
-        // The launch is the point of the whole page, so its outcome is the one
-        // funnel step worth measuring end to end.
-        const launchStartedAt = Date.now();
-        trackEvent('Dataplayer', 'run_submitted', selectedToolId);
 
         try {
             setCurrentStep("submitting");
@@ -215,14 +218,15 @@ export const DataplayerPage = () => {
                 },
 
                 onSuccess: () => {
-                    trackEvent('Dataplayer', 'run_succeeded', selectedToolId, Date.now() - launchStartedAt);
+                    // The launch events are named by tool; this one is named by
+                    // repository, so analyses can be counted per data source.
+                    trackEvent('Data Player', 'dataset_analysed', datasetRepo);
                     setCurrentStep("monitoring");
                     setStatusMessage("Virtual Research Environment task completed!");
                 },
 
                 onError: (err) => {
                     console.error(err);
-                    trackEvent('Dataplayer', 'run_failed', errorKind(err));
                     setStatusMessage(err instanceof Error ? err.message : "Failed to launch the tool. Please try again.");
                     setStatusType("EXCEPTION");
                     // Stay on the monitoring step so the EXCEPTION is actually rendered.
@@ -230,10 +234,9 @@ export const DataplayerPage = () => {
                     // place the error is shown — so the failure looked silent.
                     setCurrentStep("monitoring");
                 },
-            });
+            }, toolConfig?.name ?? selectedToolId);
         } catch (err) {
             console.error(err);
-            trackEvent('Dataplayer', 'run_failed', errorKind(err));
             setStatusMessage(err instanceof Error ? err.message : "Unknown error");
             setStatusType("EXCEPTION");
             setCurrentStep("monitoring");
@@ -266,7 +269,7 @@ export const DataplayerPage = () => {
                         </p>
                         <div className="flex flex-col gap-3">
                             <button
-                                onClick={loginWithReturn}
+                                onClick={() => loginWithReturn('gate_data_player')}
                                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors shadow-sm cursor-pointer"
                             >
                                 Log In to Continue

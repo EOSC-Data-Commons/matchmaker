@@ -11,6 +11,7 @@ import {
     taskStatusAsEventSource
 } from '@/lib/coordinatorApi';
 import {useAuth} from './useAuth';
+import {errorKind, trackEvent} from '@/lib/analytics';
 
 export function buildSlotToFileMapping(
     mapping: Record<string, number>,
@@ -51,8 +52,17 @@ export function useTaskLauncher() {
             onState: (data: TaskStatus) => void;
             onSuccess: () => void;
             onError: (err: unknown) => void;
-        }
+        },
+        // Analytics only: the registry name reads better in a report than a uuid.
+        toolName: string = toolId,
     ) => {
+        // The launch is the point of the whole page, so its outcome is measured
+        // end to end from here, where the task states arrive first-hand.
+        const submittedAt = Date.now();
+        trackEvent('Data Player', 'launch_submitted', toolName, Object.keys(files).length);
+        const reportFailure = (reason: string) =>
+            trackEvent('Data Player', 'launch_failed', `${toolName}:${reason}`, Date.now() - submittedAt);
+
         try {
             esRef.current?.close();
 
@@ -65,6 +75,7 @@ export function useTaskLauncher() {
             es.onerror = (err) => {
                 es.close();
                 esRef.current = null;
+                reportFailure('stream_error');
                 callbacks.onError(err);
             };
 
@@ -78,15 +89,18 @@ export function useTaskLauncher() {
 
                     const result = await getDispatchResultById(id);
                     setTaskResult(result);
+                    trackEvent('Data Player', 'launch_succeeded', toolName, Date.now() - submittedAt);
                     callbacks.onSuccess();
                 } else if (data.state === "EXCEPTION" || data.state === "DROPPED") {
                     es.close();
                     esRef.current = null;
+                    reportFailure(data.state);
                     callbacks.onError(new Error(`Task failed with state: ${data.state}`));
                 }
             });
 
         } catch (err) {
+            reportFailure(errorKind(err));
             callbacks.onError(err);
         }
     };
@@ -104,7 +118,7 @@ export const areAllParametersMapped = (
     return config.slots.filter((p) => !p.isOptional).every(param => valueMapped.has(param.name));
 };
 
-export function useDataset(datasetHandle: string | null, enabled: boolean = true) {
+export function useDataset(datasetHandle: string | null, enabled: boolean = true, repo: string = 'unknown') {
     const [isFilesLoading, setIsFilesLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [files, setFiles] = useState<FileMeta[]>([]);
@@ -131,8 +145,11 @@ export function useDataset(datasetHandle: string | null, enabled: boolean = true
                 setIsFilesLoading(true);
                 const fetchedFiles = await fetchFilesMetaByDatasetHandle(datasetHandle);
                 setFiles(fetchedFiles);
+                // Zero included: an empty listing is a finding about the repository.
+                trackEvent('Data Player', 'files_loaded', repo, fetchedFiles.length);
             } catch (err) {
                 console.error(err);
+                trackEvent('Data Player', 'files_failed', `${repo}:${errorKind(err)}`);
                 setError("Failed to fetch files");
             } finally {
                 setIsFilesLoading(false);
@@ -141,7 +158,7 @@ export function useDataset(datasetHandle: string | null, enabled: boolean = true
         };
 
         load();
-    }, [datasetHandle, enabled]);
+    }, [datasetHandle, enabled, repo]);
 
     return {isFilesLoading, files, error, resetDataset};
 }
@@ -203,6 +220,7 @@ export function useFilesToQueryTool(files: FileMeta[]) {
         async function load() {
             const tools = await matchToolsByFiles(files);
             setQueryToolResults(tools);
+            trackEvent('Data Player', 'tools_listed', 'file_match', Object.keys(tools).length);
         }
 
         load();
@@ -239,6 +257,8 @@ export function useSearchTextToQueryTool(toolSearchText: string) {
                 if (!cancelled) {
                     setQueryToolResults(tools);
                     setSearchStatus('loaded');
+                    // The count only: the search text itself is never reported.
+                    trackEvent('Data Player', 'tools_listed', 'text_search', Object.keys(tools).length);
                 }
             } catch (err) {
                 if (!cancelled) {
@@ -310,9 +330,11 @@ export function useSelectedToolId(selectedToolId: string | null): {
             } catch (err) {
                 if (cancelled) return;
                 console.error('Failed to load tool config', err);
+                const timedOut = err instanceof Error && err.message === 'timeout';
+                trackEvent('Data Player', 'tool_config_failed', timedOut ? 'timeout' : 'error');
                 setStatus('error');
                 setError(
-                    err instanceof Error && err.message === 'timeout'
+                    timedOut
                         ? 'Loading the tool configuration timed out. The service may be unavailable.'
                         : 'Failed to load the tool configuration.'
                 );

@@ -93,7 +93,7 @@ const CitedDatasetRow = ({citation, isLoggedIn, highlighted, expanded, onToggle,
                 {meta && <span className="text-xs text-gray-500 break-words">{meta}</span>}
             </div>
             <div className="col-start-2 sm:col-start-4 flex flex-wrap items-center gap-2">
-                <DatasetActions hit={dataset} isLoggedIn={isLoggedIn} compact/>
+                <DatasetActions hit={dataset} isLoggedIn={isLoggedIn} compact context="ai_cited" position={number}/>
                 <button
                     type="button"
                     onClick={() => onToggle(number)}

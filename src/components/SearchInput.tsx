@@ -3,6 +3,7 @@ import {ArrowRight, Search, Sparkles, X} from "lucide-react";
 import {ModelSelector} from "./ModelSelector.tsx";
 import {getSearchHistory} from "../lib/history.ts";
 import {loginForAiMode, returnedFromAiModeLogin} from "../lib/authRedirect.ts";
+import type {SearchOrigin} from "../lib/analytics.ts";
 import useMatomo from "../hooks/useMatomo";
 import {useMediaQuery} from "../hooks/useMediaQuery.ts";
 
@@ -26,7 +27,9 @@ const models = [
 interface SearchInputProps {
     initialQuery?: string;
     initialModel?: string;
-    onSearch: (query: string, model: string, aiMode?: boolean) => void;
+    // `origin` says how the query was entered; the page reports it with the search,
+    // not this component, which also serves as the chat composer.
+    onSearch: (query: string, model: string, aiMode?: boolean, origin?: SearchOrigin) => void;
     loading?: boolean;
     // While `loading`, the submit button calls this instead of staying disabled.
     onStop?: () => void;
@@ -102,8 +105,7 @@ export const SearchInput = ({
         e.preventDefault();
         if (loading) return;
         if (query.trim()) {
-            trackEvent('Search', 'submitted', query.trim());
-            onSearch(query.trim(), selectedModel, effectiveAiMode);
+            onSearch(query.trim(), selectedModel, effectiveAiMode, 'typed');
             setShowHistory(false);
             if (clearOnSearch) {
                 setQuery('');
@@ -141,8 +143,7 @@ export const SearchInput = ({
     const handleHistoryItemClick = (item: string) => {
         if (loading) return;
         setQuery(item);
-        trackEvent('Search', 'submitted', item);
-        onSearch(item, selectedModel, effectiveAiMode);
+        onSearch(item, selectedModel, effectiveAiMode, 'history');
         setShowHistory(false);
         setHighlightedIndex(-1);
         if (clearOnSearch) {
@@ -154,13 +155,13 @@ export const SearchInput = ({
     // chip explains what AI mode is worth instead of just refusing the click.
     const handleAiModeClick = () => {
         if (!isLoggedIn) {
-            trackEvent('Auth', 'gate_triggered', 'ai_mode');
+            // loginForAiMode reports the login start itself.
             loginForAiMode();
             return;
         }
         const next = !aiMode;
         setAiMode(next);
-        trackEvent('Search', 'ai_mode_toggled', next ? 'on' : 'off');
+        trackEvent('AI Mode', 'toggled', next ? 'on' : 'off');
     };
 
     const filteredHistory = disableHistory ? [] : history.filter(item => item.toLowerCase().includes(query.toLowerCase()));

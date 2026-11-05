@@ -1,5 +1,7 @@
 import {LoaderIcon, CheckCircleIcon, XCircleIcon} from 'lucide-react';
 import {DispatchResult, TaskState, ToolConfig} from '@/types/dataplayerTypes';
+import useMatomo from '@/hooks/useMatomo';
+import {trackLink} from '@/lib/analytics';
 
 interface MonitoringStepProps {
     statusType: TaskState;
@@ -24,6 +26,16 @@ export const MonitoringStep = ({
                                    onStartOver,
                                    onBackToConfig
                                }: MonitoringStepProps) => {
+    const {trackEvent} = useMatomo();
+    const toolName = toolConfig?.name ?? selectedToolId ?? 'unknown';
+
+    // Opening the launched tool is the conversion the whole flow exists for;
+    // window.open hides it from Matomo's link tracking, so it is reported by hand.
+    const openTool = (url: string) => {
+        trackEvent('Data Player', 'tool_opened', toolName);
+        trackLink(url, 'link');
+        window.open(url, '_blank', 'noopener,noreferrer');
+    };
 
     const getStatusIcon = () => {
         switch (statusType) {
@@ -109,7 +121,7 @@ export const MonitoringStep = ({
                             </p>
                         </div>
                         <button
-                            onClick={() => window.open(taskResult.url, '_blank', 'noopener,noreferrer')}
+                            onClick={() => openTool(taskResult.url)}
                             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md bg-white border border-eosc-border px-6 py-2.5 text-sm font-light text-eosc-text hover:bg-gray-50 hover:border-eosc-light-blue transition-colors whitespace-nowrap cursor-pointer"
                         >
                             Open the tool →
@@ -122,14 +134,20 @@ export const MonitoringStep = ({
                         <>
                             {onBackToConfig && (
                                 <button
-                                    onClick={onBackToConfig}
+                                    onClick={() => {
+                                        trackEvent('Data Player', 'step_back', 'back_to_config');
+                                        onBackToConfig();
+                                    }}
                                     className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md bg-white border border-eosc-border px-6 py-2.5 text-sm font-light text-eosc-text hover:bg-gray-50 hover:border-eosc-light-blue transition-colors cursor-pointer"
                                 >
                                     Back to configuration
                                 </button>
                             )}
                             <button
-                                onClick={onStartOver}
+                                onClick={() => {
+                                    trackEvent('Data Player', 'step_back', 'start_over');
+                                    onStartOver();
+                                }}
                                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md bg-white border border-eosc-border px-6 py-2.5 text-sm font-light text-eosc-text hover:bg-gray-50 hover:border-eosc-light-blue transition-colors cursor-pointer"
                             >
                                 Start Over

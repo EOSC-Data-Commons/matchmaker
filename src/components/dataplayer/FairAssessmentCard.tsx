@@ -1,6 +1,7 @@
 import {useState} from 'react';
 import {AlertCircle, ExternalLink, Gauge, LoaderIcon, RefreshCw} from 'lucide-react';
 import {useFairAssessment} from '@/hooks/useFairAssessment.ts';
+import useMatomo from '@/hooks/useMatomo.ts';
 import {rawReportUrl} from '@/lib/fairApi.ts';
 import {
     CELL_PLAIN,
@@ -367,6 +368,7 @@ interface FairAssessmentCardProps {
 export const FairAssessmentCard = ({pid}: FairAssessmentCardProps) => {
     const {state, report, assessment, error, finishedAssessors, plannedAssessors, fromCache, isDoiPid, run} =
         useFairAssessment(pid);
+    const {trackEvent} = useMatomo();
 
     if (!pid) return null;
 
@@ -382,7 +384,10 @@ export const FairAssessmentCard = ({pid}: FairAssessmentCardProps) => {
                 {state === 'ready' && (
                     <button
                         type="button"
-                        onClick={() => run({force: true})}
+                        onClick={() => {
+                            trackEvent('FAIR', 'check_requested', 'recheck');
+                            run({force: true});
+                        }}
                         className="flex items-center gap-1 text-sm font-light text-gray-500 hover:text-gray-700 transition-colors cursor-pointer"
                     >
                         <RefreshCw className="h-3.5 w-3.5"/>
@@ -424,7 +429,10 @@ export const FairAssessmentCard = ({pid}: FairAssessmentCardProps) => {
                     </p>
                     <button
                         type="button"
-                        onClick={() => run({force: false})}
+                        onClick={() => {
+                            trackEvent('FAIR', 'check_requested', 'new');
+                            run({force: false});
+                        }}
                         className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 transition-colors cursor-pointer"
                     >
                         <Gauge className="h-4 w-4"/>
@@ -453,7 +461,10 @@ export const FairAssessmentCard = ({pid}: FairAssessmentCardProps) => {
                     </div>
                     <button
                         type="button"
-                        onClick={() => run({force: true})}
+                        onClick={() => {
+                            trackEvent('FAIR', 'check_requested', 'retry');
+                            run({force: true});
+                        }}
                         className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 px-3 py-1.5 text-sm font-light text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
                     >
                         <RefreshCw className="h-3.5 w-3.5"/>

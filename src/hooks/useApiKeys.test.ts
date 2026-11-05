@@ -4,13 +4,19 @@ import {http, HttpResponse} from "msw";
 import {server} from "@/test/msw/server";
 import {useApiKeys} from "./useApiKeys";
 
+type Paq = Array<Array<string | number | boolean>>;
+const paq = () => window._paq as unknown as Paq;
+const events = () => paq().filter(c => c[0] === "trackEvent");
+
 describe("useApiKeys", () => {
     beforeEach(() => {
+        window._paq = [];
         vi.spyOn(console, "error").mockImplementation(() => {});
     });
 
     afterEach(() => {
         vi.restoreAllMocks();
+        delete (window as Partial<Window>)._paq;
     });
 
     it("does not hit the endpoint until enabled", async () => {
@@ -110,5 +116,65 @@ describe("useApiKeys", () => {
         await act(() => result.current.reload());
         expect(result.current.unavailable).toBe(false);
         expect(result.current.configured).toEqual(new Set(["vip"]));
+    });
+
+    describe("analytics", () => {
+        it("reports the store being unavailable", async () => {
+            server.use(http.get("/auth/keys", () =>
+                HttpResponse.json({detail: "Vault is sealed"}, {status: 503}),
+            ));
+            const {result} = renderHook(() => useApiKeys(true));
+            await waitFor(() => expect(result.current.unavailable).toBe(true));
+            expect(events()).toEqual([["trackEvent", "API Keys", "store_unavailable"]]);
+        });
+
+        it("reports a first save as set and a later one as replace", async () => {
+            server.use(
+                http.get("/auth/keys", () => HttpResponse.json({key_ids: []})),
+                http.put("/auth/keys/github", () => new HttpResponse(null, {status: 204})),
+            );
+            const {result} = renderHook(() => useApiKeys(true));
+            await waitFor(() => expect(result.current.loading).toBe(false));
+
+            await act(() => result.current.save("github", "ghp_first"));
+            await act(() => result.current.save("github", "ghp_second"));
+
+            expect(events()).toEqual([
+                ["trackEvent", "API Keys", "saved", "github:set"],
+                ["trackEvent", "API Keys", "saved", "github:replace"],
+            ]);
+        });
+
+        it("reports a removal by key id", async () => {
+            server.use(
+                http.get("/auth/keys", () => HttpResponse.json({key_ids: ["vip"]})),
+                http.delete("/auth/keys/vip", () => new HttpResponse(null, {status: 204})),
+            );
+            const {result} = renderHook(() => useApiKeys(true));
+            await waitFor(() => expect(result.current.loading).toBe(false));
+
+            await act(() => result.current.remove("vip"));
+            expect(events()).toEqual([["trackEvent", "API Keys", "removed", "vip"]]);
+        });
+
+        it("reports failures by key id and never lets the value near an event", async () => {
+            server.use(
+                http.get("/auth/keys", () => HttpResponse.json({key_ids: ["vip"]})),
+                http.put("/auth/keys/github", () =>
+                    HttpResponse.json({detail: "nope"}, {status: 422})),
+                http.delete("/auth/keys/vip", () => new HttpResponse(null, {status: 500})),
+            );
+            const {result} = renderHook(() => useApiKeys(true));
+            await waitFor(() => expect(result.current.loading).toBe(false));
+
+            await expect(result.current.save("github", "ghp_secret_value")).rejects.toThrow();
+            await expect(result.current.remove("vip")).rejects.toThrow();
+
+            expect(events()).toEqual([
+                ["trackEvent", "API Keys", "save_failed", "github"],
+                ["trackEvent", "API Keys", "remove_failed", "vip"],
+            ]);
+            expect(JSON.stringify(paq())).not.toContain("ghp_secret_value");
+        });
     });
 });

@@ -14,23 +14,28 @@ const wrapper = ({children}: {children: ReactNode}) => (
 );
 
 // Render the hook alongside useLocation so navigation is observable
-const renderSearch = (query: string) =>
+const renderSearch = (query: string, model?: string) =>
     renderHook(() => ({
-        search: useSearchResults(query),
+        search: useSearchResults(query, model),
         location: useLocation(),
     }), {wrapper});
 
 const searchResult = {total_found: 1, hits: [makeDataset()]};
 
+type Paq = Array<Array<string | number | boolean>>;
+const paq = () => window._paq as unknown as Paq;
+
 describe("useSearchResults", () => {
     beforeEach(() => {
         localStorage.clear();
+        window._paq = [];
         vi.spyOn(console, "error").mockImplementation(() => {});
         vi.spyOn(console, "log").mockImplementation(() => {});
     });
 
     afterEach(() => {
         vi.restoreAllMocks();
+        delete (window as Partial<Window>)._paq;
     });
 
     it("delivers the results and records the search history", async () => {
@@ -78,6 +83,43 @@ describe("useSearchResults", () => {
 
         expect(result.current.search.error).toBeInstanceOf(ServerError);
         expect(result.current.search.results).toBeNull();
+    });
+
+    describe("analytics", () => {
+        it("reports a success as a site search with the hit count and Search/completed with the model and latency", async () => {
+            server.use(http.get("/api/search/search", () => HttpResponse.json(searchResult)));
+            const {result} = renderSearch("ocean", "cesnet/mini");
+            await act(() => result.current.search.performSearch());
+
+            // The site search replaces the pageview MatomoTracker held back; the
+            // keyword travels only there, never in an event name.
+            expect(paq()).toEqual([
+                ["trackSiteSearch", "ocean", "search", 1],
+                ["trackEvent", "Search", "completed", "cesnet/mini", expect.any(Number)],
+            ]);
+        });
+
+        it("defaults the reported model when the page passes none", async () => {
+            server.use(http.get("/api/search/search", () => HttpResponse.json({total_found: 0, hits: []})));
+            const {result} = renderSearch("nothing matches this");
+            await act(() => result.current.search.performSearch());
+
+            expect(paq()).toEqual([
+                ["trackSiteSearch", "nothing matches this", "search", 0],
+                ["trackEvent", "Search", "completed", "cesnet/agentic", expect.any(Number)],
+            ]);
+        });
+
+        it("reports a failure by kind and sends the held-back pageview instead of a site search", async () => {
+            server.use(http.get("/api/search/search", () => new HttpResponse(null, {status: 429})));
+            const {result} = renderSearch("ocean");
+            await act(() => result.current.search.performSearch());
+
+            expect(paq()).toEqual([
+                ["trackEvent", "Search", "failed", "rate_limit"],
+                ["trackPageView"],
+            ]);
+        });
     });
 
     it("ignores a second performSearch while one is in flight", async () => {
