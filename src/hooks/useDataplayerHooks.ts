@@ -117,7 +117,7 @@ export const areAllParametersMapped = (
     return config.slots.filter((p) => !p.isOptional).every(param => valueMapped.has(param.name));
 };
 
-export function useDataset(datasetHandle: string | null, enabled: boolean = true) {
+export function useDataset(datasetHandle: string | null, enabled: boolean = true, repo: string = 'unknown') {
     const [isFilesLoading, setIsFilesLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [files, setFiles] = useState<FileMeta[]>([]);
@@ -145,10 +145,10 @@ export function useDataset(datasetHandle: string | null, enabled: boolean = true
                 const fetchedFiles = await fetchFilesMetaByDatasetHandle(datasetHandle);
                 setFiles(fetchedFiles);
                 // Zero included: an empty listing is a finding about the repository.
-                trackEvent('Data Player', 'files_loaded', undefined, fetchedFiles.length);
+                trackEvent('Data Player', 'files_loaded', repo, fetchedFiles.length);
             } catch (err) {
                 console.error(err);
-                trackEvent('Data Player', 'files_failed', errorKind(err));
+                trackEvent('Data Player', 'files_failed', `${repo}:${errorKind(err)}`);
                 setError("Failed to fetch files");
             } finally {
                 setIsFilesLoading(false);
@@ -157,7 +157,7 @@ export function useDataset(datasetHandle: string | null, enabled: boolean = true
         };
 
         load();
-    }, [datasetHandle, enabled]);
+    }, [datasetHandle, enabled, repo]);
 
     return {isFilesLoading, files, error, resetDataset};
 }

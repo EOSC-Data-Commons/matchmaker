@@ -2,6 +2,7 @@
 
 import { UserInfo } from "@/hooks/useAuth";
 import {DispatchResult, FileMeta, TaskId, ToolConfig, TypedValue, TypLaunchToolRequest} from "../types/dataplayerTypes";
+import {ServerError} from "./api";
 
 export async function matchToolsByFiles(
     files: FileMeta[],
@@ -37,7 +38,11 @@ export async function fetchFilesMetaByDatasetHandle(handle: string): Promise<Fil
     const res = await fetch(`/api/coordinator/files?handle=${encodeURIComponent(handle)}`);
 
     if (!res.ok) {
-        throw new Error(`Failed to fetch file metadata from dataset handle: ${res.status} ${res.statusText}`)
+        // A 5xx is the coordinator or the repository failing, which analytics
+        // files as `server`. "Failed to fetch" wording is kept for the browser's
+        // own network errors, so a bad status does not get counted as one.
+        if (res.status >= 500) throw new ServerError(res.status);
+        throw new Error(`File listing rejected for dataset handle: ${res.status} ${res.statusText}`);
     }
 
     const files: FileMeta[] = await res.json();

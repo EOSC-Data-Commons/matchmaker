@@ -15,6 +15,18 @@ import type {BackendDataset} from '@/types/commons.ts';
  * Every category and action is declared in `EventCatalogue` below together with
  * the names it accepts, so a call site cannot put a query, a title or an author
  * into a report by accident. Add a new event here first.
+ *
+ * Project KPIs this feeds (EOSC Data Commons KPIs and Impact Metrics sheet):
+ * - #3 AI-powered queries: site search category `ai`, `AI Mode/question_sent`,
+ *   with `Feedback/*` as the user feedback mechanism.
+ * - #5 analytics tools linked with datasets: `Dataset/play_clicked`, and the
+ *   distinct tool names under `Data Player/launch_submitted` and `tool_opened`.
+ * - #13 repositories whose datasets can be analysed: `Data Player/files_loaded`
+ *   and `dataset_analysed`, both named by repository code.
+ * - #23 FAIRness evaluations performed: `FAIR/check_requested` and `check_completed`.
+ * - #10 datasets with improved FAIRness: `FAIR/recheck_compared`.
+ * Use cases per community (#12) need the signed-in identity and are a backend
+ * count; Matomo has no user id by design.
  */
 
 export type ErrorKind = 'rate_limit' | 'server' | 'timeout' | 'network' | 'unknown';
@@ -118,9 +130,10 @@ export interface EventCatalogue {
         signed_in_visit: never;
     };
     'Data Player': {
-        /** Value: number of files. */
-        files_loaded: never;
-        files_failed: ErrorKind;
+        /** Name: repository code the dataset came from. Value: number of files. */
+        files_loaded: string;
+        /** Name: `<repository code>:<error kind>`. */
+        files_failed: `${string}:${ErrorKind}`;
         /** Value: number of tools, 0 when none were found. */
         tools_listed: ToolListOrigin;
         /** Name: tool name from the registry config. Value: 1-based position in the list. */
@@ -137,6 +150,8 @@ export interface EventCatalogue {
         launch_failed: `${string}:${string}`;
         /** Name: tool name. The user opened the launched tool: the conversion this whole flow exists for. */
         tool_opened: string;
+        /** Name: repository code. One per successful launch, so analyses can be counted per repository. */
+        dataset_analysed: string;
         step_back: 'reselect_tool' | 'back_to_config' | 'start_over';
         file_downloaded: PreviewKindName;
     };
@@ -154,6 +169,8 @@ export interface EventCatalogue {
         check_failed: FairFailure;
         /** Value: the assessor's overall score. */
         score: FairAssessor;
+        /** Name: `<assessor>:<direction>` of a re-check against the report it replaced. Value: size of the change. */
+        recheck_compared: `${FairAssessor}:${'improved' | 'unchanged' | 'declined'}`;
     };
     'API Keys': {
         store_unavailable: never;
@@ -341,7 +358,21 @@ export const onceInSession = (key: string): boolean => {
  * organisation name, which would reopen the cardinality problem.
  */
 export const datasetEventName = (context: DatasetContext, hit: BackendDataset): DatasetEventName =>
-    `${context}:${(getAggregator(hit)?.code ?? getRepository(hit)?.code ?? 'unknown').toLowerCase()}`;
+    `${context}:${datasetRepoCode(hit)}`;
+
+/** The repository or aggregator code of a hit, lower case, `unknown` when it has none. */
+export const datasetRepoCode = (hit: BackendDataset): string =>
+    (getAggregator(hit)?.code ?? getRepository(hit)?.code ?? 'unknown').toLowerCase();
+
+/**
+ * A repository code read back from a URL parameter. The dataplayer gets it from
+ * the Play button, but anyone can type a URL, so only a short code-shaped value
+ * is accepted; anything else is `unknown` rather than a free string in a report.
+ */
+export const repoCodeParam = (value: string | null): string => {
+    const code = (value ?? '').trim().toLowerCase();
+    return /^[a-z0-9_-]{1,32}$/.test(code) ? code : 'unknown';
+};
 
 /**
  * Collapses an error into one of a small, stable set of labels for analytics.

@@ -24,6 +24,7 @@ import {MonitoringStep} from '@/components/dataplayer/MonitoringStep';
 import {FilesList} from '@/components/dataplayer/FilesList';
 import {FairAssessmentCard} from '@/components/dataplayer/FairAssessmentCard';
 import useMatomo from '@/hooks/useMatomo.ts';
+import {repoCodeParam} from '@/lib/analytics.ts';
 
 export interface TaskStatusResponse {
     status: TaskStatus;
@@ -43,6 +44,9 @@ export const DataplayerPage = () => {
     // anyway, so it is a usable fallback rather than a reason to hide the card. An
     // empty or blank `pid` falls back the same way.
     const datasetPid = searchParams.get('pid')?.trim() || datasetUrl;
+    // Names this page's events by where the dataset came from, so file loading
+    // and analyses can be read per repository. Never shown, only reported.
+    const datasetRepo = repoCodeParam(searchParams.get('repo'));
     const navigate = useNavigate();
 
     const {user, loading: userLoading} = useAuth();
@@ -64,7 +68,7 @@ export const DataplayerPage = () => {
     useEffect(() => {
         if (gateShown) trackEvent('Auth', 'gate_shown', 'data_player');
     }, [gateShown, trackEvent]);
-    const {isFilesLoading, files, error, resetDataset} = useDataset(datasetUrl, isAuthenticated);
+    const {isFilesLoading, files, error, resetDataset} = useDataset(datasetUrl, isAuthenticated, datasetRepo);
     const [isAdding, setIsAdding] = useState(false);
     const [fileGroups, setFileGroups] = useState<FileMeta[][]>([]);
 
@@ -202,6 +206,9 @@ export const DataplayerPage = () => {
                 },
 
                 onSuccess: () => {
+                    // The launch events are named by tool; this one is named by
+                    // repository, so analyses can be counted per data source.
+                    trackEvent('Data Player', 'dataset_analysed', datasetRepo);
                     setCurrentStep("monitoring");
                     setStatusMessage("Virtual Research Environment task completed!");
                 },

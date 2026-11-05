@@ -2,7 +2,7 @@ import {describe, it, expect, vi, beforeEach, afterEach} from "vitest";
 import {renderHook, waitFor, act} from "@testing-library/react";
 import {http, HttpResponse} from "msw";
 import {server} from "@/test/msw/server";
-import {useTaskLauncher} from "./useDataplayerHooks";
+import {useDataset, useTaskLauncher} from "./useDataplayerHooks";
 import type {FileMeta} from "@/types/dataplayerTypes";
 
 type Paq = Array<Array<string | number | boolean>>;
@@ -115,5 +115,34 @@ describe("useTaskLauncher analytics", () => {
 
         expect(cb.onError).toHaveBeenCalled();
         expect(events().filter(c => c[2] === "launch_failed")[0][3]).toBe("Jupyter:unknown");
+    });
+});
+
+describe("useDataset analytics", () => {
+    beforeEach(() => {
+        window._paq = [];
+        vi.spyOn(console, "error").mockImplementation(() => {});
+        vi.spyOn(console, "log").mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+        delete (window as Partial<Window>)._paq;
+    });
+
+    it("reports the file count under the repository the dataset came from", async () => {
+        server.use(http.get("/api/coordinator/files", () => HttpResponse.json([file, file])));
+        const {result} = renderHook(() => useDataset("https://doi.org/10.1/x", true, "dans"));
+
+        await waitFor(() => expect(result.current.isFilesLoading).toBe(false));
+        expect(events()).toContainEqual(["trackEvent", "Data Player", "files_loaded", "dans", 2]);
+    });
+
+    it("reports a failed listing under the repository and the error kind", async () => {
+        server.use(http.get("/api/coordinator/files", () => new HttpResponse(null, {status: 502})));
+        const {result} = renderHook(() => useDataset("https://doi.org/10.1/x", true, "one"));
+
+        await waitFor(() => expect(result.current.isFilesLoading).toBe(false));
+        expect(events()).toContainEqual(["trackEvent", "Data Player", "files_failed", "one:server"]);
     });
 });

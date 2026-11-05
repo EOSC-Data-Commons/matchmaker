@@ -2,9 +2,11 @@ import {describe, it, expect, beforeEach, afterEach} from "vitest";
 import {
     analyticsEnabled,
     datasetEventName,
+    datasetRepoCode,
     errorKind,
     onceInSession,
     pageTitle,
+    repoCodeParam,
     siteSearchKeyword,
     trackedUrl,
     trackEvent,
@@ -49,8 +51,8 @@ describe("analytics", () => {
         // Matomo reads the slots positionally, so a value with no name would
         // otherwise be filed as the event name.
         it("pads the name slot when a value is given without a name", () => {
-            trackEvent("Data Player", "files_loaded", undefined, 42);
-            expect(paq()[0]).toEqual(["trackEvent", "Data Player", "files_loaded", "", 42]);
+            trackEvent("Data Player", "additional_dataset_added", undefined, 2);
+            expect(paq()[0]).toEqual(["trackEvent", "Data Player", "additional_dataset_added", "", 2]);
         });
 
         it("keeps a zero value rather than dropping it as falsy", () => {
@@ -195,6 +197,25 @@ describe("analytics", () => {
 
         it("falls back to unknown when the source has no repository", () => {
             expect(datasetEventName("export", hit({}))).toBe("export:unknown");
+        });
+    });
+
+    describe("repository codes for the dataplayer", () => {
+        it("hands the Play button the same code the dataset events use", () => {
+            expect(datasetRepoCode(hit({_repo: "DANS"}))).toBe("dans");
+            expect(datasetRepoCode(hit({}))).toBe("unknown");
+        });
+
+        it.each([
+            ["a code", "zenodo", "zenodo"],
+            ["upper case and spaces", " DANS ", "dans"],
+            ["a missing param", null, "unknown"],
+            ["an empty param", "", "unknown"],
+            ["free text", "Some Repository Name", "unknown"],
+            ["markup", "<script>", "unknown"],
+            ["an overlong value", "a".repeat(40), "unknown"],
+        ])("accepts only code-shaped values: %s", (_label, value, expected) => {
+            expect(repoCodeParam(value)).toBe(expected);
         });
     });
 

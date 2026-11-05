@@ -8,7 +8,7 @@ import {useState} from 'react';
 import {useSearchParams} from 'react-router';
 import {RepoProvenance} from "./RepoProvenance.tsx";
 import useMatomo from "../hooks/useMatomo";
-import {type DatasetContext, datasetEventName} from "../lib/analytics.ts";
+import {type DatasetContext, datasetEventName, datasetRepoCode} from "../lib/analytics.ts";
 
 interface SearchResultItemProps {
     hit: BackendDataset;
@@ -175,6 +175,8 @@ export const DatasetActions = ({hit, isLoggedIn = false, compact = false, contex
         trackEvent('Dataset', 'play_clicked', datasetEventName(context, hit), position);
         const params = new URLSearchParams();
         params.set('datasetId', hit._id);
+        // For the dataplayer's own events: which repository the dataset came from.
+        params.set('repo', datasetRepoCode(hit));
         if (hit.title) {
             params.set('title', hit.title);
         }
