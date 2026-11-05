@@ -73,6 +73,23 @@ const reportReady = (report: FairReport, outcome: FairOutcome, elapsedMs: number
     }
 };
 
+/**
+ * A re-check against the report it replaces, per assessor: whether the overall
+ * score went up, stayed or went down, with the size of the change as the value.
+ * This is how "datasets with improved FAIRness" can be counted from the UI
+ * without recording which dataset it was.
+ */
+const compareRecheck = (before: FairReport, after: FairReport) => {
+    for (const result of after.results) {
+        const was = before.results.find(r => r.assessor === result.assessor)?.scores.overall;
+        const now = result.scores.overall;
+        if (was === null || was === undefined || now === null) continue;
+        const delta = Math.round((now - was) * 10) / 10;
+        const direction = delta > 0 ? 'improved' : delta < 0 ? 'declined' : 'unchanged';
+        trackEvent('FAIR', 'recheck_compared', `${result.assessor}:${direction}`, Math.abs(delta));
+    }
+};
+
 /** A stable label for why a run did not produce a report; never its message. */
 const failureKind = (err: unknown): FairFailure => {
     if (err instanceof FairAssessmentTimeoutError) return 'timeout';
@@ -105,6 +122,11 @@ export function useFairAssessment(pid: string | null): UseFairAssessment {
     // started for one dataset cannot resolve into another dataset's card.
     const abortRef = useRef<AbortController | null>(null);
     const liveRef = useRef(true);
+    // The report on screen when a re-check starts, so the two can be compared.
+    const shownRef = useRef<{pid: string | null; report: FairReport | null}>({pid, report: null});
+    useEffect(() => {
+        shownRef.current = {pid: state.pid, report: state.report};
+    }, [state.pid, state.report]);
 
     // Reset during render rather than in an effect: the card then never paints one
     // dataset's score while another dataset's PID is already in props. Aborting the
@@ -180,6 +202,8 @@ export function useFairAssessment(pid: string | null): UseFairAssessment {
         const update = (patch: Partial<InternalState>) =>
             setState(prev => (prev.pid === pid ? {...prev, ...patch} : prev));
 
+        // Only a forced run replaces a report the user has already seen.
+        const before = force && shownRef.current.pid === pid ? shownRef.current.report : null;
         update({phase: 'running', error: null, finishedAssessors: [], fromCache: false});
         const requestedAt = Date.now();
         const elapsed = () => Date.now() - requestedAt;
@@ -228,6 +252,7 @@ export function useFairAssessment(pid: string | null): UseFairAssessment {
                 if (!alive()) return;
                 update({phase: 'ready', report: fresh, assessment: record});
                 reportReady(fresh, final.status === 'completed_with_errors' ? 'completed_with_errors' : 'completed', elapsed());
+                if (before) compareRecheck(before, fresh);
             } catch (err) {
                 if (!alive()) return;
                 if (err instanceof DOMException && err.name === 'AbortError') return;

@@ -441,6 +441,8 @@ describe("FairAssessmentCard", () => {
             expect(named("check_requested")).toEqual([["trackEvent", "FAIR", "check_requested", "recheck"]]);
             await waitFor(() => expect(named("check_completed")).toHaveLength(2));
             expect(named("check_completed")[1][3]).toBe("completed");
+            // Same fixture both times, so the comparison reads as no change.
+            expect(named("recheck_compared")).toContainEqual(["trackEvent", "FAIR", "recheck_compared", "fuji:unchanged", 0]);
         });
 
         it("reports a run in which every assessor failed", async () => {
