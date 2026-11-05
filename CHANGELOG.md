@@ -2,28 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.14.0] - 05/11/2026
 
-- Reworked Matomo analytics from the ground up. Every event now comes from a typed catalogue in `src/lib/analytics.ts`,
-  so queries, dataset titles and author names can no longer end up in a report. Categories follow the product's
-  current wording: `Search`, `AI Mode`, `Dataset`, `Citation`, `Feedback`, `Auth`, `Data Player`, `File Preview`,
-  `FAIR`, `API Keys`, `Landing`, `Error`. Figures from before this release use the old names and are inflated
-  (`Search/submitted` also fired for every AI Mode question), so they do not line up with the new ones.
-- Matomo no longer sets cookies. Visits are still counted, but a visitor is only recognised within the same day.
-- Local dev servers (localhost, 127.0.0.1) no longer send anything to Matomo. Team members can stop their own browser
-  being counted by opening the site once with `?analytics=off`, and undo it with `?analytics=on`.
-- Conversations and the Data Player are reported as `/chat/:id` and `/dataplayer`, instead of one URL per conversation
-  or dataset. Campaign parameters (`mtm_*`, `utm_*`) are kept, so tagged links are still attributed. Every screen also
-  reports a stable page title.
-- Plain searches and AI Mode questions both go to Matomo's Site Search reports, under the categories `search` and `ai`,
-  each with its result count. That is the one place query text is recorded.
-- Hit counts, latencies, list positions and file counts travel as event values instead of separate events.
-- New events cover what was missing: opening a launched tool, login gates being shown, logouts, signed-in visits,
-  FAIR checks and scores, API key actions, past conversations being opened, first-token latency, and which
-  repository a played or cited dataset came from.
-- The Data Player reports file loading and completed analyses per repository, and a FAIR re-check reports whether
-  the score improved against the report it replaced, so the project's repository and FAIRness KPIs can be read
-  from Matomo without recording dataset identities.
+- Rebuilt the Matomo usage tracking. Events are now named after the product's own wording (AI Mode, Data Player,
+  FAIR, API Keys) and never contain search terms, questions, dataset titles or author names.
+- Matomo no longer sets cookies, so no consent banner is needed; a visitor is only recognised within the same day.
+- Nothing is sent from local development servers. Opening the site once with `?analytics=off` stops your own browser
+  being counted, and `?analytics=on` undoes it.
+- Search terms and AI Mode questions are recorded in Matomo's site search reports, each with its result count, and
+  nowhere else.
+- Conversations and the Data Player are reported as one page each instead of one per conversation or dataset.
+  Campaign links are still attributed.
+- Tracks what was missing before: opening a launched tool, login prompts and logouts, FAIR checks and scores, API key
+  actions, reopened conversations, and which repository a played or cited dataset came from.
+- The Data Player counts file loading and completed analyses per repository, and a FAIR re-check records whether the
+  score improved.
+- A dataset whose file listing fails on the server side is now reported as a server error, not a network problem.
+- Usage figures from before this release use the old event names and are inflated, so they do not line up with the
+  new ones.
 
 ## [0.13.1] - 29/10/2026
 
