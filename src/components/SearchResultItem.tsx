@@ -180,7 +180,9 @@ export const DatasetActions = ({hit, isLoggedIn = false, compact = false, contex
         if (hit.title) {
             params.set('title', hit.title);
         }
-        const fullDescription = stripHtml(hit.description || '');
+        if (hit.description) {
+            params.set("description", stripHtml(hit.description))
+        }
         // The FAIR assessment needs a persistent identifier, and `_id` is only
         // sometimes a DOI. Prefer the real DOI, then the canonical URL, so the
         // dataplayer can run both assessors instead of falling back to F-UJI alone.
