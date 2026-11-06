@@ -37,10 +37,10 @@ import {
 export {
     GetArtifactRequest,
     GetToolRequest,
-    MatchToolsByDataRequest,
     MonitorStateRequest,
     MonitorStateResponse,
     SearchToolsByTextRequest,
+    MatchToolsByDescriptionRequest,
     ToolState_State,
 } from "./generated/coordinator";
 

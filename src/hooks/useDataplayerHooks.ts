@@ -5,6 +5,7 @@ import {
     getDispatchResultById,
     getToolById,
     matchToolsByFiles,
+    matchToolsByDescription,
     searchToolsByText,
     startLaunchTask,
     taskStatusAsEventSource
@@ -162,6 +163,52 @@ export function useDataset(datasetHandle: string | null, enabled: boolean = true
     return {isFilesLoading, files, error, resetDataset};
 }
 
+export function useDescriptionToQueryTool(description: string) {
+    const [queryToolResults, setQueryToolResults] =
+        useState<Record<string, ToolConfig>>({});
+
+    const [isLoading, setIsLoading] = useState(!!description);
+
+    useEffect(() => {
+        if (!description) {
+            setIsLoading(false);
+            setQueryToolResults({});
+            return;
+        }
+
+        let cancelled = false;
+        setIsLoading(true);
+
+        async function load() {
+            try {
+                const tools = await matchToolsByDescription(description);
+
+                if (!cancelled) {
+                    setQueryToolResults(tools);
+                }
+            } catch (error) {
+                console.error("Failed to match tools:", error);
+            } finally {
+                if (!cancelled) {
+                    setIsLoading(false);
+                }
+            }
+        }
+
+        load();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [description]);
+
+    return { queryToolResults, isLoading };
+}
+
+/**
+ * @deprecated Using useDescriptionToQueryTool instead.
+ * consider removing for release 1.1
+ */
 export function useFilesToQueryTool(files: FileMeta[]) {
     const [queryToolResults, setQueryToolResults] = useState<Record<string, ToolConfig>>({});
 

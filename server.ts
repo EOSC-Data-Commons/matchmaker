@@ -19,6 +19,7 @@ import {
     MonitorStateRequest,
     MonitorStateResponse,
     SearchToolsByTextRequest,
+    MatchToolsByDescriptionRequest,
     ToolState_State,
     GrpcSlotToSlot,
     mapToolKindToTyp,
@@ -363,6 +364,43 @@ app.get("/api/coordinator/tasks-result/:taskId", async (req, res) => {
     }
 });
 
+app.post("/api/coordinator/tool/match_ai", async (req, res) => {
+    const client = getToolSrcClient();
+    try {
+        const {description} = req.body 
+        const grpc_req: MatchToolsByDescriptionRequest = {
+            text: description,
+        };
+
+        client.matchToolsByDescription(grpc_req, (err, response) => {
+            if (err) {
+                console.error(err);
+                res.status(grpcErrorToHttpStatus(err)).json({error: err.message || String(err)});
+                return;
+            }
+
+            const foundTools: Record<string, ToolConfig> = {};
+            for (const tool of response.tools) {
+                const config: ToolConfig = {
+                    name: tool.name,
+                    description: tool.description,
+                    slots: tool.slots.map(GrpcSlotToSlot),
+                    typ: mapToolKindToTyp(tool.kind),
+                };
+
+                foundTools[tool.id] = config;
+            }
+            res.json(foundTools);
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({error: err instanceof Error ? err.message : String(err)});
+    }
+});
+
+/* @deprecated Using match_ai endpoint instead to
+ * match tools to description using AI (LLM)
+ */
 app.use(express.json());
 app.post("/api/coordinator/tool/match", async (req, res) => {
     const client = getToolSrcClient();
