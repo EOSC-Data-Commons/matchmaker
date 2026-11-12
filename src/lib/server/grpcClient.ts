@@ -78,10 +78,31 @@ export function grpcErrorToHttpStatus(err: grpc.ServiceError): number {
             return 503;
         case grpc.status.DEADLINE_EXCEEDED:
             return 504;
-        default:
-            // INTERNAL, UNKNOWN, DATA_LOSS, and anything unmapped
-            return 500;
+    default:
+        // INTERNAL, UNKNOWN, DATA_LOSS, and anything unmapped
+        return 500;
     }
+}
+
+/** Matches `ROCRATE_MARKER` in req-packager's `launch_error_to_status`. */
+const ROCRATE_MARKER = "---RO-CRATE-BEGIN---";
+
+/**
+ * Recover the RO-Crate JSON that req-packager embeds into the gRPC status
+ * message when a launch fails after the crate was built. Returns `undefined`
+ * when the error carries no crate (e.g. a plain transport failure).
+ */
+export function extractRocrateFromError(err: unknown): string | undefined {
+    const details = (err as { details?: unknown } | null)?.details;
+    const raw =
+        typeof details === "string"
+            ? details
+            : err instanceof Error
+                ? err.message
+                : String(err);
+    const idx = raw.indexOf(ROCRATE_MARKER);
+    if (idx === -1) return undefined;
+    return raw.slice(idx + ROCRATE_MARKER.length).trim();
 }
 
 /** Hosted coordinator, reachable over the public internet with TLS. */

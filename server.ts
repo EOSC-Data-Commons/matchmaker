@@ -12,6 +12,7 @@ import {
     getDataplayerClient,
     getToolSrcClient,
     grpcErrorToHttpStatus,
+    extractRocrateFromError,
     launchTool,
     GetArtifactRequest,
     GetToolRequest,
@@ -252,8 +253,10 @@ app.post("/api/coordinator/start-task", async (req, res) => {
         res.json(taskId);
     } catch (err) {
         console.error(err);
+        const rocrate = extractRocrateFromError(err);
         res.status(500).json({
             error: err instanceof Error ? err.message : String(err),
+            rocrate: rocrate ?? null,
         });
     }
 });

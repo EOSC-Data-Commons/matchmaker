@@ -166,11 +166,32 @@ export async function startLaunchTask(
     });
 
     if (!res.ok) {
-        throw new Error(`Failed to start task: ${res.status} ${res.statusText}`)
+        // The coordinator returns the rejected RO-Crate so the user can download
+        // it and inspect what the dispatcher received.
+        let rocrate: string | null = null;
+        try {
+            const body = await res.json();
+            if (typeof body?.rocrate === "string") rocrate = body.rocrate;
+        } catch {
+            // non-JSON error body; fall back to a plain message
+        }
+        throw new LaunchTaskError(
+            `Failed to start task: ${res.status} ${res.statusText}`,
+            rocrate ?? undefined,
+        );
     }
 
     const taskId: TaskId = await res.json();
     return taskId;
+}
+
+// Error thrown when the coordinator fails to start a task, optionally carrying
+// the RO-Crate that was rejected by the dispatcher for download.
+export class LaunchTaskError extends Error {
+    constructor(message: string, public readonly rocrate?: string) {
+        super(message);
+        this.name = "LaunchTaskError";
+    }
 }
 
 export function taskStatusAsEventSource(taskId: TaskId): EventSource {
