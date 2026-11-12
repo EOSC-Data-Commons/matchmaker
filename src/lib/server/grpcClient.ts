@@ -100,9 +100,19 @@ export function extractRocrateFromError(err: unknown): string | undefined {
             : err instanceof Error
                 ? err.message
                 : String(err);
+
     const idx = raw.indexOf(ROCRATE_MARKER);
     if (idx === -1) return undefined;
-    return raw.slice(idx + ROCRATE_MARKER.length).trim();
+
+    // tonic percent-encodes the `grpc-message` header on the wire; `@grpc/grpc-js`
+    // then decodes it with `decodeURI`, which leaves reserved characters encoded.
+    // Of tonic's encoding set, that means `#` (`%23`) and `?` (`%3F`). Restore them
+    // so a fragment id like `@id: "#author-dispatcher"` stays a literal `#`.
+    return raw
+        .slice(idx + ROCRATE_MARKER.length)
+        .trim()
+        .replace(/%23/g, "#")
+        .replace(/%3F/g, "?");
 }
 
 /** Hosted coordinator, reachable over the public internet with TLS. */
