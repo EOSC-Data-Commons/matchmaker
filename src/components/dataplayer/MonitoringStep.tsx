@@ -147,6 +147,24 @@ export const MonitoringStep = ({
                     </div>
                 )}
 
+                {statusType === "EXCEPTION" && rocrate && (
+                    <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                        <p className="text-sm sm:text-base text-amber-800 font-light">
+                            The launch failed because the API request to the dispatcher failed. Please
+                            download the RO-Crate and go to{" "}
+                            <a
+                                href="https://player.eosc-data-commons.eu/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 underline hover:text-blue-800"
+                            >
+                                player.eosc-data-commons.eu/
+                            </a>{" "}
+                            to test.
+                        </p>
+                    </div>
+                )}
+
                 <div className="flex flex-col sm:flex-row flex-wrap gap-3 mt-6">
                     {statusType === "EXCEPTION" && (
                         <>

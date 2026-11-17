@@ -90,7 +90,8 @@ export const DataplayerPage = () => {
     const {
         debouncedSearch,
         queryToolResults: toolSearchResults,
-        searchError
+        searchError,
+        toolRegistryUrl
     } = useSearchTextToQueryTool(toolSearchText);
 
     // if user start type text to search, give the search result
@@ -369,6 +370,7 @@ export const DataplayerPage = () => {
                                     handleToolSelect={handleToolSelect}
                                     filesError={filesError}
                                     searchError={debouncedSearch.trim().length >= 2 ? searchError : null}
+                                    toolRegistryUrl={debouncedSearch.trim().length >= 2 ? toolRegistryUrl : null}
                                     selectedToolId={selectedToolId}
                                 />
                             )}
