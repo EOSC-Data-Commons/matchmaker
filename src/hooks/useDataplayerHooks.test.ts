@@ -85,26 +85,26 @@ describe("useTaskLauncher analytics", () => {
         expect(events()[0][3]).toBe("Jupyter:unknown");
     });
 
-    it("reports a READY task as a success timed from the submission", async () => {
+    it("reports a READY task as a success on the dataset, timed from the submission", async () => {
         const cb = callbacks();
         const es = await startLaunch(cb);
         act(() => es.emit("READY"));
         await waitFor(() => expect(cb.onSuccess).toHaveBeenCalled());
 
         const [succeeded] = events().filter(c => c[2] === "launch_succeeded");
-        expect(succeeded.slice(0, 4)).toEqual(["trackEvent", "Data Player", "launch_succeeded", "Jupyter"]);
+        expect(succeeded.slice(0, 4)).toEqual(["trackEvent", "Data Player", "launch_succeeded", "Jupyter:10.1/x"]);
         expect(typeof succeeded[4]).toBe("number");
         expect(events().some(c => c[2] === "launch_failed")).toBe(false);
     });
 
-    it("names the task state that ended a failed launch", async () => {
+    it("names the task state that ended a failed launch, then the dataset", async () => {
         const cb = callbacks();
         const es = await startLaunch(cb);
         act(() => es.emit("EXCEPTION"));
         await waitFor(() => expect(cb.onError).toHaveBeenCalled());
 
         const [failed] = events().filter(c => c[2] === "launch_failed");
-        expect(failed.slice(0, 4)).toEqual(["trackEvent", "Data Player", "launch_failed", "Jupyter:EXCEPTION"]);
+        expect(failed.slice(0, 4)).toEqual(["trackEvent", "Data Player", "launch_failed", "Jupyter:EXCEPTION:10.1/x"]);
         expect(typeof failed[4]).toBe("number");
     });
 
@@ -113,7 +113,7 @@ describe("useTaskLauncher analytics", () => {
         const es = await startLaunch(cb);
         act(() => es.onerror?.(new Event("error")));
         await waitFor(() => expect(cb.onError).toHaveBeenCalled());
-        expect(events().filter(c => c[2] === "launch_failed")[0][3]).toBe("Jupyter:stream_error");
+        expect(events().filter(c => c[2] === "launch_failed")[0][3]).toBe("Jupyter:stream_error:10.1/x");
     });
 
     it("reports a launch the coordinator refused by error kind", async () => {
@@ -123,7 +123,7 @@ describe("useTaskLauncher analytics", () => {
         await act(() => result.current.launch("tool-1", "u", "t", {}, {}, cb, "Jupyter"));
 
         expect(cb.onError).toHaveBeenCalled();
-        expect(events().filter(c => c[2] === "launch_failed")[0][3]).toBe("Jupyter:unknown");
+        expect(events().filter(c => c[2] === "launch_failed")[0][3]).toBe("Jupyter:unknown:unknown");
     });
 });
 

@@ -19,9 +19,10 @@ import type {BackendDataset} from '@/types/commons.ts';
  * Project KPIs this feeds (EOSC Data Commons KPIs and Impact Metrics sheet):
  * - #3 AI-powered queries: site search category `ai`, `AI Mode/question_sent`,
  *   with `Feedback/*` as the user feedback mechanism.
- * - #5 analytics tools linked with datasets: `Dataset/play_clicked`, and
- *   `Data Player/launch_submitted` and `tool_opened`, whose names pair the tool
- *   with the dataset it was launched on (`<tool name>:<dataset ref>`).
+ * - #5 analytics tools linked with datasets: `Dataset/play_clicked`, and the
+ *   `Data Player` launch events (`launch_submitted`, `launch_succeeded`,
+ *   `launch_failed`, `tool_opened`), whose names pair the tool with the dataset
+ *   it was launched on (the dataset ref always comes last).
  * - #13 repositories whose datasets can be analysed: `Data Player/files_loaded`
  *   and `dataset_analysed`, both named by repository code.
  * - #23 FAIRness evaluations performed: `FAIR/check_requested` and `check_completed`.
@@ -145,10 +146,14 @@ export interface EventCatalogue {
         additional_dataset_failed: never;
         /** Name: `<tool name>:<dataset ref>`, the ref from `datasetRefParam`. Value: number of files mapped. */
         launch_submitted: `${string}:${string}`;
-        /** Name: tool name. Value: ms from submit to a ready task. */
-        launch_succeeded: string;
-        /** Name: `<tool name>:<reason>`, the task state or an error kind. Value: ms until failure. */
-        launch_failed: `${string}:${string}`;
+        /** Name: `<tool name>:<dataset ref>`. Value: ms from submit to a ready task. */
+        launch_succeeded: `${string}:${string}`;
+        /**
+         * Name: `<tool name>:<reason>:<dataset ref>`, the reason being the task state or an
+         * error kind. The ref goes last because DOIs and URLs can contain colons. Value: ms
+         * until failure.
+         */
+        launch_failed: `${string}:${string}:${string}`;
         /**
          * Name: `<tool name>:<dataset ref>`. The user opened the launched tool on that
          * dataset: the conversion this whole flow exists for, and the tool-dataset link.
