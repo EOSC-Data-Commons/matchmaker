@@ -19,8 +19,9 @@ import type {BackendDataset} from '@/types/commons.ts';
  * Project KPIs this feeds (EOSC Data Commons KPIs and Impact Metrics sheet):
  * - #3 AI-powered queries: site search category `ai`, `AI Mode/question_sent`,
  *   with `Feedback/*` as the user feedback mechanism.
- * - #5 analytics tools linked with datasets: `Dataset/play_clicked`, and the
- *   distinct tool names under `Data Player/launch_submitted` and `tool_opened`.
+ * - #5 analytics tools linked with datasets: `Dataset/play_clicked`, and
+ *   `Data Player/launch_submitted` and `tool_opened`, whose names pair the tool
+ *   with the dataset it was launched on (`<tool name>:<dataset ref>`).
  * - #13 repositories whose datasets can be analysed: `Data Player/files_loaded`
  *   and `dataset_analysed`, both named by repository code.
  * - #23 FAIRness evaluations performed: `FAIR/check_requested` and `check_completed`.
@@ -142,14 +143,17 @@ export interface EventCatalogue {
         /** Value: number of additional dataset groups after the change. */
         additional_dataset_added: never;
         additional_dataset_failed: never;
-        /** Name: tool name. Value: number of files mapped. */
-        launch_submitted: string;
+        /** Name: `<tool name>:<dataset ref>`, the ref from `datasetRefParam`. Value: number of files mapped. */
+        launch_submitted: `${string}:${string}`;
         /** Name: tool name. Value: ms from submit to a ready task. */
         launch_succeeded: string;
         /** Name: `<tool name>:<reason>`, the task state or an error kind. Value: ms until failure. */
         launch_failed: `${string}:${string}`;
-        /** Name: tool name. The user opened the launched tool: the conversion this whole flow exists for. */
-        tool_opened: string;
+        /**
+         * Name: `<tool name>:<dataset ref>`. The user opened the launched tool on that
+         * dataset: the conversion this whole flow exists for, and the tool-dataset link.
+         */
+        tool_opened: `${string}:${string}`;
         /** Name: repository code. One per successful launch, so analyses can be counted per repository. */
         dataset_analysed: string;
         step_back: 'reselect_tool' | 'back_to_config' | 'start_over';
@@ -372,6 +376,40 @@ export const datasetRepoCode = (hit: BackendDataset): string =>
 export const repoCodeParam = (value: string | null): string => {
     const code = (value ?? '').trim().toLowerCase();
     return /^[a-z0-9_-]{1,32}$/.test(code) ? code : 'unknown';
+};
+
+const DOI_PREFIX = /^(?:https?:\/\/(?:dx\.)?doi\.org\/|doi:)/i;
+// The characters Crossref recommends for DOI suffixes. A DOI outside this set is
+// rare enough to report as `unknown` rather than let markup into a report.
+const DOI_SHAPE = /^10\.\d{4,9}\/[-._;()/:a-z0-9]+$/i;
+const MAX_DATASET_REF = 200;
+
+/**
+ * The dataset a launch event names, read back from the Data Player's `pid` param:
+ * the DOI in its short form (`10.1234/abc`, lower case, since DOIs ignore case),
+ * otherwise the dataset's http(s) URL without credentials or fragment, otherwise
+ * `unknown`.
+ *
+ * This is the one place an id goes into an event name. Launches are rare, so a row
+ * per tool and dataset stays readable, and without it the report cannot say which
+ * dataset a tool was linked to. Anyone can type a URL, so only values shaped like
+ * an identifier get through.
+ */
+export const datasetRefParam = (value: string | null): string => {
+    const raw = (value ?? '').trim();
+    if (!raw || raw.length > MAX_DATASET_REF || /\s/.test(raw)) return 'unknown';
+    const doi = raw.replace(DOI_PREFIX, '');
+    if (DOI_SHAPE.test(doi)) return doi.toLowerCase();
+    try {
+        const url = new URL(raw);
+        if (url.protocol !== 'http:' && url.protocol !== 'https:') return 'unknown';
+        url.username = '';
+        url.password = '';
+        url.hash = '';
+        return url.toString();
+    } catch {
+        return 'unknown';
+    }
 };
 
 /**

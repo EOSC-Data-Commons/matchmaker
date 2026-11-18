@@ -2,6 +2,7 @@ import {describe, it, expect, beforeEach, afterEach} from "vitest";
 import {
     analyticsEnabled,
     datasetEventName,
+    datasetRefParam,
     datasetRepoCode,
     errorKind,
     onceInSession,
@@ -216,6 +217,33 @@ describe("analytics", () => {
             ["an overlong value", "a".repeat(40), "unknown"],
         ])("accepts only code-shaped values: %s", (_label, value, expected) => {
             expect(repoCodeParam(value)).toBe(expected);
+        });
+    });
+
+    describe("dataset references for the launch events", () => {
+        it.each([
+            ["a doi.org URL", "https://doi.org/10.5281/Zenodo.123", "10.5281/zenodo.123"],
+            ["a dx.doi.org URL", "http://dx.doi.org/10.1594/PANGAEA.908011", "10.1594/pangaea.908011"],
+            ["a doi: prefix", "doi:10.17026/dans-2x3-abc", "10.17026/dans-2x3-abc"],
+            ["a bare DOI", " 10.1234/ABC(1):2 ", "10.1234/abc(1):2"],
+            ["a dataset URL", "https://data.example.org/dataset/42", "https://data.example.org/dataset/42"],
+            ["a URL with a query", "https://dv.example.org/dataset.xhtml?persistentId=x", "https://dv.example.org/dataset.xhtml?persistentId=x"],
+            ["a URL with a fragment", "https://data.example.org/d/42#files", "https://data.example.org/d/42"],
+            ["a URL with credentials", "https://user:secret@data.example.org/d/42", "https://data.example.org/d/42"],
+        ])("keeps an identifier: %s", (_label, value, expected) => {
+            expect(datasetRefParam(value)).toBe(expected);
+        });
+
+        it.each([
+            ["a missing param", null],
+            ["an empty param", ""],
+            ["free text", "climate data from 2000"],
+            ["a script URL", "javascript:alert(1)"],
+            ["markup", "<script>"],
+            ["a DOI with markup", "10.1234/<b>bold</b>"],
+            ["an overlong value", "https://data.example.org/" + "a".repeat(200)],
+        ])("reports anything else as unknown: %s", (_label, value) => {
+            expect(datasetRefParam(value)).toBe("unknown");
         });
     });
 

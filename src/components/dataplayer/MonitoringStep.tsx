@@ -7,6 +7,8 @@ interface MonitoringStepProps {
     statusType: TaskState;
     statusMessage: string;
     datasetTitle: string | null;
+    /** Analytics only: the dataset the tool was launched on, from `datasetRefParam`. */
+    datasetRef: string;
     selectedToolId: string | null;
     toolConfig: ToolConfig | null;
     taskId: string | null;
@@ -19,6 +21,7 @@ export const MonitoringStep = ({
                                    statusType,
                                    statusMessage,
                                    datasetTitle,
+                                   datasetRef,
                                    selectedToolId,
                                    toolConfig,
                                    taskId,
@@ -29,10 +32,11 @@ export const MonitoringStep = ({
     const {trackEvent} = useMatomo();
     const toolName = toolConfig?.name ?? selectedToolId ?? 'unknown';
 
-    // Opening the launched tool is the conversion the whole flow exists for;
-    // window.open hides it from Matomo's link tracking, so it is reported by hand.
+    // Opening the launched tool is the conversion the whole flow exists for, and the
+    // point where a tool is linked to a dataset; window.open hides it from Matomo's
+    // link tracking, so it is reported by hand.
     const openTool = (url: string) => {
-        trackEvent('Data Player', 'tool_opened', toolName);
+        trackEvent('Data Player', 'tool_opened', `${toolName}:${datasetRef}`);
         trackLink(url, 'link');
         window.open(url, '_blank', 'noopener,noreferrer');
     };

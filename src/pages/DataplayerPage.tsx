@@ -24,7 +24,7 @@ import {MonitoringStep} from '@/components/dataplayer/MonitoringStep';
 import {FilesList} from '@/components/dataplayer/FilesList';
 import {FairAssessmentCard} from '@/components/dataplayer/FairAssessmentCard';
 import useMatomo from '@/hooks/useMatomo.ts';
-import {repoCodeParam} from '@/lib/analytics.ts';
+import {datasetRefParam, repoCodeParam} from '@/lib/analytics.ts';
 
 export interface TaskStatusResponse {
     status: TaskStatus;
@@ -47,6 +47,9 @@ export const DataplayerPage = () => {
     // Names this page's events by where the dataset came from, so file loading
     // and analyses can be read per repository. Never shown, only reported.
     const datasetRepo = repoCodeParam(searchParams.get('repo'));
+    // Which dataset a tool is launched on, for the launch events: the DOI when there
+    // is one, else the dataset URL. Never shown, only reported.
+    const datasetRef = datasetRefParam(datasetPid);
     const navigate = useNavigate();
 
     const {user, loading: userLoading} = useAuth();
@@ -206,8 +209,8 @@ export const DataplayerPage = () => {
                 },
 
                 onSuccess: () => {
-                    // The launch events are named by tool; this one is named by
-                    // repository, so analyses can be counted per data source.
+                    // The launch events are named by tool and dataset; this one is
+                    // named by repository, so analyses can be counted per data source.
                     trackEvent('Data Player', 'dataset_analysed', datasetRepo);
                     setCurrentStep("monitoring");
                     setStatusMessage("Virtual Research Environment task completed!");
@@ -222,7 +225,7 @@ export const DataplayerPage = () => {
                     // place the error is shown — so the failure looked silent.
                     setCurrentStep("monitoring");
                 },
-            }, toolConfig?.name ?? selectedToolId);
+            }, toolConfig?.name ?? selectedToolId, datasetRef);
         } catch (err) {
             console.error(err);
             setStatusMessage(err instanceof Error ? err.message : "Unknown error");
@@ -387,6 +390,7 @@ export const DataplayerPage = () => {
                                     statusType={statusType}
                                     statusMessage={statusMessage}
                                     datasetTitle={datasetTitle}
+                                    datasetRef={datasetRef}
                                     selectedToolId={selectedToolId}
                                     toolConfig={toolConfig}
                                     taskId={taskId}

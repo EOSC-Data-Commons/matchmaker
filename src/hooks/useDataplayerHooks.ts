@@ -54,11 +54,13 @@ export function useTaskLauncher() {
         },
         // Analytics only: the registry name reads better in a report than a uuid.
         toolName: string = toolId,
+        // Analytics only: the dataset the tool is linked to, from `datasetRefParam`.
+        datasetRef: string = 'unknown',
     ) => {
         // The launch is the point of the whole page, so its outcome is measured
         // end to end from here, where the task states arrive first-hand.
         const submittedAt = Date.now();
-        trackEvent('Data Player', 'launch_submitted', toolName, Object.keys(files).length);
+        trackEvent('Data Player', 'launch_submitted', `${toolName}:${datasetRef}`, Object.keys(files).length);
         const reportFailure = (reason: string) =>
             trackEvent('Data Player', 'launch_failed', `${toolName}:${reason}`, Date.now() - submittedAt);
 

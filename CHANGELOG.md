@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+- Matomo now records which dataset a Data Player tool was used on: launching a tool and opening it report the dataset
+  next to the tool name. The dataset is identified by its DOI, or by its URL when it has none.
+
 ## [0.14.0] - 05/11/2026
 
 - Rebuilt the Matomo usage tracking. Events are now named after the product's own wording (AI Mode, Data Player,
