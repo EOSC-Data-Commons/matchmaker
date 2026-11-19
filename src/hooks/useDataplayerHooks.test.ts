@@ -2,8 +2,26 @@ import {describe, it, expect, vi, beforeEach, afterEach} from "vitest";
 import {renderHook, waitFor, act} from "@testing-library/react";
 import {http, HttpResponse} from "msw";
 import {server} from "@/test/msw/server";
-import {useDataset, useTaskLauncher} from "./useDataplayerHooks";
+import {datasetFilesHandle, useDataset, useTaskLauncher} from "./useDataplayerHooks";
 import type {FileMeta} from "@/types/dataplayerTypes";
+
+describe("datasetFilesHandle", () => {
+    it("prefers the filedb record identifier over the dataset URL", () => {
+        expect(datasetFilesHandle("https://doi.org/10.48573/gv7c-ck37", "c9b0dabe-f7d8-45d9-abf4-4fca2455bbb5"))
+            .toBe("c9b0dabe-f7d8-45d9-abf4-4fca2455bbb5");
+    });
+
+    it("falls back to the bare DOI of a doi.org dataset URL", () => {
+        expect(datasetFilesHandle("https://doi.org/10.15468/1wruh4", null)).toBe("10.15468/1wruh4");
+        expect(datasetFilesHandle("https://doi.org/10.15468/1wruh4", "  ")).toBe("10.15468/1wruh4");
+    });
+
+    it("keeps any other dataset id as it is", () => {
+        expect(datasetFilesHandle("https://urn.nsk.hr/urn:nbn:hr:217:280657", null)).toBe("https://urn.nsk.hr/urn:nbn:hr:217:280657");
+        expect(datasetFilesHandle("10.15468/1wruh4", null)).toBe("10.15468/1wruh4");
+        expect(datasetFilesHandle(null, null)).toBeNull();
+    });
+});
 
 type Paq = Array<Array<string | number | boolean>>;
 const paq = () => window._paq as unknown as Paq;

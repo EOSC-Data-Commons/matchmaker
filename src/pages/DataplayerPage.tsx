@@ -12,6 +12,7 @@ import {DataplayInput} from '@/components/DataplayInput';
 import {
     useTaskLauncher,
     areAllParametersMapped,
+    datasetFilesHandle,
     useDataset,
     useFilesToQueryTool,
     useSearchTextToQueryTool,
@@ -47,6 +48,10 @@ export const DataplayerPage = () => {
     // Names this page's events by where the dataset came from, so file loading
     // and analyses can be read per repository. Never shown, only reported.
     const datasetRepo = repoCodeParam(searchParams.get('repo'));
+    // The files are asked for by filedb's key for the dataset (see datasetFilesHandle),
+    // which for DABAR, SwissUbase or DaSCH is not the dataset URL. `datasetUrl` stays
+    // the dataset's URL for everything else, launching included.
+    const filesHandle = datasetFilesHandle(datasetUrl, searchParams.get('recordId'));
     const navigate = useNavigate();
 
     const {user, loading: userLoading} = useAuth();
@@ -68,7 +73,7 @@ export const DataplayerPage = () => {
     useEffect(() => {
         if (gateShown) trackEvent('Auth', 'gate_shown', 'data_player');
     }, [gateShown, trackEvent]);
-    const {isFilesLoading, files, error, resetDataset} = useDataset(datasetUrl, isAuthenticated, datasetRepo);
+    const {isFilesLoading, files, error, resetDataset} = useDataset(filesHandle, isAuthenticated, datasetRepo);
     const [isAdding, setIsAdding] = useState(false);
     const [fileGroups, setFileGroups] = useState<FileMeta[][]>([]);
 
