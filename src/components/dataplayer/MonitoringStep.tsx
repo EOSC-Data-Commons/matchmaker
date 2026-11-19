@@ -13,6 +13,7 @@ interface MonitoringStepProps {
     toolConfig: ToolConfig | null;
     taskId: string | null;
     taskResult: DispatchResult | null;
+    rocrate?: string | null;
     onStartOver: () => void;
     onBackToConfig?: () => void;
 }
@@ -26,6 +27,7 @@ export const MonitoringStep = ({
                                    toolConfig,
                                    taskId,
                                    taskResult,
+                                   rocrate,
                                    onStartOver,
                                    onBackToConfig
                                }: MonitoringStepProps) => {
@@ -39,6 +41,22 @@ export const MonitoringStep = ({
         trackEvent('Data Player', 'tool_opened', `${toolName}:${datasetRef}`);
         trackLink(url, 'link');
         window.open(url, '_blank', 'noopener,noreferrer');
+    };
+
+    // Offer the rejected RO-Crate as a JSON file so the user can inspect what the
+    // dispatcher received (and retry/repair the launch).
+    const downloadRocrate = () => {
+        if (!rocrate) return;
+        const blob = new Blob([rocrate], {type: "application/json"});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "ro-crate-metadata.json";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        trackEvent('Data Player', 'rocrate_downloaded', toolName);
     };
 
     const getStatusIcon = () => {
@@ -133,9 +151,35 @@ export const MonitoringStep = ({
                     </div>
                 )}
 
+                {statusType === "EXCEPTION" && rocrate && (
+                    <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                        <p className="text-sm sm:text-base text-amber-800 font-light">
+                            The launch failed because the API request to the dispatcher failed. Please
+                            download the RO-Crate and go to{" "}
+                            <a
+                                href="https://player.eosc-data-commons.eu/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 underline hover:text-blue-800"
+                            >
+                                player.eosc-data-commons.eu/
+                            </a>{" "}
+                            to test.
+                        </p>
+                    </div>
+                )}
+
                 <div className="flex flex-col sm:flex-row flex-wrap gap-3 mt-6">
                     {statusType === "EXCEPTION" && (
                         <>
+                            {rocrate && (
+                                <button
+                                    onClick={downloadRocrate}
+                                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 text-sm font-light transition-colors cursor-pointer"
+                                >
+                                    Download RO-Crate
+                                </button>
+                            )}
                             {onBackToConfig && (
                                 <button
                                     onClick={() => {

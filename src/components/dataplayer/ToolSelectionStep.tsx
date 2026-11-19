@@ -104,6 +104,7 @@ interface ToolSelectionStepProps {
     handleToolSelect: (key: string) => Promise<void>;
     filesError: string | null;
     searchError: string | null;
+    toolRegistryUrl: string | null;
     selectedToolId: string | null;
 }
 
@@ -115,6 +116,7 @@ export const ToolSelectionStep = ({
                                       handleToolSelect,
                                       filesError,
                                       searchError,
+                                      toolRegistryUrl,
                                       selectedToolId
                                   }: ToolSelectionStepProps) => {
     return (
@@ -132,10 +134,26 @@ export const ToolSelectionStep = ({
                 />
             </div>
 
-            {searchError && (
-                <div className="mb-6 p-3 sm:p-4 bg-red-50 rounded-lg border border-red-200">
-                    <p className="text-sm sm:text-base text-red-900 font-light wrap-break-word">{searchError}</p>
+            {toolRegistryUrl ? (
+                <div className="mb-6 p-3 sm:p-4 bg-amber-50 rounded-lg border border-amber-200">
+                    <p className="text-sm sm:text-base text-amber-800 font-light">
+                        The tool registry could not be reached. Please test it directly to search for tools:
+                    </p>
+                    <a
+                        href={toolRegistryUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1 inline-block text-sm text-blue-600 underline hover:text-blue-800 break-all"
+                    >
+                        {toolRegistryUrl}
+                    </a>
                 </div>
+            ) : (
+                searchError && (
+                    <div className="mb-6 p-3 sm:p-4 bg-red-50 rounded-lg border border-red-200">
+                        <p className="text-sm sm:text-base text-red-900 font-light wrap-break-word">{searchError}</p>
+                    </div>
+                )
             )}
 
             <ToolResultSelect
