@@ -42,6 +42,9 @@ export interface SearchHitSrc {
     url?: string | null;
     _harvest_url?: string;
     _repo?: string;
+    // The record's key in filedb, together with `_harvest_url`. Only on records indexed
+    // since metadata-warehouse 1.11.0, so null or absent until a provider is reindexed.
+    _record_identifier?: string | null;
     titles: SearchHitSrcTitle[];
     descriptions: SearchHitSrcDescription[];
     // Optional: the backend allows a null publication year, which Zenodo records without a
