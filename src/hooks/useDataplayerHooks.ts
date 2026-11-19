@@ -54,13 +54,16 @@ export function useTaskLauncher() {
         },
         // Analytics only: the registry name reads better in a report than a uuid.
         toolName: string = toolId,
+        // Analytics only: the dataset the tool is linked to, from `datasetRefParam`.
+        // Every launch event names it, so outcomes can be counted per dataset.
+        datasetRef: string = 'unknown',
     ) => {
         // The launch is the point of the whole page, so its outcome is measured
         // end to end from here, where the task states arrive first-hand.
         const submittedAt = Date.now();
-        trackEvent('Data Player', 'launch_submitted', toolName, Object.keys(files).length);
+        trackEvent('Data Player', 'launch_submitted', `${toolName}:${datasetRef}`, Object.keys(files).length);
         const reportFailure = (reason: string) =>
-            trackEvent('Data Player', 'launch_failed', `${toolName}:${reason}`, Date.now() - submittedAt);
+            trackEvent('Data Player', 'launch_failed', `${toolName}:${reason}:${datasetRef}`, Date.now() - submittedAt);
 
         try {
             esRef.current?.close();
@@ -88,7 +91,7 @@ export function useTaskLauncher() {
 
                     const result = await getDispatchResultById(id);
                     setTaskResult(result);
-                    trackEvent('Data Player', 'launch_succeeded', toolName, Date.now() - submittedAt);
+                    trackEvent('Data Player', 'launch_succeeded', `${toolName}:${datasetRef}`, Date.now() - submittedAt);
                     callbacks.onSuccess();
                 } else if (data.state === "EXCEPTION" || data.state === "DROPPED") {
                     es.close();

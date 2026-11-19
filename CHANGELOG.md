@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.14.1] - 18/11/2026
+
+- Matomo now records which dataset a Data Player tool was used on: submitting a launch, its success or failure, and
+  opening the tool all report the dataset next to the tool name. The dataset is identified by its DOI, or by its URL
+  when it has none.
+- Raised the `basic-ftp` override to 6.2.4 or later (pm2 pulls it in), fixing two advisories that could crash the
+  process.
+
 ## [0.14.0] - 05/11/2026
 
 - Rebuilt the Matomo usage tracking. Events are now named after the product's own wording (AI Mode, Data Player,
