@@ -84,6 +84,8 @@ export const DataplayerPage = () => {
     // Submission tracking
     const [statusMessage, setStatusMessage] = useState('');
     const [statusType, setStatusType] = useState<TaskState>('PENDING');
+    // RO-Crate JSON captured from a failed launch, offered to the user for download.
+    const [rocrateDownload, setRocrateDownload] = useState<string | null>(null);
 
     const [toolSearchText, setToolSearchText] = useState("");
 
@@ -189,6 +191,7 @@ export const DataplayerPage = () => {
             setCurrentStep("submitting");
             setStatusMessage("Preparing Virtual Research Environment metadata...");
             setStatusType("PENDING");
+            setRocrateDownload(null);
 
             console.log("selected tool id:" + selectedToolId);
             const slotToValueMapping = valueParametersMapping;
@@ -218,6 +221,8 @@ export const DataplayerPage = () => {
 
                 onError: (err) => {
                     console.error(err);
+                    const rocrate = (err as { rocrate?: string } | null)?.rocrate ?? null;
+                    setRocrateDownload(rocrate);
                     setStatusMessage(err instanceof Error ? err.message : "Failed to launch the tool. Please try again.");
                     setStatusType("EXCEPTION");
                     // Stay on the monitoring step so the EXCEPTION is actually rendered.
@@ -228,6 +233,8 @@ export const DataplayerPage = () => {
             }, toolConfig?.name ?? selectedToolId, datasetRef);
         } catch (err) {
             console.error(err);
+            const rocrate = (err as { rocrate?: string } | null)?.rocrate ?? null;
+            setRocrateDownload(rocrate);
             setStatusMessage(err instanceof Error ? err.message : "Unknown error");
             setStatusType("EXCEPTION");
             setCurrentStep("monitoring");
@@ -240,6 +247,7 @@ export const DataplayerPage = () => {
         resetDataset();
         setFilesMapping({});
         setValueParametersMapping({});
+        setRocrateDownload(null);
         resetTask();
     };
 
@@ -395,6 +403,7 @@ export const DataplayerPage = () => {
                                     toolConfig={toolConfig}
                                     taskId={taskId}
                                     taskResult={taskResult}
+                                    rocrate={rocrateDownload}
                                     onStartOver={handleStartOver}
                                     onBackToConfig={() => setCurrentStep('map-files')}
                                 />
