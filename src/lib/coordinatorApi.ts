@@ -97,6 +97,38 @@ export async function getToolById(toolId: string): Promise<ToolConfig> {
     return config;
 }
 
+/** Root of the tool-registry API, used to build a direct link when the
+ *  coordinator can't reach it. */
+export const TOOL_REGISTRY_ROOT = "https://tools-registry.eosc-data-commons.eu/api/v1";
+
+/** Direct tool-registry search URL for a query, to let the user probe it by hand. */
+export function toolRegistrySearchUrl(query: string): string {
+    return `${TOOL_REGISTRY_ROOT}/tools/search?q=${encodeURIComponent(query)}`;
+}
+
+/** Thrown when the tool-registry could not be reached through the coordinator,
+ *  carrying the direct search URL so the UI can offer a "test it yourself" link. */
+export class ToolRegistryUnavailableError extends Error {
+    constructor(public readonly url: string) {
+        super("The tool registry service is currently unavailable. Please try again in a moment.");
+        this.name = "ToolRegistryUnavailableError";
+    }
+}
+
+function isToolRegistryUnavailable(status: number, lowerDetail: string): boolean {
+    return status === 502 || status === 503 || status === 504 ||
+        lowerDetail.includes("cancelled") || lowerDetail.includes("unavailable");
+}
+
+async function readErrorDetail(res: Response): Promise<string> {
+    try {
+        const body = await res.json();
+        return typeof body?.error === "string" ? body.error : "";
+    } catch {
+        return "";
+    }
+}
+
 /**
  * Turn a coordinator/tool-registry failure into a message we can show a user.
  * The server relays the raw gRPC error in the JSON body (e.g. "1 CANCELLED: Call
@@ -104,17 +136,9 @@ export async function getToolById(toolId: string): Promise<ToolConfig> {
  * is meaningless to an end user — so map the known cases to plain language.
  */
 async function coordinatorErrorMessage(res: Response, fallback: string): Promise<string> {
-    let detail = "";
-    try {
-        const body = await res.json();
-        detail = typeof body?.error === "string" ? body.error : "";
-    } catch {
-        // non-JSON body (e.g. proxy "Proxy error" text); ignore and use fallback
-    }
-
+    const detail = await readErrorDetail(res);
     const lower = detail.toLowerCase();
-    if (res.status === 502 || res.status === 503 || res.status === 504 ||
-        lower.includes("cancelled") || lower.includes("unavailable")) {
+    if (isToolRegistryUnavailable(res.status, lower)) {
         return "The tool registry service is currently unavailable. Please try again in a moment.";
     }
     // Catch-all for raw gRPC/backend internals — "5 NOT_FOUND: not find tool,
@@ -136,6 +160,10 @@ async function coordinatorErrorMessage(res: Response, fallback: string): Promise
 export async function searchToolsByText(text: string): Promise<Record<string, ToolConfig>> {
     const res = await fetch(`/api/coordinator/tool/search?q=${encodeURIComponent(text)}`);
     if (!res.ok) {
+        const detail = await readErrorDetail(res);
+        if (isToolRegistryUnavailable(res.status, detail.toLowerCase())) {
+            throw new ToolRegistryUnavailableError(toolRegistrySearchUrl(text));
+        }
         throw new Error(await coordinatorErrorMessage(res, "Failed to search tools"));
     }
 
@@ -166,11 +194,32 @@ export async function startLaunchTask(
     });
 
     if (!res.ok) {
-        throw new Error(`Failed to start task: ${res.status} ${res.statusText}`)
+        // The coordinator returns the rejected RO-Crate so the user can download
+        // it and inspect what the dispatcher received.
+        let rocrate: string | null = null;
+        try {
+            const body = await res.json();
+            if (typeof body?.rocrate === "string") rocrate = body.rocrate;
+        } catch {
+            // non-JSON error body; fall back to a plain message
+        }
+        throw new LaunchTaskError(
+            `Failed to start task: ${res.status} ${res.statusText}`,
+            rocrate ?? undefined,
+        );
     }
 
     const taskId: TaskId = await res.json();
     return taskId;
+}
+
+// Error thrown when the coordinator fails to start a task, optionally carrying
+// the RO-Crate that was rejected by the dispatcher for download.
+export class LaunchTaskError extends Error {
+    constructor(message: string, public readonly rocrate?: string) {
+        super(message);
+        this.name = "LaunchTaskError";
+    }
 }
 
 export function taskStatusAsEventSource(taskId: TaskId): EventSource {

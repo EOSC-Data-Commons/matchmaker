@@ -7,7 +7,8 @@ import {
     matchToolsByFiles,
     searchToolsByText,
     startLaunchTask,
-    taskStatusAsEventSource
+    taskStatusAsEventSource,
+    ToolRegistryUnavailableError,
 } from '@/lib/coordinatorApi';
 import {useAuth} from './useAuth';
 import {errorKind, trackEvent} from '@/lib/analytics';
@@ -190,6 +191,7 @@ export function useSearchTextToQueryTool(toolSearchText: string) {
     const [queryToolResults, setQueryToolResults] = useState<Record<string, ToolConfig>>({});
     const [searchStatus, setSearchStatus] = useState<ToolConfigStatus>('idle');
     const [searchError, setSearchError] = useState<string | null>(null);
+    const [toolRegistryUrl, setToolRegistryUrl] = useState<string | null>(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -199,6 +201,7 @@ export function useSearchTextToQueryTool(toolSearchText: string) {
                 if (!cancelled) {
                     setSearchStatus('idle');
                     setSearchError(null);
+                    setToolRegistryUrl(null);
                 }
                 return;
             }
@@ -206,6 +209,7 @@ export function useSearchTextToQueryTool(toolSearchText: string) {
             if (!cancelled) {
                 setSearchStatus('loading');
                 setSearchError(null);
+                setToolRegistryUrl(null);
             }
 
             try {
@@ -220,6 +224,7 @@ export function useSearchTextToQueryTool(toolSearchText: string) {
                 if (!cancelled) {
                     setQueryToolResults({});
                     setSearchError(err instanceof Error ? err.message : String(err));
+                    setToolRegistryUrl(err instanceof ToolRegistryUnavailableError ? err.url : null);
                     setSearchStatus('error');
                 }
             }
@@ -240,7 +245,7 @@ export function useSearchTextToQueryTool(toolSearchText: string) {
         return () => clearTimeout(timeout);
     }, [toolSearchText]);
 
-    return {debouncedSearch, queryToolResults, searchStatus, searchError};
+    return {debouncedSearch, queryToolResults, searchStatus, searchError, toolRegistryUrl};
 }
 
 export type ToolConfigStatus = 'idle' | 'loading' | 'loaded' | 'error';
