@@ -51,6 +51,42 @@ describe("DatasetActions", () => {
         expect(screen.queryByRole("link", {name: /source of dataset/})).not.toBeInTheDocument();
     });
 
+    describe("Play", () => {
+        const openedParams = () => {
+            const url = vi.mocked(window.open).mock.calls[0][0] as string;
+            return new URL(url, "http://localhost").searchParams;
+        };
+
+        it("passes the filedb record identifier and its endpoint to the data player", async () => {
+            const user = userEvent.setup();
+            renderActions(makeDataset({
+                _id: "https://urn.nsk.hr/urn:nbn:hr:217:280657",
+                _source: {_repo: "DABAR", _harvest_url: "https://dabar.srce.hr/oai/", _record_identifier: "pmf_15188"},
+            }), {isLoggedIn: true});
+
+            await user.click(screen.getByRole("button", {name: /View dataset/}));
+            const params = openedParams();
+            expect(params.get("datasetId")).toBe("https://urn.nsk.hr/urn:nbn:hr:217:280657");
+            expect(params.get("recordId")).toBe("pmf_15188");
+            expect(params.get("harvestUrl")).toBe("https://dabar.srce.hr/oai/");
+        });
+
+        it("sends neither when the record predates the record identifier", async () => {
+            const user = userEvent.setup();
+            renderActions(makeDataset({
+                _source: {
+                    _harvest_url: "https://dabar.srce.hr/oai/",
+                    _record_identifier: null
+                }
+            }), {isLoggedIn: true});
+
+            await user.click(screen.getByRole("button", {name: /View dataset/}));
+            const params = openedParams();
+            expect(params.has("recordId")).toBe(false);
+            expect(params.has("harvestUrl")).toBe(false);
+        });
+    });
+
     describe("analytics", () => {
         const hit = makeDataset({_source: {_repo: "DANS"}});
 

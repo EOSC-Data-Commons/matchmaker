@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.14.2] - 26/11/2026
+
+- The Data Player asks for a dataset's files by its record identifier from the search index. Records without one are
+  looked up by their bare DOI, else by their dataset URL as before.
+
 ## [0.14.1] - 18/11/2026
 
 - Matomo now records which dataset a Data Player tool was used on: submitting a launch, its success or failure, and
