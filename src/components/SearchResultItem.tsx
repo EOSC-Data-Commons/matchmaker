@@ -9,6 +9,7 @@ import {useSearchParams} from 'react-router';
 import {RepoProvenance} from "./RepoProvenance.tsx";
 import useMatomo from "../hooks/useMatomo";
 import {type DatasetContext, datasetEventName, datasetRepoCode} from "../lib/analytics.ts";
+import {cacheDatasetMetadata} from "../lib/datasetCache";
 
 interface SearchResultItemProps {
     hit: BackendDataset;
@@ -177,12 +178,16 @@ export const DatasetActions = ({hit, isLoggedIn = false, compact = false, contex
         params.set('datasetId', hit._id);
         // For the dataplayer's own events: which repository the dataset came from.
         params.set('repo', datasetRepoCode(hit));
-        if (hit.title) {
-            params.set('title', hit.title);
-        }
-        if (hit.description) {
-            params.set("description", stripHtml(hit.description))
-        }
+
+        // Dataset metadata is cached in localStorage using the dataset identifier
+        // as the key. This avoids passing potentially large descriptions through
+        // URL parameters and supports navigation across browser tabs.
+        cacheDatasetMetadata(
+            hit._id,
+            hit.title || '',
+            stripHtml(hit.description || ''),
+        );
+
         // The FAIR assessment needs a persistent identifier, and `_id` is only
         // sometimes a DOI. Prefer the real DOI, then the canonical URL, so the
         // dataplayer can run both assessors instead of falling back to F-UJI alone.
