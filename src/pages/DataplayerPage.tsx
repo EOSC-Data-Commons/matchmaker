@@ -15,6 +15,7 @@ import {
     datasetFilesHandle,
     useDataset,
     useFilesToQueryTool,
+    useDescriptionToQueryTool,
     useSearchTextToQueryTool,
     useSelectedToolId,
 } from '@/hooks/useDataplayerHooks';
@@ -26,6 +27,7 @@ import {FilesList} from '@/components/dataplayer/FilesList';
 import {FairAssessmentCard} from '@/components/dataplayer/FairAssessmentCard';
 import useMatomo from '@/hooks/useMatomo.ts';
 import {datasetRefParam, repoCodeParam} from '@/lib/analytics.ts';
+import {getCachedDatasetMetadata} from '@/lib/datasetCache';
 
 export interface TaskStatusResponse {
     status: TaskStatus;
@@ -38,8 +40,20 @@ export type StepType = 'select-analysis' | 'map-files' | 'submitting' | 'monitor
 export const DataplayerPage = () => {
     const [searchParams] = useSearchParams();
 
-    const datasetTitle = searchParams.get('title');
     const datasetUrl = searchParams.get('datasetId');
+
+    // Retrieve dataset metadata from localStorage using the dataset identifier.
+    const datasetMetadata = useMemo(
+        () => getCachedDatasetMetadata(datasetUrl),
+        [datasetUrl]
+    );
+
+    const datasetTitle =
+        datasetMetadata?.title ?? searchParams.get('title');
+
+    const datasetDescription =
+        datasetMetadata?.description ?? searchParams.get('description');
+
     // The search page sends the DOI when the dataset has one. Older links (and any
     // opened before that change) only carry `datasetId`, which is often a DOI URL
     // anyway, so it is a usable fallback rather than a reason to hide the card. An
@@ -92,7 +106,17 @@ export const DataplayerPage = () => {
 
     const [toolSearchText, setToolSearchText] = useState("");
 
-    const {queryToolResults: toolMatchResults} = useFilesToQueryTool(files);
+    /*
+     * @ deprecated Using useDescriptionToQueryTool instead.
+     * Tools are matched on dataset description instead of files.
+     *
+     * const {queryToolResults: toolMatchResults} = useFilesToQueryTool(files);
+     */
+    // const {queryToolResults: toolMatchResults} = useDescriptionToQueryTool(datasetDescription);
+    const {
+        queryToolResults: toolMatchResults,
+        isLoading: isToolMatchLoading,
+    } = useDescriptionToQueryTool(datasetDescription);
     const {
         debouncedSearch,
         queryToolResults: toolSearchResults,
@@ -364,10 +388,9 @@ export const DataplayerPage = () => {
                                 <ToolSelectionStep
                                     toolSearchText={toolSearchText}
                                     setToolSearchText={setToolSearchText}
-                                    isFilesLoading={isFilesLoading}
+                                    isToolsLoading={isToolMatchLoading}
                                     queryToolResults={queryToolResults}
                                     handleToolSelect={handleToolSelect}
-                                    filesError={filesError}
                                     searchError={debouncedSearch.trim().length >= 2 ? searchError : null}
                                     selectedToolId={selectedToolId}
                                 />
