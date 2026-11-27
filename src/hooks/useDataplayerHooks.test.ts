@@ -2,8 +2,26 @@ import {describe, it, expect, vi, beforeEach, afterEach} from "vitest";
 import {renderHook, waitFor, act} from "@testing-library/react";
 import {http, HttpResponse} from "msw";
 import {server} from "@/test/msw/server";
-import {useDataset, useTaskLauncher} from "./useDataplayerHooks";
+import {datasetFilesHandle, useDataset, useTaskLauncher} from "./useDataplayerHooks";
 import type {FileMeta} from "@/types/dataplayerTypes";
+
+describe("datasetFilesHandle", () => {
+    it("prefers the filedb record identifier over the dataset URL", () => {
+        expect(datasetFilesHandle("https://doi.org/10.48573/gv7c-ck37", "c9b0dabe-f7d8-45d9-abf4-4fca2455bbb5"))
+            .toBe("c9b0dabe-f7d8-45d9-abf4-4fca2455bbb5");
+    });
+
+    it("falls back to the bare DOI of a doi.org dataset URL", () => {
+        expect(datasetFilesHandle("https://doi.org/10.15468/1wruh4", null)).toBe("10.15468/1wruh4");
+        expect(datasetFilesHandle("https://doi.org/10.15468/1wruh4", "  ")).toBe("10.15468/1wruh4");
+    });
+
+    it("keeps any other dataset id as it is", () => {
+        expect(datasetFilesHandle("https://urn.nsk.hr/urn:nbn:hr:217:280657", null)).toBe("https://urn.nsk.hr/urn:nbn:hr:217:280657");
+        expect(datasetFilesHandle("10.15468/1wruh4", null)).toBe("10.15468/1wruh4");
+        expect(datasetFilesHandle(null, null)).toBeNull();
+    });
+});
 
 type Paq = Array<Array<string | number | boolean>>;
 const paq = () => window._paq as unknown as Paq;
@@ -46,7 +64,7 @@ const callbacks = () => ({onState: vi.fn(), onSuccess: vi.fn(), onError: vi.fn()
 const startLaunch = async (cb: ReturnType<typeof callbacks>) => {
     const {result} = renderHook(() => useTaskLauncher());
     act(() => {
-        void result.current.launch("tool-1", "https://doi.org/10.1/x", "Title", {}, {"data.csv": file}, cb, "Jupyter");
+        void result.current.launch("tool-1", "https://doi.org/10.1/x", "Title", {}, {"data.csv": file}, cb, "Jupyter", "10.1/x");
     });
     await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1));
     return FakeEventSource.instances[0];
@@ -71,31 +89,40 @@ describe("useTaskLauncher analytics", () => {
         delete (window as Partial<Window>)._paq;
     });
 
-    it("reports the submission with the tool name and the number of files mapped", async () => {
+    it("reports the submission with the tool, the dataset and the number of files mapped", async () => {
         await startLaunch(callbacks());
-        expect(events()[0]).toEqual(["trackEvent", "Data Player", "launch_submitted", "Jupyter", 1]);
+        expect(events()[0]).toEqual(["trackEvent", "Data Player", "launch_submitted", "Jupyter:10.1/x", 1]);
     });
 
-    it("reports a READY task as a success timed from the submission", async () => {
+    it("names the dataset unknown when the caller has no reference for it", async () => {
+        const {result} = renderHook(() => useTaskLauncher());
+        act(() => {
+            void result.current.launch("tool-1", "https://doi.org/10.1/x", "Title", {}, {"data.csv": file}, callbacks(), "Jupyter");
+        });
+        await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1));
+        expect(events()[0][3]).toBe("Jupyter:unknown");
+    });
+
+    it("reports a READY task as a success on the dataset, timed from the submission", async () => {
         const cb = callbacks();
         const es = await startLaunch(cb);
         act(() => es.emit("READY"));
         await waitFor(() => expect(cb.onSuccess).toHaveBeenCalled());
 
         const [succeeded] = events().filter(c => c[2] === "launch_succeeded");
-        expect(succeeded.slice(0, 4)).toEqual(["trackEvent", "Data Player", "launch_succeeded", "Jupyter"]);
+        expect(succeeded.slice(0, 4)).toEqual(["trackEvent", "Data Player", "launch_succeeded", "Jupyter:10.1/x"]);
         expect(typeof succeeded[4]).toBe("number");
         expect(events().some(c => c[2] === "launch_failed")).toBe(false);
     });
 
-    it("names the task state that ended a failed launch", async () => {
+    it("names the task state that ended a failed launch, then the dataset", async () => {
         const cb = callbacks();
         const es = await startLaunch(cb);
         act(() => es.emit("EXCEPTION"));
         await waitFor(() => expect(cb.onError).toHaveBeenCalled());
 
         const [failed] = events().filter(c => c[2] === "launch_failed");
-        expect(failed.slice(0, 4)).toEqual(["trackEvent", "Data Player", "launch_failed", "Jupyter:EXCEPTION"]);
+        expect(failed.slice(0, 4)).toEqual(["trackEvent", "Data Player", "launch_failed", "Jupyter:EXCEPTION:10.1/x"]);
         expect(typeof failed[4]).toBe("number");
     });
 
@@ -104,7 +131,7 @@ describe("useTaskLauncher analytics", () => {
         const es = await startLaunch(cb);
         act(() => es.onerror?.(new Event("error")));
         await waitFor(() => expect(cb.onError).toHaveBeenCalled());
-        expect(events().filter(c => c[2] === "launch_failed")[0][3]).toBe("Jupyter:stream_error");
+        expect(events().filter(c => c[2] === "launch_failed")[0][3]).toBe("Jupyter:stream_error:10.1/x");
     });
 
     it("reports a launch the coordinator refused by error kind", async () => {
@@ -114,7 +141,7 @@ describe("useTaskLauncher analytics", () => {
         await act(() => result.current.launch("tool-1", "u", "t", {}, {}, cb, "Jupyter"));
 
         expect(cb.onError).toHaveBeenCalled();
-        expect(events().filter(c => c[2] === "launch_failed")[0][3]).toBe("Jupyter:unknown");
+        expect(events().filter(c => c[2] === "launch_failed")[0][3]).toBe("Jupyter:unknown:unknown");
     });
 });
 

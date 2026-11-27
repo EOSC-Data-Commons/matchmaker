@@ -195,6 +195,16 @@ export const DatasetActions = ({hit, isLoggedIn = false, compact = false, contex
         if (pid) {
             params.set('pid', pid);
         }
+        // Lets the coordinator find the files in filedb by the key filedb uses. For some
+        // repositories (DABAR, SwissUbase, DaSCH) that is not the dataset URL. The
+        // identifier is only unique per endpoint, so the harvest URL goes with it.
+        const recordId = hit._source?._record_identifier;
+        if (recordId) {
+            params.set('recordId', recordId);
+            if (hit._source._harvest_url) {
+                params.set('harvestUrl', hit._source._harvest_url);
+            }
+        }
         // Preserve the search query for back navigation
         const currentQuery = searchParams.get('q');
         if (currentQuery) {

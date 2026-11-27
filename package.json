@@ -1,7 +1,7 @@
 {
   "name": "matchmaker-frontend",
   "private": true,
-  "version": "0.14.0",
+  "version": "0.14.2",
   "type": "module",
   "scripts": {
     "dev": "tsx --env-file-if-exists=.env server.ts",
@@ -91,7 +91,7 @@
     "ws": "^8.21.0",
     "esbuild": "^0.28.1",
     "js-yaml": "^4.2.0",
-    "basic-ftp": "^6.2.2",
+    "basic-ftp": "^6.2.4",
     "pm2": {
       "chokidar": "^4.0.3"
     }

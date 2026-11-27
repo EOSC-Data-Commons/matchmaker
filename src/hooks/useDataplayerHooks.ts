@@ -12,6 +12,7 @@ import {
 } from '@/lib/coordinatorApi';
 import {useAuth} from './useAuth';
 import {errorKind, trackEvent} from '@/lib/analytics';
+import {extractDOI} from '@/lib/citation';
 
 export function buildSlotToFileMapping(
     mapping: Record<string, number>,
@@ -55,13 +56,16 @@ export function useTaskLauncher() {
         },
         // Analytics only: the registry name reads better in a report than a uuid.
         toolName: string = toolId,
+        // Analytics only: the dataset the tool is linked to, from `datasetRefParam`.
+        // Every launch event names it, so outcomes can be counted per dataset.
+        datasetRef: string = 'unknown',
     ) => {
         // The launch is the point of the whole page, so its outcome is measured
         // end to end from here, where the task states arrive first-hand.
         const submittedAt = Date.now();
-        trackEvent('Data Player', 'launch_submitted', toolName, Object.keys(files).length);
+        trackEvent('Data Player', 'launch_submitted', `${toolName}:${datasetRef}`, Object.keys(files).length);
         const reportFailure = (reason: string) =>
-            trackEvent('Data Player', 'launch_failed', `${toolName}:${reason}`, Date.now() - submittedAt);
+            trackEvent('Data Player', 'launch_failed', `${toolName}:${reason}:${datasetRef}`, Date.now() - submittedAt);
 
         try {
             esRef.current?.close();
@@ -89,7 +93,7 @@ export function useTaskLauncher() {
 
                     const result = await getDispatchResultById(id);
                     setTaskResult(result);
-                    trackEvent('Data Player', 'launch_succeeded', toolName, Date.now() - submittedAt);
+                    trackEvent('Data Player', 'launch_succeeded', `${toolName}:${datasetRef}`, Date.now() - submittedAt);
                     callbacks.onSuccess();
                 } else if (data.state === "EXCEPTION" || data.state === "DROPPED") {
                     es.close();
@@ -117,6 +121,16 @@ export const areAllParametersMapped = (
 
     return config.slots.filter((p) => !p.isOptional).every(param => valueMapped.has(param.name));
 };
+
+/**
+ * The handle to list a dataset's files by. The coordinator looks filedb up by exactly this
+ * value, and filedb keys files by the OAI-PMH record identifier, which is the bare DOI for
+ * DOI-identified records. So: the record identifier when the search page sent one, else the
+ * DOI out of a doi.org `datasetId`, else `datasetId` as it is.
+ */
+export function datasetFilesHandle(datasetId: string | null, recordId: string | null): string | null {
+    return recordId?.trim() || (datasetId && extractDOI(datasetId)) || datasetId;
+}
 
 export function useDataset(datasetHandle: string | null, enabled: boolean = true, repo: string = 'unknown') {
     const [isFilesLoading, setIsFilesLoading] = useState(true);
